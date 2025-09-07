@@ -18,12 +18,10 @@ export default function TopNav() {
           <div className="w-10 h-10 gradient-primary rounded-2xl flex items-center justify-center animate-pulse-glow">
             <span className="text-white font-bold text-xl">S</span>
           </div>
-          <Link to="/" className="text-heading text-primary">
-            StudyTa
-          </Link>
+  <span className="text-heading text-primary font-bold">Learnify</span>
         </div>
 
-        {/* Links */}
+        {/* Navigation Links */}
         <div className="hidden md:flex space-x-8">
           <a
             href="#features"
@@ -32,10 +30,16 @@ export default function TopNav() {
             Features
           </a>
           <a
+            href="#how-it-works"
+            className="text-body text-muted hover:text-accent transition-all duration-300 interactive"
+          >
+            How It Works
+          </a>
+          <a
             href="#about"
             className="text-body text-muted hover:text-accent transition-all duration-300 interactive"
           >
-            About
+            About Us
           </a>
           <a
             href="#contact"
@@ -45,8 +49,16 @@ export default function TopNav() {
           </a>
         </div>
 
-        {/* Auth Buttons */}
+        {/* Auth Section */}
         <div className="flex items-center space-x-4">
+          {/* Dark Mode Button Placeholder (optional to implement later) */}
+          <button
+            className="p-3 rounded-2xl hover:bg-gray-100 transition-all duration-300 interactive"
+            title="Toggle Dark Mode"
+          >
+            <span className="text-2xl">🌙</span>
+          </button>
+
           {isAuthenticated ? (
             <button
               onClick={onLogout}
@@ -56,10 +68,16 @@ export default function TopNav() {
             </button>
           ) : (
             <>
-              <Link to="/login" className="btn-modern btn-secondary text-caption">
+              <Link
+                to="/login"
+                className="btn-modern btn-secondary text-caption"
+              >
                 Login
               </Link>
-              <Link to="/register" className="btn-modern btn-primary text-caption">
+              <Link
+                to="/register"
+                className="btn-modern btn-primary text-caption"
+              >
                 Sign Up
               </Link>
             </>

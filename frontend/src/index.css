@@ -13,7 +13,7 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
 	--color-primary: #0C969C; /* cyan-500 */
 	--color-accent:  #7c3aed; /* violet-500 */
 	--color-muted:   #6b7280; /* gray-500 */
-	--bg: #ffffff;
+	--bg: #D9E8EC;
 	--surface: rgba(255,255,255,0.6);
 	--text: #111827;
 }

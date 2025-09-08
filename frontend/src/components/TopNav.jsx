@@ -39,9 +39,9 @@ export default function TopNav() {
         {/* Logo */}
         <div className="flex items-center space-x-3 animate-scaleIn">
           <div className="w-10 h-10 gradient-primary rounded-2xl flex items-center justify-center animate-pulse-glow">
-            <span className="text-white font-bold text-xl">S</span>
+            <span className="text-white font-bold text-xl">L</span>
           </div>
-  <span className="text-heading text-primary font-bold">Learnify</span>
+  <span className="text-heading text-primary font-bold">Lemivon</span>
         </div>
 
         {/* Navigation Links */}

@@ -10,7 +10,7 @@ export default function Landing() {
 
       {/* Hero Section */}
       <section className="relative py-32 px-6 overflow-hidden flex-grow">
-        <div className="absolute inset-0 gradient-primary opacity-10"></div>
+        <div className="absolute inset-0 opacity-10"></div>
         <div className="max-w-7xl mx-auto text-center relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -18,9 +18,9 @@ export default function Landing() {
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
           >
-            <h1 className="text-display text-primary mb-8 max-w-4xl mx-auto">
+            <h1 className="text-display mb-8 max-w-4xl mx-auto text-10xl md:text-6xl font-extrabold leading-18">
               Master Any Subject with{" "}
-              <span className="gradient-primary bg-clip-text text-transparent">
+              <span className="text-primary">
                 AI Intelligence
               </span>
             </h1>
@@ -32,7 +32,7 @@ export default function Landing() {
             transition={{ duration: 0.8, delay: 0.2 }}
             viewport={{ once: true }}
           >
-            <p className="text-subheading text-muted mb-12 max-w-3xl mx-auto">
+            <p className="text-subheading text-muted mb-12 max-w-3xl mx-auto text-lg">
               Transform your study sessions with intelligent summaries,
               interactive flashcards, and personalized learning analytics that
               adapt to your unique learning style.
@@ -60,7 +60,7 @@ export default function Landing() {
       </section>
 
       {/* Fun Activities Section */}
-      <section className="py-24 px-6">
+      <section className="py-24 px-6 bg-[#EDF1F6]">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -126,9 +126,9 @@ export default function Landing() {
       {/* Features Section */}
       <section
         id="features"
-        className="py-24 px-6 section-surface"
+        className="py-24 px-6 bg-[#F4F8FE]"
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto ">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -173,7 +173,7 @@ export default function Landing() {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-24 px-6">
+      <section id="how-it-works" className="py-24 px-6 bg-[#FFFFFF]">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -217,7 +217,7 @@ export default function Landing() {
       </section>
 
       {/* About Us Section */}
-  <section id="about" className="py-24 px-6 section-surface">
+  <section id="about" className="py-24 px-6">
         <div className="max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 40 }}

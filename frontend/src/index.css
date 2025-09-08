@@ -13,6 +13,9 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
 	--color-primary: #0C969C; /* cyan-500 */
 	--color-accent:  #7c3aed; /* violet-500 */
 	--color-muted:   #6b7280; /* gray-500 */
+	--bg: #ffffff;
+	--surface: rgba(255,255,255,0.6);
+	--text: #111827;
 }
 
 /* Component fallbacks (plain CSS so styles show even when Tailwind isn't processing)
@@ -46,6 +49,48 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
 	opacity: 0.92;
 	transform: translateY(-1px);
 }
+
+/* Dark theme overrides when .dark is on documentElement */
+.dark {
+	--bg: #0b1120;
+	--surface: rgba(10,12,16,0.6);
+	--text: #f8fafc;
+	--color-muted: #9ca3af;
+}
+
+body { background: var(--bg); color: var(--text); }
+
+.glass-card { background: var(--surface); border-color: rgba(255,255,255,0.06); }
+
+.text-heading { color: var(--text); }
+
+/* Section and footer surfaces that respect light/dark variables */
+.section-surface {
+	background: linear-gradient(180deg, #f8fafc 0%, #e0f2fe 100%);
+	color: var(--text);
+}
+.footer-surface {
+	background: #0f1724;
+	color: #e5e7eb;
+}
+
+.sidebar {
+	width: 200px;
+	background: #f3f4f6;
+	padding: 12px;
+	height: 100%;
+}
+.sidebar-nav { display: flex; flex-direction: column; gap: 8px; }
+
+/* dark theme overrides for the new classes */
+.dark .section-surface {
+	background: linear-gradient(180deg, rgba(8,10,14,1) 0%, rgba(14,18,26,1) 100%);
+}
+.dark .footer-surface {
+	background: #020617;
+	color: #9ca3af;
+}
+.dark .sidebar { background: #071021; }
 
 .btn-secondary {
 	border: 2px solid #0C969C;

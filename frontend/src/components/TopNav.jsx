@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation } from 'react-router-dom'
 import { useAuth } from "../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -10,8 +11,30 @@ export default function TopNav() {
     logout(() => navigate("/"));
   };
 
+  // Theme (dark mode) state: persisted to localStorage and applied via a `dark` class
+  const [isDark, setIsDark] = useState(() => {
+    try {
+      return localStorage.getItem('theme') === 'dark'
+    } catch (e) {
+      return false
+    }
+  })
+
+  useEffect(() => {
+    try {
+      if (isDark) document.documentElement.classList.add('dark')
+      else document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', isDark ? 'dark' : 'light')
+    } catch (e) {
+      // ignore
+    }
+  }, [isDark])
+
+  const location = useLocation()
+  const isLanding = location && location.pathname === '/'
+
   return (
-    <nav className="glass-card mx-6 mt-6 px-8 py-4 animate-fadeInUp">
+  <nav className={"glass-card mx-6 mt-6 px-8 py-4 animate-fadeInUp" + (isLanding ? ' topbar-landing' : '')}>
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
         <div className="flex items-center space-x-3 animate-scaleIn">
@@ -53,10 +76,12 @@ export default function TopNav() {
         <div className="flex items-center space-x-4">
           {/* Dark Mode Button Placeholder (optional to implement later) */}
           <button
-            className="p-3 rounded-2xl hover:bg-gray-100 transition-all duration-300 interactive"
+            onClick={() => setIsDark(d => !d)}
+            aria-label="Toggle dark mode"
             title="Toggle Dark Mode"
+            className="p-3 rounded-2xl hover:bg-gray-100 transition-all duration-300 interactive"
           >
-            <span className="text-2xl">🌙</span>
+            <span className="text-2xl">{isDark ? '☀️' : '🌙'}</span>
           </button>
 
           {isAuthenticated ? (

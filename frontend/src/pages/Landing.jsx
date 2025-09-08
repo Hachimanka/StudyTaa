@@ -126,7 +126,7 @@ export default function Landing() {
       {/* Features Section */}
       <section
         id="features"
-        className="py-24 px-6 bg-gradient-to-br from-slate-50 to-blue-50"
+        className="py-24 px-6 section-surface"
       >
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -217,7 +217,7 @@ export default function Landing() {
       </section>
 
       {/* About Us Section */}
-      <section id="about" className="py-24 px-6 bg-slate-50">
+  <section id="about" className="py-24 px-6 section-surface">
         <div className="max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -237,7 +237,7 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-gray-300 py-10 mt-16">
+  <footer className="footer-surface text-gray-300 py-10 mt-16">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-12">
           <div>
             <h3 className="text-lg font-bold text-white mb-4">StudyTa</h3>

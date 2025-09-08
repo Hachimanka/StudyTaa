@@ -22,7 +22,7 @@ export default function Landing() {
               Master Any Subject with{" "}
               <span className="text-primary">
                 AI Intelligence
-              </span>
+              </span> 
             </h1>
           </motion.div>
 

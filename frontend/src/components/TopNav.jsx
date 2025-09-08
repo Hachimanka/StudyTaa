@@ -32,7 +32,6 @@ export default function TopNav() {
 
   const location = useLocation()
   const isLanding = location && location.pathname === '/'
-
   return (
   <nav className={"glass-card mx-6 mt-6 px-8 py-4 animate-fadeInUp" + (isLanding ? ' topbar-landing' : '')}>
       <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -75,13 +74,35 @@ export default function TopNav() {
         {/* Auth Section */}
         <div className="flex items-center space-x-4">
           {/* Dark Mode Button Placeholder (optional to implement later) */}
+          {/* neutral SVG icons instead of emoji */}
           <button
             onClick={() => setIsDark(d => !d)}
             aria-label="Toggle dark mode"
             title="Toggle Dark Mode"
-            className="p-3 rounded-2xl hover:bg-gray-100 transition-all duration-300 interactive"
+            className="theme-toggle p-3 rounded-2xl hover:bg-gray-100 transition-all duration-300 interactive"
+            style={{ lineHeight: 0 }}
           >
-            <span className="text-2xl">{isDark ? '☀️' : '🌙'}</span>
+            {isDark ? (
+              /* neutral sun */
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.5" />
+                <g stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+                  <path d="M12 1v2" />
+                  <path d="M12 21v2" />
+                  <path d="M4.2 4.2l1.4 1.4" />
+                  <path d="M18.4 18.4l1.4 1.4" />
+                  <path d="M1 12h2" />
+                  <path d="M21 12h2" />
+                  <path d="M4.2 19.8l1.4-1.4" />
+                  <path d="M18.4 5.6l1.4-1.4" />
+                </g>
+              </svg>
+            ) : (
+              /* neutral crescent moon */
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              </svg>
+            )}
           </button>
 
           {isAuthenticated ? (

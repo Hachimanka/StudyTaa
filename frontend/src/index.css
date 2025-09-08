@@ -69,6 +69,16 @@ body { background: var(--bg); color: var(--text); }
 	background: linear-gradient(180deg, #f8fafc 0%, #e0f2fe 100%);
 	color: var(--text);
 }
+
+/* hero-surface: matches the hero overlay (subtle gradient) */
+.hero-surface {
+	background: linear-gradient(180deg, rgba(6,182,212,0.06) 0%, rgba(59,130,246,0.06) 100%);
+	color: var(--text);
+}
+
+.dark .hero-surface {
+	background: linear-gradient(180deg, rgba(6,182,212,0.03) 0%, rgba(59,130,246,0.03) 100%);
+}
 .footer-surface {
 	background: #0f1724;
 	color: #e5e7eb;
@@ -91,6 +101,19 @@ body { background: var(--bg); color: var(--text); }
 	color: #9ca3af;
 }
 .dark .sidebar { background: #071021; }
+
+/* Theme toggle hover/z-index effect */
+.theme-toggle { position: relative; z-index: 1; }
+.theme-toggle:hover {
+	transform: translateY(-2px) scale(1.05);
+	box-shadow: 0 8px 24px rgba(2,6,23,0.35);
+	z-index: 50;
+	background: rgba(255,255,255,0.06);
+}
+.dark .theme-toggle:hover {
+	background: rgba(255,255,255,0.06);
+	box-shadow: 0 10px 26px rgba(0,0,0,0.6);
+}
 
 .btn-secondary {
 	border: 2px solid #0C969C;

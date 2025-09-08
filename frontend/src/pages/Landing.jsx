@@ -60,7 +60,7 @@ export default function Landing() {
       </section>
 
       {/* Fun Activities Section */}
-      <section className="py-24 px-6 bg-[#EDF1F6]">
+    <section className="py-24 px-6 section-surface bg-[#EDF1F6]">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -126,7 +126,7 @@ export default function Landing() {
       {/* Features Section */}
       <section
         id="features"
-        className="py-24 px-6 bg-[#F4F8FE]"
+        className="py-24 px-6 hero-surface"
       >
         <div className="max-w-7xl mx-auto ">
           <motion.div
@@ -173,7 +173,7 @@ export default function Landing() {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-24 px-6 bg-[#FFFFFF]">
+    <section id="how-it-works" className="py-24 px-6 section-surface bg-[#FFFFFF]">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -216,8 +216,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* About Us Section */}
-  <section id="about" className="py-24 px-6">
+  {/* About Us Section */}
+  <section id="about" className="py-24 px-6 section-surface">
         <div className="max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -237,33 +237,33 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-  <footer className="footer-surface text-gray-300 py-10 mt-16">
+      <footer className="footer-surface text-muted py-10 mt-16">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-12">
           <div>
-            <h3 className="text-lg font-bold text-white mb-4">StudyTa</h3>
-            <p className="text-sm text-gray-400">
+            <h3 className="text-lg font-bold text-heading mb-4">StudyTa</h3>
+            <p className="text-sm text-muted">
               Your AI-powered study companion for smarter learning.
             </p>
           </div>
           <div>
-            <h4 className="font-semibold text-white mb-4">Quick Links</h4>
+            <h4 className="font-semibold text-heading mb-4">Quick Links</h4>
             <ul className="space-y-2 text-sm">
-              <li><a href="#features" className="hover:text-white transition">Features</a></li>
-              <li><a href="#how-it-works" className="hover:text-white transition">How It Works</a></li>
-              <li><a href="#about" className="hover:text-white transition">About Us</a></li>
-              <li><a href="#contact" className="hover:text-white transition">Contact</a></li>
+              <li><a href="#features" className="hover:text-heading transition">Features</a></li>
+              <li><a href="#how-it-works" className="hover:text-heading transition">How It Works</a></li>
+              <li><a href="#about" className="hover:text-heading transition">About Us</a></li>
+              <li><a href="#contact" className="hover:text-heading transition">Contact</a></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold text-white mb-4">Follow Us</h4>
+            <h4 className="font-semibold text-heading mb-4">Follow Us</h4>
             <div className="flex space-x-4 text-lg">
-              <a href="#" className="hover:text-white">🌐</a>
-              <a href="#" className="hover:text-white">🐦</a>
-              <a href="#" className="hover:text-white">📘</a>
+              <a href="#" className="hover:text-heading">🌐</a>
+              <a href="#" className="hover:text-heading">🐦</a>
+              <a href="#" className="hover:text-heading">📘</a>
             </div>
           </div>
         </div>
-        <div className="text-center text-sm text-gray-500 mt-8">
+        <div className="text-center text-sm text-muted mt-8">
           © {new Date().getFullYear()} StudyTa. All rights reserved.
         </div>
       </footer>

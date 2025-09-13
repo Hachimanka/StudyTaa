@@ -11,7 +11,7 @@ export default function Login() {
   const onSubmit = (e) => {
     e.preventDefault();
     // For now accept any credentials
-    login(() => navigate("/home"));
+    login(() => navigate("/dashboard"));
   };
 
   return (

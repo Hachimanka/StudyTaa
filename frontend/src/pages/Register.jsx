@@ -16,8 +16,8 @@ export default function Signup() {
       alert("Passwords do not match!");
       return;
     }
-    // Placeholder signup logic
-    signup(() => navigate("/home"));
+  // Placeholder signup logic
+  signup(() => navigate("/dashboard"));
   };
 
   return (

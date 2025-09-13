@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
-import ChatWidget from "../components/ChatWidget";
 import { Link } from 'react-router-dom'
 
 export default function Home() {
@@ -35,8 +34,6 @@ export default function Home() {
     >
       {/* Sidebar */}
       <Sidebar />
-
-  <ChatWidget />
 
       {/* Main Dashboard */}
       <main className="p-12 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300">

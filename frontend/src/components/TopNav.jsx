@@ -25,6 +25,8 @@ export default function TopNav() {
       if (isDark) document.documentElement.classList.add('dark')
       else document.documentElement.classList.remove('dark')
       localStorage.setItem('theme', isDark ? 'dark' : 'light')
+  // notify other parts of the app that theme changed
+  try { window.dispatchEvent(new Event('themeChanged')) } catch(e){}
     } catch (e) {
       // ignore
     }

@@ -217,7 +217,7 @@ export default function Landing() {
       </section>
 
   {/* About Us Section */}
-  <section id="about" className="py-24 px-6 section-surface">
+  <section id="about" className="py-24 px-6 section-surface bg-[#FFFFFF]">
         <div className="max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -237,7 +237,7 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="footer-surface text-muted py-10 mt-16">
+  <footer className="footer-surface text-muted py-10 mt-0">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-12">
           <div>
             <h3 className="text-lg font-bold text-heading mb-4">StudyTa</h3>

@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 import Sidebar from "../components/Sidebar";
 import { Link } from 'react-router-dom'
 
 export default function Home() {
+  const { user } = useAuth();
+  const [fullName, setFullName] = useState("");
   const [isDark, setIsDark] = useState(() => {
     try {
       return localStorage.getItem("theme") === "dark";
@@ -10,6 +13,19 @@ export default function Home() {
       return false;
     }
   });
+
+  useEffect(() => {
+    async function fetchUserInfo() {
+      if (user?._id) {
+        try {
+          const res = await fetch(`http://localhost:5000/api/userinfo/${user._id}`);
+          const info = await res.json();
+          setFullName(info.fullName);
+        } catch {}
+      }
+    }
+    fetchUserInfo();
+  }, [user]);
 
   useEffect(() => {
     const handleThemeChange = () => {
@@ -38,13 +54,15 @@ export default function Home() {
       {/* Main Dashboard */}
       <main className="p-12 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300">
         {/* Header */}
-        <h1 className="text-5xl font-bold">Welcome back, Student!</h1>
+        <h1 className="text-5xl font-bold">
+          {fullName ? `Welcome back, ${fullName}!` : "Welcome back!"}
+        </h1>
         <p
           className={`mt-1 text-xl ${
             isDark ? "text-gray-400" : "text-gray-500"
           }`}
         >
-          Here's your learning progress overview
+          {fullName ? `Here's your learning progress overview, ${fullName}` : "Here's your learning progress overview"}
         </p>
 
         {/* Stats Section */}

@@ -21,17 +21,74 @@ export function AuthProvider({ children }) {
     }
   }, [isAuthenticated])
 
-  const login = (cb) => {
-    setIsAuthenticated(true)
-    if (cb) cb()
-  }
+  // Login with backend
+  const [user, setUser] = useState(null);
+  const login = async (email, password, cb) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsAuthenticated(true);
+        setUser(data.user);
+        if (cb) cb();
+      } else {
+        alert(data.message || 'Login failed');
+      }
+    } catch (err) {
+      alert('Login error');
+    }
+  };
+
+  // Register with backend
+  const signup = async (name, email, password, cb) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsAuthenticated(true);
+        if (cb) cb();
+      } else {
+        alert(data.message || 'Registration failed');
+      }
+    } catch (err) {
+      alert('Registration error');
+    }
+  };
+
+  // Forgot password (mock, needs backend route)
+  const forgotPassword = async (email) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('Reset link sent to your email');
+      } else {
+        alert(data.message || 'Failed to send reset link');
+      }
+    } catch (err) {
+      alert('Error sending reset link');
+    }
+  };
+
   const logout = (cb) => {
     setIsAuthenticated(false)
     if (cb) cb()
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, signup, forgotPassword, user }}>
       {children}
     </AuthContext.Provider>
   )

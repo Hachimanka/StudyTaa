@@ -33,7 +33,30 @@ const processUploadedFile = async (file) => {
 // AI content generation using backend Gemini API
 const generateContentFromFile = async (mode, fileContent) => {
   try {
-    const prompt = `Generate ${mode} study content from the following material. Return JSON for React use.\nMaterial:\n${fileContent}`;
+    let prompt = '';
+    if (mode === 'flashcards') {
+      prompt = `Create flashcards from the following material. Generate clear questions with short, concise answers.
+
+REQUIREMENTS:
+- Front: Clear question or key term
+- Back: Short answer (1-8 words maximum, or brief phrase)
+- Make answers concise but complete
+- Focus on key facts, definitions, dates, names
+- Avoid long explanations
+
+Return ONLY a JSON array in this format:
+[
+  {
+    "front": "Question or term",
+    "back": "Short concise answer"
+  }
+]
+
+Material to study:
+${fileContent}`;
+    } else {
+      prompt = `Generate ${mode} study content from the following material. Return JSON for React use.\nMaterial:\n${fileContent}`;
+    }
     const response = await axios.post('/api/ai', { prompt });
     // Debug: log the raw AI reply
     console.log('AI raw reply:', response.data.reply);
@@ -97,24 +120,7 @@ const generateContentFromFile = async (mode, fileContent) => {
 };
 
 export default function FileBasedStudyApp() {
-  // Matching game state
-  const [selectedTerm, setSelectedTerm] = useState(null);
-  const [selectedDef, setSelectedDef] = useState(null);
-  const [matchedPairs, setMatchedPairs] = useState([]);
-  const [matchingScore, setMatchingScore] = useState(0);
-
-  // Auto match when both selected
-  useEffect(() => {
-    if (selectedTerm !== null && selectedDef !== null) {
-      // Check if correct match
-      if (selectedTerm === selectedDef) {
-        setMatchingScore(matchingScore + 1);
-      }
-      setMatchedPairs([...matchedPairs, { termIdx: selectedTerm, defIdx: selectedDef }]);
-      setSelectedTerm(null);
-      setSelectedDef(null);
-    }
-  }, [selectedTerm, selectedDef]);
+  // All state declarations first
   const [activeMode, setActiveMode] = useState(null);
   const [content, setContent] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -128,6 +134,42 @@ export default function FileBasedStudyApp() {
   const [wheelSpinning, setWheelSpinning] = useState(false);
   const [wheelRotation, setWheelRotation] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
+  const [savedStudySets, setSavedStudySets] = useState(() => {
+    try {
+      // Try new key first, fallback to old key for backwards compatibility
+      return JSON.parse(localStorage.getItem('savedStudySets')) || 
+             JSON.parse(localStorage.getItem('savedFlashcards')) || [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [showHistory, setShowHistory] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [viewedQuestions, setViewedQuestions] = useState(new Set());
+  const [answeredQuestions, setAnsweredQuestions] = useState([]);
+  
+  // Matching game state
+  const [selectedTerm, setSelectedTerm] = useState(null);
+  const [selectedDef, setSelectedDef] = useState(null);
+  const [matchedPairs, setMatchedPairs] = useState([]);
+  const [matchingScore, setMatchingScore] = useState(0);
+
+  // Auto match when both selected
+  useEffect(() => {
+    if (selectedTerm !== null && selectedDef !== null) {
+      // Check if correct match
+      if (selectedTerm === selectedDef) {
+        setMatchingScore(matchingScore + 1);
+      }
+      const newMatchedPairs = [...matchedPairs, { termIdx: selectedTerm, defIdx: selectedDef }];
+      setMatchedPairs(newMatchedPairs);
+      setSelectedTerm(null);
+      setSelectedDef(null);
+      
+      // Let the MatchingMode component handle completion detection
+      // to show its own results display
+    }
+  }, [selectedTerm, selectedDef, matchedPairs, matchingScore]);
 
   const studyModes = [
     { 
@@ -220,6 +262,32 @@ export default function FileBasedStudyApp() {
     setLoading(false);
   };
 
+  // Remove current uploaded file
+  const removeCurrentFile = () => {
+    setUploadedFile(null);
+    setFileContent('');
+    setContent([]);
+    setActiveMode(null);
+    setCurrentIndex(0);
+    setScore(0);
+    setProgress(0);
+    setShowAnswer(false);
+    setSelectedAnswer(null);
+    setUserAnswer('');
+    // Reset matching game state
+    setSelectedTerm(null);
+    setSelectedDef(null);
+    setMatchedPairs([]);
+    setMatchingScore(0);
+    setViewedQuestions(new Set());
+    setAnsweredQuestions([]);
+    // Reset file input
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
   const loadContentFromFile = async (mode, content = fileContent) => {
     if (!content) return;
 
@@ -230,6 +298,9 @@ export default function FileBasedStudyApp() {
     setShowAnswer(false);
     setSelectedAnswer(null);
     setUserAnswer('');
+    setIsCompleted(false);
+    setViewedQuestions(new Set());
+    setAnsweredQuestions([]);
     
     try {
       const data = await generateContentFromFile(mode, content);
@@ -242,6 +313,73 @@ export default function FileBasedStudyApp() {
     setLoading(false);
   };
 
+  // Save current study content to history
+  const saveCurrentStudySet = () => {
+    if (content.length === 0 || !activeMode) {
+      alert('No study content to save!');
+      return;
+    }
+
+    const modeNames = {
+      flashcards: 'Flashcards',
+      quiz: 'Quiz',
+      trueFalse: 'True/False Quiz',
+      wheel: 'Spin the Wheel',
+      matching: 'Matching Game',
+      fillBlanks: 'Fill in the Blanks'
+    };
+
+    const savedSet = {
+      id: Date.now(),
+      title: uploadedFile ? `${uploadedFile.name} - ${modeNames[activeMode]}` : `Generated ${modeNames[activeMode]}`,
+      content: content,
+      studyMode: activeMode,
+      createdAt: new Date().toLocaleString(),
+      fileName: uploadedFile?.name || 'Unknown File',
+      itemCount: content.length
+    };
+
+    const updatedSaved = [savedSet, ...savedStudySets];
+    setSavedStudySets(updatedSaved);
+    localStorage.setItem('savedStudySets', JSON.stringify(updatedSaved));
+    alert(`Saved ${content.length} ${modeNames[activeMode].toLowerCase()} items to history!`);
+  };
+
+  // Load saved study content
+  const loadSavedStudySet = (savedSet) => {
+    setContent(savedSet.content || savedSet.cards); // Handle both old and new format
+    setActiveMode(savedSet.studyMode || 'flashcards'); // Default to flashcards for old saves
+    setCurrentIndex(0);
+    setShowAnswer(false);
+    setProgress(0);
+    setScore(0);
+    setSelectedAnswer(null);
+    setUserAnswer('');
+    // Reset matching game state
+    setSelectedTerm(null);
+    setSelectedDef(null);
+    setMatchedPairs([]);
+    setMatchingScore(0);
+    
+    const modeNames = {
+      flashcards: 'flashcards',
+      quiz: 'quiz questions',
+      trueFalse: 'true/false questions',
+      wheel: 'wheel questions',
+      matching: 'matching pairs',
+      fillBlanks: 'fill-in-the-blanks'
+    };
+    
+    alert(`Loaded ${savedSet.itemCount || savedSet.content?.length || savedSet.cards?.length} ${modeNames[savedSet.studyMode] || 'items'} from "${savedSet.title}"`);
+  };
+
+  // Delete saved study sets
+  const deleteSavedStudySet = (id) => {
+    const updatedSaved = savedStudySets.filter(set => set.id !== id);
+    setSavedStudySets(updatedSaved);
+    localStorage.setItem('savedStudySets', JSON.stringify(updatedSaved));
+  };
+
   useEffect(() => {
     // Only load content if file is uploaded AND user selects a mode (not on upload)
     if (fileContent && activeMode && uploadedFile) {
@@ -250,12 +388,39 @@ export default function FileBasedStudyApp() {
   }, [activeMode]);
 
   const handleNext = () => {
+    // For fill-in-the-blanks, only proceed if answer has been checked
+    if (activeMode === 'fillBlanks' && !showAnswer) {
+      return; // Don't allow navigation without checking answer first
+    }
+    
+    // Save the answer for fill-in-the-blanks mode
+    if (activeMode === 'fillBlanks' && showAnswer) {
+      const answerRecord = {
+        questionIndex: currentIndex,
+        userAnswer: userAnswer,
+        wasCorrect: userAnswer.toLowerCase().trim() === ((content[currentIndex].content || content[currentIndex].answer || '').split(' ').slice(0, 2).join(' ')).toLowerCase().trim()
+      };
+      
+      // Add to answered questions if not already recorded
+      if (!answeredQuestions.some(q => q.questionIndex === currentIndex)) {
+        setAnsweredQuestions([...answeredQuestions, answerRecord]);
+      }
+    }
+    
     if (currentIndex < content.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setShowAnswer(false);
       setSelectedAnswer(null);
       setUserAnswer('');
       setProgress(((currentIndex + 1) / content.length) * 100);
+    } else {
+      // Reached the end
+      setProgress(100);
+      // For fillBlanks mode, let the component handle completion detection
+      // to show its own results display
+      if (activeMode !== 'fillBlanks') {
+        setIsCompleted(true);
+      }
     }
   };
 
@@ -284,8 +449,15 @@ export default function FileBasedStudyApp() {
     const correctAnswer = (item.answer || item.content || item.title || '').toString();
     const isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
     setShowAnswer(true);
+    let newScore = score;
     if (isCorrect) {
-      setScore(score + 1);
+      newScore = score + 1;
+      setScore(newScore);
+    }
+    
+    // Check if this is the last question (completion)
+    if (currentIndex === content.length - 1) {
+      setIsCompleted(true);
     }
   };
 
@@ -304,6 +476,16 @@ export default function FileBasedStudyApp() {
     setTimeout(() => {
       setWheelSpinning(false);
       setCurrentIndex(targetIndex);
+      
+      // Add this question to viewed questions
+      const newViewedQuestions = new Set(viewedQuestions);
+      newViewedQuestions.add(targetIndex);
+      setViewedQuestions(newViewedQuestions);
+      
+      // Check if all questions have been viewed (completion)
+      if (newViewedQuestions.size === content.length && content.length > 0) {
+        setIsCompleted(true);
+      }
     }, 2000);
   };
 
@@ -408,22 +590,38 @@ export default function FileBasedStudyApp() {
         <div className="bg-white rounded-xl p-6 shadow">
           <h3 className="text-xl font-semibold mb-4">{qText}</h3>
           <div className="space-y-3">
-            {options.map((option, index) => (
-              <button
-                key={index}
-                className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
-                  selectedAnswer === index
-                    ? index === correctIndex
-                      ? 'border-green-500 bg-green-50 text-green-800'
-                      : 'border-red-500 bg-red-50 text-red-800'
-                    : 'border-gray-200 hover:border-teal-300 hover:bg-teal-50'
-                }`}
-                onClick={() => handleAnswerSelect(index, index === correctIndex)}
-                disabled={selectedAnswer !== null}
-              >
-                {option}
-              </button>
-            ))}
+            {options.map((option, index) => {
+              let buttonClass = 'border-gray-200 hover:border-teal-300 hover:bg-teal-50';
+              
+              if (selectedAnswer !== null) {
+                // First check if this is the correct answer
+                if (index === correctIndex) {
+                  // Always highlight the correct answer in green when an answer is selected
+                  buttonClass = 'border-green-500 bg-green-50 text-green-800';
+                }
+                // Then check if this is the selected wrong answer (this can override correct answer styling)
+                else if (selectedAnswer === index && index !== correctIndex) {
+                  // Highlight the selected wrong answer in red
+                  buttonClass = 'border-red-500 bg-red-50 text-red-800';
+                }
+                // Other unselected options
+                else if (selectedAnswer !== index && index !== correctIndex) {
+                  // Other options remain neutral
+                  buttonClass = 'border-gray-200 bg-gray-50 text-gray-500';
+                }
+              }
+
+              return (
+                <button
+                  key={index}
+                  className={`w-full p-3 rounded-lg border-2 transition-all text-left ${buttonClass}`}
+                  onClick={() => handleAnswerSelect(index, index === correctIndex)}
+                  disabled={selectedAnswer !== null}
+                >
+                  {option}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -705,10 +903,10 @@ export default function FileBasedStudyApp() {
             <button
               onClick={checkFillBlankAnswer}
               disabled={!userAnswer.trim() || showAnswer}
-              className={`px-6 py-2 rounded-lg transition-colors ${
+              className={`px-6 py-2 rounded-lg transition-all duration-300 transform ${
                 !userAnswer.trim() || showAnswer
                   ? 'bg-gray-400 text-white cursor-not-allowed'
-                  : 'bg-teal-600 text-white hover:bg-teal-700'
+                  : 'bg-teal-600 text-white hover:bg-teal-700 hover:scale-105 hover:shadow-lg'
               }`}
             >
               Check Answer
@@ -740,12 +938,146 @@ export default function FileBasedStudyApp() {
     );
   };
 
+  // Render completion results
+  const renderCompletionResults = () => {
+    const modeNames = {
+      flashcards: 'Flashcards',
+      quiz: 'Quiz',
+      trueFalse: 'True/False Quiz',
+      wheel: 'Spin the Wheel',
+      matching: 'Matching Game',
+      fillBlanks: 'Fill in the Blanks'
+    };
+
+    const modeName = modeNames[activeMode] || 'Study Session';
+    const hasScore = ['quiz', 'trueFalse', 'fillBlanks'].includes(activeMode);
+    const percentage = hasScore ? Math.round((score / content.length) * 100) : 100;
+    
+    let performanceMessage = '';
+    let performanceColor = '';
+    
+    if (hasScore) {
+      if (percentage >= 90) {
+        performanceMessage = 'Excellent work! 🎉';
+        performanceColor = 'text-green-600';
+      } else if (percentage >= 70) {
+        performanceMessage = 'Good job! 👍';
+        performanceColor = 'text-blue-600';
+      } else if (percentage >= 50) {
+        performanceMessage = 'Not bad, keep practicing! 📚';
+        performanceColor = 'text-yellow-600';
+      } else {
+        performanceMessage = 'Keep studying, you can do better! 💪';
+        performanceColor = 'text-orange-600';
+      }
+    } else {
+      performanceMessage = 'Great job completing all cards! 🎉';
+      performanceColor = 'text-green-600';
+    }
+
+    return (
+      <div className="bg-white rounded-xl p-8 shadow-lg border-2 border-teal-200">
+        <div className="text-center">
+          <div className="mb-6">
+            <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              {modeName} Completed!
+            </h2>
+            <p className="text-gray-600">
+              You have answered all {content.length} questions
+            </p>
+          </div>
+
+          {hasScore && (
+            <div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl p-6 mb-6">
+              <div className="text-4xl font-bold text-teal-700 mb-2">
+                {score} / {content.length}
+              </div>
+              <div className="text-xl font-semibold text-teal-600 mb-1">
+                {percentage}% Correct
+              </div>
+              <div className={`text-lg font-medium ${performanceColor}`}>
+                {performanceMessage}
+              </div>
+            </div>
+          )}
+
+          {!hasScore && (
+            <div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl p-6 mb-6">
+              <div className="text-2xl font-bold text-teal-700 mb-2">
+                {content.length} Cards Reviewed
+              </div>
+              <div className={`text-lg font-medium ${performanceColor}`}>
+                {performanceMessage}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => {
+                setCurrentIndex(0);
+                setScore(0);
+                setProgress(0);
+                setShowAnswer(false);
+                setSelectedAnswer(null);
+                setUserAnswer('');
+                setIsCompleted(false);
+                // Reset matching state
+                setSelectedTerm(null);
+                setSelectedDef(null);
+                setMatchedPairs([]);
+                setMatchingScore(0);
+                // Reset wheel mode state
+                setViewedQuestions(new Set());
+                // Reset fill-in-the-blanks state
+                setAnsweredQuestions([]);
+              }}
+              className="px-6 py-3 bg-teal-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-teal-700 hover:shadow-lg"
+            >
+              🔄 Try Again
+            </button>
+            <button
+              onClick={() => {
+                setActiveMode(null);
+                setContent([]);
+                setCurrentIndex(0);
+                setScore(0);
+                setProgress(0);
+                setIsCompleted(false);
+                // Reset wheel mode state
+                setViewedQuestions(new Set());
+                // Reset fill-in-the-blanks state
+                setAnsweredQuestions([]);
+              }}
+              className="px-6 py-3 bg-gray-500 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-gray-600 hover:shadow-lg"
+            >
+              📚 Choose New Mode
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-          <span className="ml-3 text-lg">Processing your file and generating AI content...</span>
+        <div className="flex flex-col items-center justify-center h-64 bg-white rounded-xl shadow-lg">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-200"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-600 border-t-transparent absolute top-0"></div>
+          </div>
+          <span className="mt-4 text-lg text-gray-700 animate-pulse">Processing your file and generating AI content...</span>
+          <div className="flex space-x-1 mt-2">
+            <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+            <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+            <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+          </div>
         </div>
       );
     }
@@ -758,70 +1090,173 @@ export default function FileBasedStudyApp() {
         </div>
       );
     }
+
+    // Show completion results if completed (except for matching and fillBlanks which have their own)
+    if (isCompleted && !['matching', 'fillBlanks'].includes(activeMode)) {
+      return renderCompletionResults();
+    }
+
     switch (activeMode) {
       case 'flashcards':
         return (
-          <FlashCardMode
-            content={content}
-            currentIndex={currentIndex}
-            showAnswer={showAnswer}
-            setShowAnswer={setShowAnswer}
-          />
+          <div className="space-y-4">
+            <FlashCardMode
+              content={content}
+              currentIndex={currentIndex}
+              showAnswer={showAnswer}
+              setShowAnswer={setShowAnswer}
+            />
+            {content.length > 0 && (
+              <div className="bg-white shadow rounded-xl p-4">
+                <button
+                  onClick={saveCurrentStudySet}
+                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span>Save Flashcard Set ({content.length} cards)</span>
+                </button>
+              </div>
+            )}
+          </div>
         );
       case 'quiz':
         return (
-          <QuizMode
-            content={content}
-            currentIndex={currentIndex}
-            selectedAnswer={selectedAnswer}
-            handleAnswerSelect={handleAnswerSelect}
-          />
+          <div className="space-y-4">
+            <QuizMode
+              content={content}
+              currentIndex={currentIndex}
+              selectedAnswer={selectedAnswer}
+              handleAnswerSelect={handleAnswerSelect}
+            />
+            {content.length > 0 && (
+              <div className="bg-white shadow rounded-xl p-4">
+                <button
+                  onClick={saveCurrentStudySet}
+                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span>Save Quiz Set ({content.length} questions)</span>
+                </button>
+              </div>
+            )}
+          </div>
         );
       case 'trueFalse':
         return (
-          <TrueFalseMode
-            content={content}
-            currentIndex={currentIndex}
-            selectedAnswer={selectedAnswer}
-            handleAnswerSelect={handleAnswerSelect}
-          />
+          <div className="space-y-4">
+            <TrueFalseMode
+              content={content}
+              currentIndex={currentIndex}
+              selectedAnswer={selectedAnswer}
+              handleAnswerSelect={handleAnswerSelect}
+            />
+            {content.length > 0 && (
+              <div className="bg-white shadow rounded-xl p-4">
+                <button
+                  onClick={saveCurrentStudySet}
+                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span>Save True/False Set ({content.length} questions)</span>
+                </button>
+              </div>
+            )}
+          </div>
         );
       case 'wheel':
         return (
-          <WheelMode
-            content={content}
-            currentIndex={currentIndex}
-            showAnswer={showAnswer}
-            setShowAnswer={setShowAnswer}
-            wheelSpinning={wheelSpinning}
-            spinWheel={spinWheel}
-            wheelRotation={wheelRotation}
-          />
+          <div className="space-y-4">
+            <WheelMode
+              content={content}
+              currentIndex={currentIndex}
+              showAnswer={showAnswer}
+              setShowAnswer={setShowAnswer}
+              wheelSpinning={wheelSpinning}
+              spinWheel={spinWheel}
+              wheelRotation={wheelRotation}
+              onComplete={(completed) => setIsCompleted(completed)}
+              viewedQuestions={viewedQuestions}
+              score={score}
+              setScore={setScore}
+            />
+            {content.length > 0 && (
+              <div className="bg-white shadow rounded-xl p-4">
+                <button
+                  onClick={saveCurrentStudySet}
+                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span>Save Wheel Set ({content.length} questions)</span>
+                </button>
+              </div>
+            )}
+          </div>
         );
       case 'matching':
         return (
-          <MatchingMode
-            content={content}
-            matchedPairs={matchedPairs}
-            selectedTerm={selectedTerm}
-            setSelectedTerm={setSelectedTerm}
-            selectedDef={selectedDef}
-            setSelectedDef={setSelectedDef}
-            matchingScore={matchingScore}
-          />
+          <div className="space-y-4">
+            <MatchingMode
+              content={content}
+              matchedPairs={matchedPairs}
+              selectedTerm={selectedTerm}
+              setSelectedTerm={setSelectedTerm}
+              selectedDef={selectedDef}
+              setSelectedDef={setSelectedDef}
+              matchingScore={matchingScore}
+              onComplete={(completed) => setIsCompleted(completed)}
+            />
+            {content.length > 0 && (
+              <div className="bg-white shadow rounded-xl p-4">
+                <button
+                  onClick={saveCurrentStudySet}
+                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span>Save Matching Set ({content.length} pairs)</span>
+                </button>
+              </div>
+            )}
+          </div>
         );
       case 'fillBlanks':
         return (
-          <FillBlanksMode
-            content={content}
-            currentIndex={currentIndex}
-            userAnswer={userAnswer}
-            setUserAnswer={setUserAnswer}
-            showAnswer={showAnswer}
-            setShowAnswer={setShowAnswer}
-            score={score}
-            setScore={setScore}
-          />
+          <div className="space-y-4">
+            <FillBlanksMode
+              content={content}
+              currentIndex={currentIndex}
+              userAnswer={userAnswer}
+              setUserAnswer={setUserAnswer}
+              showAnswer={showAnswer}
+              setShowAnswer={setShowAnswer}
+              score={score}
+              setScore={setScore}
+              onComplete={(completed) => setIsCompleted(completed)}
+              answeredQuestions={answeredQuestions}
+            />
+            {content.length > 0 && (
+              <div className="bg-white shadow rounded-xl p-4">
+                <button
+                  onClick={saveCurrentStudySet}
+                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span>Save Fill-in-Blanks Set ({content.length} questions)</span>
+                </button>
+              </div>
+            )}
+          </div>
         );
       default:
         return null;
@@ -833,15 +1268,17 @@ export default function FileBasedStudyApp() {
       <Sidebar />
       <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold">AI Study Mode - File Based</h1>
-          <p className="mt-2 text-gray-600">Upload your study material and practice with AI-generated content</p>
+        <div className="mb-8 transform transition-all duration-500 hover:scale-105">
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent">
+            AI Study Mode - File Based
+          </h1>
+          <p className="mt-2 text-gray-600 text-lg">Upload your study material and practice with AI-generated content</p>
         </div>
 
         {/* File Upload */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Upload Study Material
+        <div className="mb-6 bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            📄 Upload Study Material
           </label>
           <div className="flex items-center space-x-4">
             <input
@@ -849,40 +1286,64 @@ export default function FileBasedStudyApp() {
               accept=".txt,.md,.pdf,.doc,.docx"
               onChange={handleFileUpload}
               className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
+                file:mr-4 file:py-3 file:px-6
                 file:rounded-full file:border-0
                 file:text-sm file:font-semibold
                 file:bg-teal-50 file:text-teal-700
-                hover:file:bg-teal-100"
+                hover:file:bg-teal-100 file:transition-all file:duration-300
+                file:hover:scale-105 file:shadow-sm hover:file:shadow-md"
             />
             {uploadedFile && (
-              <span className="text-sm text-green-600 font-medium">
-                ✓ {uploadedFile.name}
-              </span>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-green-600 font-medium bg-green-50 px-3 py-1 rounded-full border border-green-200 animate-pulse">
+                  ✓ {uploadedFile.name}
+                </span>
+                <button
+                  onClick={removeCurrentFile}
+                  className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium hover:bg-red-200 transition-all duration-300 transform hover:scale-105"
+                  title="Remove file"
+                >
+                  ✕ Remove
+                </button>
+              </div>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-4 lg:grid-cols-3 gap-6">
           {/* Mode Selection */}
-          <div className="lg:col-span-1">
-            <div className="bg-white shadow rounded-xl p-6">
-              <h2 className="text-lg font-semibold mb-4">Study Methods</h2>
-              <div className="space-y-2">
+          <div className="xl:col-span-1 lg:col-span-1">
+            <div className="bg-white shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+              <h2 className="text-lg font-semibold mb-4 text-gray-800">🎯 Study Methods</h2>
+              <div className="space-y-3">
                 {studyModes.map((mode) => (
                   <button
                     key={mode.id}
-                    onClick={() => fileContent && setActiveMode(mode.id)}
+                    onClick={() => {
+                      if (fileContent) {
+                        setActiveMode(mode.id);
+                        setIsCompleted(false);
+                        setCurrentIndex(0);
+                        // Reset wheel mode state when switching modes
+                        setViewedQuestions(new Set());
+                        // Reset fill-in-the-blanks state when switching modes
+                        setAnsweredQuestions([]);
+                      }
+                    }}
                     disabled={!fileContent}
-                    className={`w-full flex items-center p-3 rounded-lg border-2 transition-all text-left ${
+                    className={`w-full flex items-center p-3 rounded-lg border-2 transition-all duration-300 text-left transform ${
                       !fileContent
                         ? 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed'
                         : activeMode === mode.id
-                        ? 'border-teal-400 bg-teal-50 text-teal-700'
-                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                        ? 'border-teal-400 bg-teal-50 text-teal-700 scale-105 shadow-lg'
+                        : 'border-gray-200 hover:border-teal-300 hover:bg-teal-25 text-gray-600 hover:scale-105 hover:shadow-md hover:translate-x-1'
                     }`}
                   >
-                    {mode.icon}
+                    <div className={`transition-transform duration-300 ${
+                      !fileContent ? '' : 'group-hover:scale-110'
+                    }`}>
+                      {mode.icon}
+                    </div>
                     <span className="ml-3 font-medium">{mode.name}</span>
                   </button>
                 ))}
@@ -891,19 +1352,19 @@ export default function FileBasedStudyApp() {
           </div>
 
           {/* Content Area */}
-          <div className="lg:col-span-2">
+          <div className="xl:col-span-2 lg:col-span-2">
             {/* Progress Bar */}
             {content.length > 0 && activeMode !== 'wheel' && activeMode !== 'matching' && (
-              <div className="bg-white shadow rounded-xl p-6 mb-6">
+              <div className="bg-white shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600">Progress</span>
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-gray-600 font-medium">Progress</span>
+                  <span className="text-sm text-gray-600 font-semibold">
                     {currentIndex + 1} / {content.length}
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                   <div 
-                    className="bg-teal-600 h-2 rounded-full transition-all duration-300" 
+                    className="bg-gradient-to-r from-teal-500 to-teal-600 h-3 rounded-full transition-all duration-500 ease-out shadow-sm" 
                     style={{ width: `${progress}%` }}
                   ></div>
                 </div>
@@ -912,10 +1373,10 @@ export default function FileBasedStudyApp() {
 
             {/* Score Display */}
             {(activeMode === 'quiz' || activeMode === 'trueFalse' || activeMode === 'fillBlanks') && content.length > 0 && (
-              <div className="bg-white shadow rounded-xl p-6 mb-6">
+              <div className="bg-gradient-to-r from-teal-50 to-emerald-50 shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border border-teal-100">
                 <div className="flex items-center justify-between">
-                  <span className="text-teal-800 font-medium">Current Score</span>
-                  <span className="text-teal-800 text-xl font-bold">
+                  <span className="text-teal-800 font-semibold">Current Score</span>
+                  <span className="text-teal-800 text-2xl font-bold bg-white px-3 py-1 rounded-lg shadow-sm">
                     {score} / {Math.max(currentIndex + (showAnswer && activeMode !== 'fillBlanks' ? 1 : 0), 1)}
                   </span>
                 </div>
@@ -929,38 +1390,131 @@ export default function FileBasedStudyApp() {
 
             {/* Navigation Buttons */}
             {content.length > 0 && activeMode !== 'wheel' && activeMode !== 'matching' && (
-              <div className="bg-white shadow rounded-xl p-6">
+              <div className="bg-white shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300">
                 <div className="flex justify-between items-center">
                   <button
                     onClick={handlePrevious}
                     disabled={currentIndex === 0}
-                    className={`px-6 py-2 rounded-lg transition-all ${
+                    className={`px-8 py-3 rounded-lg transition-all duration-300 transform font-semibold ${
                       currentIndex === 0
                         ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : 'bg-gray-500 text-white hover:bg-gray-600'
+                        : 'bg-gray-500 text-white hover:bg-gray-600 hover:scale-105 hover:shadow-lg hover:-translate-x-1 active:scale-95'
                     }`}
                   >
-                    Previous
+                    ← Previous
                   </button>
 
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-gray-500 font-medium bg-gray-100 px-3 py-1 rounded-full">
                     {currentIndex + 1} of {content.length}
                   </span>
 
                   <button
                     onClick={handleNext}
-                    disabled={currentIndex === content.length - 1}
-                    className={`px-6 py-2 rounded-lg transition-all ${
+                    disabled={
+                      currentIndex === content.length - 1 || 
+                      (activeMode === 'fillBlanks' && !showAnswer)
+                    }
+                    className={`px-8 py-3 rounded-lg transition-all duration-300 transform font-semibold ${
                       currentIndex === content.length - 1
                         ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : 'bg-teal-600 text-white hover:bg-teal-700'
+                        : (activeMode === 'fillBlanks' && !showAnswer)
+                        ? 'bg-orange-400 text-white cursor-not-allowed'
+                        : 'bg-teal-600 text-white hover:bg-teal-700 hover:scale-105 hover:shadow-lg hover:translate-x-1 active:scale-95'
                     }`}
+                    title={
+                      (activeMode === 'fillBlanks' && !showAnswer) 
+                        ? 'Check your answer first before moving to the next question'
+                        : undefined
+                    }
                   >
-                    Next
+                    {(activeMode === 'fillBlanks' && !showAnswer) ? 'Check Answer First' : 'Next →'}
                   </button>
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Saved Study Sets History */}
+          <div className="xl:col-span-1 lg:col-span-3 xl:col-start-4">
+            <div className="bg-white shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">💾 Saved Study Sets</h2>
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="text-teal-600 hover:text-teal-700 font-medium text-sm transition-colors"
+                >
+                  {showHistory ? 'Hide' : 'Show'} ({savedStudySets.length})
+                </button>
+              </div>
+              
+              {showHistory && (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {savedStudySets.length === 0 ? (
+                    <p className="text-gray-500 text-sm text-center py-4">No saved study sets yet</p>
+                  ) : (
+                    savedStudySets.map((savedSet) => {
+                      // Get appropriate icon for study mode
+                      const modeIcons = {
+                        flashcards: '🃏',
+                        quiz: '❓',
+                        trueFalse: '✅',
+                        wheel: '🎯',
+                        matching: '🔗',
+                        fillBlanks: '📝'
+                      };
+                      const icon = modeIcons[savedSet.studyMode] || '📚';
+                      
+                      return (
+                        <div key={savedSet.id} className="border border-gray-200 rounded-lg p-3 hover:border-teal-300 transition-colors">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-medium text-gray-900 truncate flex items-center">
+                                <span className="mr-2">{icon}</span>
+                                {savedSet.title}
+                              </h3>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {savedSet.itemCount || savedSet.content?.length || savedSet.cards?.length || 0} items • {savedSet.createdAt}
+                              </p>
+                              <p className="text-xs text-gray-400 truncate">
+                                📄 {savedSet.fileName}
+                              </p>
+                            </div>
+                            <div className="flex space-x-1 ml-2">
+                              <button
+                                onClick={() => loadSavedStudySet(savedSet)}
+                                className="px-2 py-1 text-xs bg-teal-100 text-teal-700 rounded hover:bg-teal-200 transition-colors"
+                                title="Load study set"
+                              >
+                                📖 Load
+                              </button>
+                              <button
+                                onClick={() => deleteSavedStudySet(savedSet.id)}
+                                className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                                title="Delete study set"
+                              >
+                                🗑️ Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+              
+              {!showHistory && savedStudySets.length > 0 && (
+                <div className="text-center">
+                  <p className="text-sm text-gray-500 mb-2">You have {savedStudySets.length} saved study sets</p>
+                  <button
+                    onClick={() => setShowHistory(true)}
+                    className="text-xs px-3 py-1 bg-teal-50 text-teal-600 rounded-full hover:bg-teal-100 transition-colors"
+                  >
+                    View History
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>

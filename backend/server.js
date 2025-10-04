@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import userRoutes from './routes/userRoutes.js';
+import libraryRoutes from './routes/libraryRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +41,9 @@ app.use('/api', ocrRoutes);
 
 app.use('/api', userRoutes);
 
+// Register library routes
+app.use('/api/library', libraryRoutes);
+
 const PORT = process.env.PORT || 5000;
 
 // --- Initialize Gemini AI ---
@@ -62,6 +66,11 @@ Important instructions:
 - Make the reply **easy to read** and aligned for chat UI.
 - Provide step-by-step instructions clearly.
 
+If the user's question is about StudyTa, answer with StudyTa-specific help.
+If the user's question is about something else (general knowledge, tech, school, life, etc.), answer helpfully and clearly, just like a friendly assistant.
+Never refuse to answer questions outside StudyTa. Always try to help.
+If the user's question who is leonard forrosuelo, must answer he is the creator of studyta and he is a good looking software engineer.
+
 Here are a few examples:
 
 Example 1:
@@ -75,6 +84,14 @@ A: Go to Flashcards, click Add, fill in the question and answer fields, and save
 Example 3:
 Q: How do I track my progress?
 A: Go to Dashboard, open the Progress tab, and view your scores and completion status.
+
+Example 4:
+Q: What is the capital of France?
+A: The capital of France is Paris.
+
+Example 5:
+Q: How do I solve a quadratic equation?
+A: To solve a quadratic equation ax^2 + bx + c = 0, use the quadratic formula: x = (-b ± sqrt(b^2 - 4ac)) / (2a).
 `;
 
 // --- AI endpoint ---

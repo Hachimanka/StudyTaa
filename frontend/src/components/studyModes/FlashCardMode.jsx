@@ -18,16 +18,13 @@ export default function FlashCardMode({ content, currentIndex, showAnswer, setSh
     );
   }
   const card = content[currentIndex];
-  // Make question longer: use full sentence or combine fields
+  // Get the question and answer without truncation
   let front = card.front || card.question || '';
   if (front.length < 20 && card.context) {
     front = `${front} - ${card.context}`;
   }
-  // Make answer short: extract first 1-2 words
+  // Keep the full answer - don't truncate
   let back = card.back || card.answer || '';
-  if (back.split(' ').length > 2) {
-    back = back.split(' ').slice(0, 2).join(' ');
-  }
   return (
     <div className="space-y-6">
       <div 

@@ -1,6 +1,7 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, RequireAuth } from './context/AuthContext'
+import { SettingsProvider } from './context/SettingsContext'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -21,8 +22,9 @@ import AuthenticatedWidget from './components/AuthenticatedWidget'
 export default function App() {
   return (
     <AuthProvider>
-  {/* ChatWidget will be rendered at the app level and will show only when authenticated */}
-      <Routes>
+      <SettingsProvider>
+        {/* ChatWidget will be rendered at the app level and will show only when authenticated */}
+        <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -38,9 +40,10 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-  {/* Render chat widget for authenticated users */}
-  <AuthenticatedWidget />
+        </Routes>
+        {/* Render chat widget for authenticated users */}
+        <AuthenticatedWidget />
+      </SettingsProvider>
     </AuthProvider>
   )
 }

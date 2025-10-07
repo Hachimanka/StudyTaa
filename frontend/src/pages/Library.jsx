@@ -540,12 +540,12 @@ export default function Library() {
     try {
       setLoading(true);
       const [filesResponse, foldersResponse] = await Promise.all([
-        fetch(`/api/library/files`, {
+        fetch(`http://localhost:5000/api/library/files`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         }),
-        fetch(`/api/library/folders`, {
+        fetch(`http://localhost:5000/api/library/folders`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -555,6 +555,8 @@ export default function Library() {
       if (filesResponse.ok && foldersResponse.ok) {
         const files = await filesResponse.json();
         const folders = await foldersResponse.json();
+
+        console.log('Successfully fetched library data:', { files: files.length, folders: folders.length });
         
         // Build folder structure with files
         const folderMap = new Map();
@@ -614,19 +616,27 @@ export default function Library() {
               dataUrl: dataUrl,
               content: file.textContent || null,
               textContent: file.textContent || null,
-              downloadUrl: file.filePath ? `/api/library/download/${file._id}` : null,
-              viewUrl: `/api/library/view/${file._id}` // For viewing PDFs and other files
+              downloadUrl: file.filePath ? `http://localhost:5000/api/library/download/${file._id}` : null,
+              viewUrl: `http://localhost:5000/api/library/view/${file._id}` // For viewing PDFs and other files
             });
           }
         });
 
         setRoot(rootFolder);
       } else {
-        throw new Error('Failed to fetch library data');
+        console.error('API responses not ok:', {
+          filesStatus: filesResponse.status,
+          foldersStatus: foldersResponse.status
+        });
+        throw new Error(`Failed to fetch library data: Files(${filesResponse.status}), Folders(${foldersResponse.status})`);
       }
     } catch (error) {
       console.error('Error fetching library:', error);
-      setError('Failed to load your library. Please try again.');
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        setError('Cannot connect to server. Please make sure the backend is running.');
+      } else {
+        setError(`Failed to load your library: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -661,7 +671,7 @@ export default function Library() {
         formData.append('folderId', folderId);
       }
 
-      const response = await fetch('/api/library/upload', {
+      const response = await fetch('http://localhost:5000/api/library/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -686,7 +696,7 @@ export default function Library() {
     if (!name || !user) return;
     
     try {
-      const response = await fetch('/api/library/folders', {
+      const response = await fetch('http://localhost:5000/api/library/folders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -732,7 +742,7 @@ export default function Library() {
     if (!window.confirm('Are you sure you want to delete this file?')) return;
     
     try {
-      const response = await fetch(`/api/library/files/${fileToDelete.id}`, {
+      const response = await fetch(`http://localhost:5000/api/library/files/${fileToDelete.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -758,7 +768,7 @@ export default function Library() {
     if (!window.confirm('Are you sure you want to delete this folder and all its contents?')) return;
     
     try {
-      const response = await fetch(`/api/library/folders/${folderId}`, {
+      const response = await fetch(`http://localhost:5000/api/library/folders/${folderId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`

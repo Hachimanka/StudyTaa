@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 import Sidebar from "../components/Sidebar";
 import { Link } from 'react-router-dom'
 
 export default function Home() {
   const { user } = useAuth();
+  const { darkMode, studyStats, profileName, getThemeColors } = useSettings();
   const [fullName, setFullName] = useState("");
-  const [isDark, setIsDark] = useState(() => {
-    try {
-      return localStorage.getItem("theme") === "dark";
-    } catch {
-      return false;
-    }
-  });
 
   useEffect(() => {
     async function fetchUserInfo() {
@@ -20,32 +15,23 @@ export default function Home() {
         try {
           const res = await fetch(`http://localhost:5000/api/userinfo/${user._id}`);
           const info = await res.json();
-          setFullName(info.fullName);
-        } catch {}
+          setFullName(info.fullName || profileName);
+        } catch {
+          setFullName(profileName);
+        }
+      } else {
+        setFullName(profileName);
       }
     }
     fetchUserInfo();
-  }, [user]);
+  }, [user, profileName]);
 
-  useEffect(() => {
-    const handleThemeChange = () => {
-      try {
-        setIsDark(localStorage.getItem("theme") === "dark");
-      } catch {
-        setIsDark(false);
-      }
-    };
-
-    window.addEventListener("themeChanged", handleThemeChange);
-    return () => {
-      window.removeEventListener("themeChanged", handleThemeChange);
-    };
-  }, []);
+  const themeColors = getThemeColors();
 
   return (
     <div
       className={`flex min-h-screen ${
-        isDark ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"
+        darkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
       {/* Sidebar */}
@@ -59,7 +45,7 @@ export default function Home() {
         </h1>
         <p
           className={`mt-1 text-xl ${
-            isDark ? "text-gray-400" : "text-gray-500"
+            darkMode ? "text-gray-400" : "text-gray-500"
           }`}
         >
           {fullName ? `Here's your learning progress overview, ${fullName}` : "Here's your learning progress overview"}
@@ -68,21 +54,21 @@ export default function Home() {
         {/* Stats Section */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
           {[
-            { label: "Study Streak", value: "7 Days" },
-            { label: "Flashcards Reviewed", value: "142" },
-            { label: "Documents Summarized", value: "23" },
-            { label: "Quiz Score", value: "87%" },
+            { label: "Study Streak", value: `${studyStats.streak} Days` },
+            { label: "Daily Sessions", value: studyStats.dailySessions.toString() },
+            { label: "Total Time", value: `${Math.floor(studyStats.totalTime / 60)}h ${studyStats.totalTime % 60}m` },
+            { label: "Avg Session", value: studyStats.dailySessions > 0 ? `${Math.round(studyStats.totalTime / studyStats.dailySessions)}min` : "0min" },
           ].map((stat, i) => (
             <div
               key={i}
               className={`p-6 flex items-center justify-between rounded-2xl shadow ${
-                isDark ? "bg-gray-800" : "bg-white"
+                darkMode ? "bg-gray-800" : "bg-white"
               }`}
             >
               <div>
                 <p
                   className={`text-lg ${
-                    isDark ? "text-gray-400" : "text-gray-500"
+                    darkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
                   {stat.label}
@@ -99,7 +85,7 @@ export default function Home() {
           {/* Recent Activity */}
           <div
             className={`p-6 rounded-2xl shadow ${
-              isDark ? "bg-gray-800" : "bg-white"
+              darkMode ? "bg-gray-800" : "bg-white"
             }`}
           >
             <h3 className="text-2xl font-semibold mb-4">Recent Activity</h3>
@@ -115,7 +101,7 @@ export default function Home() {
                     <p className="font-medium">{item.text}</p>
                     <span
                       className={`text-sm ${
-                        isDark ? "text-gray-400" : "text-gray-500"
+                        darkMode ? "text-gray-400" : "text-gray-500"
                       }`}
                     >
                       {item.time}
@@ -129,70 +115,76 @@ export default function Home() {
           {/* Quick Actions */}
           <div
             className={`p-6 rounded-2xl shadow ${
-              isDark ? "bg-gray-800" : "bg-white"
+              darkMode ? "bg-gray-800" : "bg-white"
             }`}
           >
             <h3 className="text-2xl font-semibold mb-4">Quick Actions</h3>
             <div className="space-y-4">
-              <button
-                className={`flex items-center w-full rounded-xl p-4 transition-colors ${
-                  isDark
-                    ? "bg-teal-900/40 hover:bg-teal-900/60"
-                    : "bg-teal-100 hover:bg-teal-200"
-                }`}
-              >
-                <div className="w-8 h-8 bg-teal-700 rounded-lg mr-3" />
-                <div>
-                  <p className="font-semibold">Create Summary</p>
-                  <p
-                    className={`text-sm ${
-                      isDark ? "text-gray-400" : "text-gray-500"
-                    }`}
-                  >
-                    Summarize a new content
-                  </p>
-                </div>
-              </button>
+              <Link to="/summarize">
+                <button
+                  className={`flex items-center w-full rounded-xl p-4 transition-colors ${
+                    darkMode
+                      ? `bg-${themeColors.primary}-900/40 hover:bg-${themeColors.primary}-900/60`
+                      : `bg-${themeColors.primary}-100 hover:bg-${themeColors.primary}-200`
+                  }`}
+                >
+                  <div className={`w-8 h-8 bg-${themeColors.primary}-700 rounded-lg mr-3`} />
+                  <div>
+                    <p className="font-semibold">Create Summary</p>
+                    <p
+                      className={`text-sm ${
+                        darkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      Summarize a new content
+                    </p>
+                  </div>
+                </button>
+              </Link>
 
-              <button
-                className={`flex items-center w-full rounded-xl p-4 border transition-colors ${
-                  isDark
-                    ? "bg-blue-900/30 hover:bg-blue-900/50 border-blue-700"
-                    : "bg-blue-100 hover:bg-blue-200 border-blue-400"
-                }`}
-              >
-                <div className="w-8 h-8 bg-teal-700 rounded-lg mr-3" />
-                <div>
-                  <p className="font-semibold">Make Flashcards</p>
-                  <p
-                    className={`text-sm ${
-                      isDark ? "text-gray-400" : "text-gray-500"
-                    }`}
-                  >
-                    Generate study cards
-                  </p>
-                </div>
-              </button>
+              <Link to="/flashcards">
+                <button
+                  className={`flex items-center w-full rounded-xl p-4 border transition-colors ${
+                    darkMode
+                      ? "bg-blue-900/30 hover:bg-blue-900/50 border-blue-700"
+                      : "bg-blue-100 hover:bg-blue-200 border-blue-400"
+                  }`}
+                >
+                  <div className={`w-8 h-8 bg-${themeColors.primary}-700 rounded-lg mr-3`} />
+                  <div>
+                    <p className="font-semibold">Make Flashcards</p>
+                    <p
+                      className={`text-sm ${
+                        darkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      Generate study cards
+                    </p>
+                  </div>
+                </button>
+              </Link>
 
-              <button
-                className={`flex items-center w-full rounded-xl p-4 transition-colors ${
-                  isDark
-                    ? "bg-teal-900/40 hover:bg-teal-900/60"
-                    : "bg-teal-100 hover:bg-teal-200"
-                }`}
-              >
-                <div className="w-8 h-8 bg-teal-700 rounded-lg mr-3" />
-                <div>
-                  <p className="font-semibold">Browse Library</p>
-                  <p
-                    className={`text-sm ${
-                      isDark ? "text-gray-400" : "text-gray-500"
-                    }`}
-                  >
-                    Access your files
-                  </p>
-                </div>
-              </button>
+              <Link to="/library">
+                <button
+                  className={`flex items-center w-full rounded-xl p-4 transition-colors ${
+                    darkMode
+                      ? `bg-${themeColors.primary}-900/40 hover:bg-${themeColors.primary}-900/60`
+                      : `bg-${themeColors.primary}-100 hover:bg-${themeColors.primary}-200`
+                  }`}
+                >
+                  <div className={`w-8 h-8 bg-${themeColors.primary}-700 rounded-lg mr-3`} />
+                  <div>
+                    <p className="font-semibold">Browse Library</p>
+                    <p
+                      className={`text-sm ${
+                        darkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      Access your files
+                    </p>
+                  </div>
+                </button>
+              </Link>
             </div>
           </div>
         </div>

@@ -1,43 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const { isAuthenticated, logout } = useAuth();
+  const { darkMode, getThemeColors } = useSettings();
   const navigate = useNavigate();
 
-  // ✅ Initialize from localStorage right away
-  const [isDark, setIsDark] = useState(() => {
-    try {
-      return localStorage.getItem("theme") === "dark";
-    } catch {
-      return false;
-    }
-  });
+  const themeColors = getThemeColors();
 
   const location = useLocation();
 
   const handleLogout = () => {
     logout(() => navigate("/"));
   };
-
-  useEffect(() => {
-    const handleThemeChange = () => {
-      try {
-        setIsDark(localStorage.getItem("theme") === "dark");
-      } catch {
-        setIsDark(false);
-      }
-    };
-
-    // Listen for custom theme change events
-    window.addEventListener("themeChanged", handleThemeChange);
-
-    return () => {
-      window.removeEventListener("themeChanged", handleThemeChange);
-    };
-  }, []);
 
   const menuItems = [
     { name: "Dashboard", path: "/dashboard", icon: (
@@ -68,7 +46,7 @@ export default function Sidebar() {
       className={`
         fixed left-4 top-4 bottom-4
         flex flex-col
-        ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}
+        ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}
         shadow-xl rounded-2xl
         transition-all duration-300 ease-in-out
         ${isCollapsed ? "w-16" : "w-50"}
@@ -81,15 +59,15 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center px-3 py-4 min-h-[64px]">
-        <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-bold text-lg">L</span>
+        <div className={`w-10 h-10 bg-gradient-to-br ${themeColors.gradient} rounded-xl flex items-center justify-center flex-shrink-0`}>
+          <span className="text-white font-bold text-lg">S</span>
         </div>
         <span
           className={`ml-3 text-xl font-bold ${
-            isDark ? "text-white" : "text-gray-900"
+            darkMode ? "text-white" : "text-gray-900"
           } ${isCollapsed ? "opacity-0" : "opacity-100"} transition-opacity duration-300 whitespace-nowrap`}
         >
-          Lemivon
+          StudyTa
         </span>
       </div>
 
@@ -105,12 +83,12 @@ export default function Sidebar() {
               ${
                 location.pathname === item.path
                   ? `${
-                      isDark
-                        ? "bg-teal-900/30 text-teal-300 border-teal-700"
-                        : "bg-teal-100 text-teal-700 border-teal-200"
+                      darkMode
+                        ? `bg-${themeColors.primary}-900/30 text-${themeColors.primary}-300 border-${themeColors.primary}-700`
+                        : `bg-${themeColors.primary}-100 text-${themeColors.primary}-700 border-${themeColors.primary}-200`
                     } border`
                   : `${
-                      isDark
+                      darkMode
                         ? "text-gray-300 hover:bg-gray-700"
                         : "text-gray-600 hover:bg-gray-100"
                     }`
@@ -138,13 +116,13 @@ export default function Sidebar() {
             onClick={handleLogout}
             className={`
               flex items-center p-3 rounded-xl w-full text-left
-              ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-gray-100"}
+              ${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-gray-100"}
               transition-colors duration-200
             `}
           >
           <span className="text-xl w-7 text-center flex-shrink-0" style={{lineHeight:0}}>
             {/* Use same neutral icons as TopNav: show sun when dark (to indicate toggle), moon when light */}
-            {isDark ? (
+            {darkMode ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.5"/><g stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"><path d="M12 1v2" /><path d="M12 21v2" /><path d="M4.2 4.2l1.4 1.4" /><path d="M18.4 18.4l1.4 1.4" /><path d="M1 12h2" /><path d="M21 12h2" /><path d="M4.2 19.8l1.4-1.4" /><path d="M18.4 5.6l1.4-1.4" /></g></svg>
             ) : (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="1.5" fill="none" /></svg>

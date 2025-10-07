@@ -7,6 +7,7 @@ import MatchingMode from '../components/studyModes/MatchingMode';
 import FillBlanksMode from '../components/studyModes/FillBlanksMode';
 import axios from 'axios';
 import Sidebar from '../components/Sidebar';
+import { useSettings } from '../context/SettingsContext';
 
 // File processing function
 const processUploadedFile = async (file) => {
@@ -120,8 +121,21 @@ ${fileContent}`;
 };
 
 export default function FileBasedStudyApp() {
+  const { 
+    darkMode, 
+    defaultStudyMode, 
+    showProgress, 
+    autoSave, 
+    soundEffects,
+    getThemeColors, 
+    playSound, 
+    incrementStudySession 
+  } = useSettings();
+  
+  const themeColors = getThemeColors();
+  
   // All state declarations first
-  const [activeMode, setActiveMode] = useState(null);
+  const [activeMode, setActiveMode] = useState(defaultStudyMode);
   const [content, setContent] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1264,20 +1278,20 @@ export default function FileBasedStudyApp() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className={`flex min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <Sidebar />
       <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28">
         {/* Header */}
         <div className="mb-8 transform transition-all duration-500 hover:scale-105">
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent">
+          <h1 className={`text-3xl md:text-4xl font-bold bg-gradient-to-r ${themeColors.gradient} bg-clip-text text-transparent`}>
             AI Study Mode - File Based
           </h1>
-          <p className="mt-2 text-gray-600 text-lg">Upload your study material and practice with AI-generated content</p>
+          <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-lg`}>Upload your study material and practice with AI-generated content</p>
         </div>
 
         {/* File Upload */}
-        <div className="mb-6 bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
+        <div className={`mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}>
+          <label className={`block text-sm font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-3`}>
             📄 Upload Study Material
           </label>
           <div className="flex items-center space-x-4">
@@ -1285,13 +1299,13 @@ export default function FileBasedStudyApp() {
               type="file"
               accept=".txt,.md,.pdf,.doc,.docx"
               onChange={handleFileUpload}
-              className="block w-full text-sm text-gray-500
+              className={`block w-full text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}
                 file:mr-4 file:py-3 file:px-6
                 file:rounded-full file:border-0
                 file:text-sm file:font-semibold
-                file:bg-teal-50 file:text-teal-700
-                hover:file:bg-teal-100 file:transition-all file:duration-300
-                file:hover:scale-105 file:shadow-sm hover:file:shadow-md"
+                file:${themeColors.light} file:${themeColors.text}
+                hover:file:${themeColors.hover} file:transition-all file:duration-300
+                file:hover:scale-105 file:shadow-sm hover:file:shadow-md`}
             />
             {uploadedFile && (
               <div className="flex items-center space-x-2">
@@ -1313,8 +1327,8 @@ export default function FileBasedStudyApp() {
         <div className="grid grid-cols-1 xl:grid-cols-4 lg:grid-cols-3 gap-6">
           {/* Mode Selection */}
           <div className="xl:col-span-1 lg:col-span-1">
-            <div className="bg-white shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-              <h2 className="text-lg font-semibold mb-4 text-gray-800">🎯 Study Methods</h2>
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+              <h2 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>🎯 Study Methods</h2>
               <div className="space-y-3">
                 {studyModes.map((mode) => (
                   <button
@@ -1333,10 +1347,10 @@ export default function FileBasedStudyApp() {
                     disabled={!fileContent}
                     className={`w-full flex items-center p-3 rounded-lg border-2 transition-all duration-300 text-left transform ${
                       !fileContent
-                        ? 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed'
+                        ? `${darkMode ? 'border-gray-700 bg-gray-700 text-gray-500' : 'border-gray-100 bg-gray-50 text-gray-400'} cursor-not-allowed`
                         : activeMode === mode.id
-                        ? 'border-teal-400 bg-teal-50 text-teal-700 scale-105 shadow-lg'
-                        : 'border-gray-200 hover:border-teal-300 hover:bg-teal-25 text-gray-600 hover:scale-105 hover:shadow-md hover:translate-x-1'
+                        ? `border-${themeColors.primary}-400 ${themeColors.light} ${themeColors.text} scale-105 shadow-lg`
+                        : `${darkMode ? 'border-gray-600 hover:border-' + themeColors.primary + '-400 hover:bg-gray-700 text-gray-300' : 'border-gray-200 hover:border-' + themeColors.primary + '-300 hover:' + themeColors.light + ' text-gray-600'} hover:scale-105 hover:shadow-md hover:translate-x-1`
                     }`}
                   >
                     <div className={`transition-transform duration-300 ${
@@ -1355,16 +1369,16 @@ export default function FileBasedStudyApp() {
           <div className="xl:col-span-2 lg:col-span-2">
             {/* Progress Bar */}
             {content.length > 0 && activeMode !== 'wheel' && activeMode !== 'matching' && (
-              <div className="bg-white shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600 font-medium">Progress</span>
-                  <span className="text-sm text-gray-600 font-semibold">
+                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Progress</span>
+                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-semibold`}>
                     {currentIndex + 1} / {content.length}
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full h-3 overflow-hidden`}>
                   <div 
-                    className="bg-gradient-to-r from-teal-500 to-teal-600 h-3 rounded-full transition-all duration-500 ease-out shadow-sm" 
+                    className={`bg-gradient-to-r ${themeColors.gradient} h-3 rounded-full transition-all duration-500 ease-out shadow-sm`} 
                     style={{ width: `${progress}%` }}
                   ></div>
                 </div>
@@ -1373,10 +1387,10 @@ export default function FileBasedStudyApp() {
 
             {/* Score Display */}
             {(activeMode === 'quiz' || activeMode === 'trueFalse' || activeMode === 'fillBlanks') && content.length > 0 && (
-              <div className="bg-gradient-to-r from-teal-50 to-emerald-50 shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border border-teal-100">
+              <div className={`bg-gradient-to-r ${themeColors.light} ${themeColors.light} shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border border-${themeColors.primary}-100`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-teal-800 font-semibold">Current Score</span>
-                  <span className="text-teal-800 text-2xl font-bold bg-white px-3 py-1 rounded-lg shadow-sm">
+                  <span className={`${themeColors.textDark} font-semibold`}>Current Score</span>
+                  <span className={`${themeColors.textDark} text-2xl font-bold ${darkMode ? 'bg-gray-700' : 'bg-white'} px-3 py-1 rounded-lg shadow-sm`}>
                     {score} / {Math.max(currentIndex + (showAnswer && activeMode !== 'fillBlanks' ? 1 : 0), 1)}
                   </span>
                 </div>
@@ -1390,21 +1404,21 @@ export default function FileBasedStudyApp() {
 
             {/* Navigation Buttons */}
             {content.length > 0 && activeMode !== 'wheel' && activeMode !== 'matching' && (
-              <div className="bg-white shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300">
+              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300`}>
                 <div className="flex justify-between items-center">
                   <button
                     onClick={handlePrevious}
                     disabled={currentIndex === 0}
                     className={`px-8 py-3 rounded-lg transition-all duration-300 transform font-semibold ${
                       currentIndex === 0
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : 'bg-gray-500 text-white hover:bg-gray-600 hover:scale-105 hover:shadow-lg hover:-translate-x-1 active:scale-95'
+                        ? `${darkMode ? 'bg-gray-700 text-gray-600' : 'bg-gray-200 text-gray-400'} cursor-not-allowed`
+                        : `${darkMode ? 'bg-gray-600 text-white hover:bg-gray-500' : 'bg-gray-500 text-white hover:bg-gray-600'} hover:scale-105 hover:shadow-lg hover:-translate-x-1 active:scale-95`
                     }`}
                   >
                     ← Previous
                   </button>
 
-                  <span className="text-sm text-gray-500 font-medium bg-gray-100 px-3 py-1 rounded-full">
+                  <span className={`text-sm ${darkMode ? 'text-gray-400 bg-gray-700' : 'text-gray-500 bg-gray-100'} font-medium px-3 py-1 rounded-full`}>
                     {currentIndex + 1} of {content.length}
                   </span>
 
@@ -1416,10 +1430,10 @@ export default function FileBasedStudyApp() {
                     }
                     className={`px-8 py-3 rounded-lg transition-all duration-300 transform font-semibold ${
                       currentIndex === content.length - 1
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        ? `${darkMode ? 'bg-gray-700 text-gray-600' : 'bg-gray-200 text-gray-400'} cursor-not-allowed`
                         : (activeMode === 'fillBlanks' && !showAnswer)
                         ? 'bg-orange-400 text-white cursor-not-allowed'
-                        : 'bg-teal-600 text-white hover:bg-teal-700 hover:scale-105 hover:shadow-lg hover:translate-x-1 active:scale-95'
+                        : `bg-${themeColors.primary}-600 text-white hover:bg-${themeColors.primary}-700 hover:scale-105 hover:shadow-lg hover:translate-x-1 active:scale-95`
                     }`}
                     title={
                       (activeMode === 'fillBlanks' && !showAnswer) 
@@ -1436,12 +1450,12 @@ export default function FileBasedStudyApp() {
 
           {/* Saved Study Sets History */}
           <div className="xl:col-span-1 lg:col-span-3 xl:col-start-4">
-            <div className="bg-white shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">💾 Saved Study Sets</h2>
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>💾 Saved Study Sets</h2>
                 <button
                   onClick={() => setShowHistory(!showHistory)}
-                  className="text-teal-600 hover:text-teal-700 font-medium text-sm transition-colors"
+                  className={`${themeColors.text} hover:${themeColors.textDark} font-medium text-sm transition-colors`}
                 >
                   {showHistory ? 'Hide' : 'Show'} ({savedStudySets.length})
                 </button>
@@ -1465,24 +1479,24 @@ export default function FileBasedStudyApp() {
                       const icon = modeIcons[savedSet.studyMode] || '📚';
                       
                       return (
-                        <div key={savedSet.id} className="border border-gray-200 rounded-lg p-3 hover:border-teal-300 transition-colors">
+                        <div key={savedSet.id} className={`border ${darkMode ? 'border-gray-600 hover:border-' + themeColors.primary + '-400' : 'border-gray-200 hover:border-' + themeColors.primary + '-300'} rounded-lg p-3 transition-colors`}>
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-sm font-medium text-gray-900 truncate flex items-center">
+                              <h3 className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'} truncate flex items-center`}>
                                 <span className="mr-2">{icon}</span>
                                 {savedSet.title}
                               </h3>
-                              <p className="text-xs text-gray-500 mt-1">
+                              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
                                 {savedSet.itemCount || savedSet.content?.length || savedSet.cards?.length || 0} items • {savedSet.createdAt}
                               </p>
-                              <p className="text-xs text-gray-400 truncate">
+                              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'} truncate`}>
                                 📄 {savedSet.fileName}
                               </p>
                             </div>
                             <div className="flex space-x-1 ml-2">
                               <button
                                 onClick={() => loadSavedStudySet(savedSet)}
-                                className="px-2 py-1 text-xs bg-teal-100 text-teal-700 rounded hover:bg-teal-200 transition-colors"
+                                className={`px-2 py-1 text-xs ${themeColors.light} ${themeColors.text} rounded hover:${themeColors.hover} transition-colors`}
                                 title="Load study set"
                               >
                                 📖 Load
@@ -1505,10 +1519,10 @@ export default function FileBasedStudyApp() {
               
               {!showHistory && savedStudySets.length > 0 && (
                 <div className="text-center">
-                  <p className="text-sm text-gray-500 mb-2">You have {savedStudySets.length} saved study sets</p>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-2`}>You have {savedStudySets.length} saved study sets</p>
                   <button
                     onClick={() => setShowHistory(true)}
-                    className="text-xs px-3 py-1 bg-teal-50 text-teal-600 rounded-full hover:bg-teal-100 transition-colors"
+                    className={`text-xs px-3 py-1 ${themeColors.light} ${themeColors.text} rounded-full hover:${themeColors.hover} transition-colors`}
                   >
                     View History
                   </button>

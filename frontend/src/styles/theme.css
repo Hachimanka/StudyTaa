@@ -1,0 +1,238 @@
+/* Theme Variables for StudyTa */
+
+/* Base Theme Colors */
+:root {
+  --primary-50: theme('colors.teal.50');
+  --primary-100: theme('colors.teal.100');
+  --primary-200: theme('colors.teal.200');
+  --primary-300: theme('colors.teal.300');
+  --primary-400: theme('colors.teal.400');
+  --primary-500: theme('colors.teal.500');
+  --primary-600: theme('colors.teal.600');
+  --primary-700: theme('colors.teal.700');
+  --primary-800: theme('colors.teal.800');
+  --primary-900: theme('colors.teal.900');
+}
+
+/* Teal Theme */
+.theme-teal {
+  --primary-50: theme('colors.teal.50');
+  --primary-100: theme('colors.teal.100');
+  --primary-200: theme('colors.teal.200');
+  --primary-300: theme('colors.teal.300');
+  --primary-400: theme('colors.teal.400');
+  --primary-500: theme('colors.teal.500');
+  --primary-600: theme('colors.teal.600');
+  --primary-700: theme('colors.teal.700');
+  --primary-800: theme('colors.teal.800');
+  --primary-900: theme('colors.teal.900');
+}
+
+/* Blue Theme */
+.theme-blue {
+  --primary-50: theme('colors.blue.50');
+  --primary-100: theme('colors.blue.100');
+  --primary-200: theme('colors.blue.200');
+  --primary-300: theme('colors.blue.300');
+  --primary-400: theme('colors.blue.400');
+  --primary-500: theme('colors.blue.500');
+  --primary-600: theme('colors.blue.600');
+  --primary-700: theme('colors.blue.700');
+  --primary-800: theme('colors.blue.800');
+  --primary-900: theme('colors.blue.900');
+}
+
+/* Purple Theme */
+.theme-purple {
+  --primary-50: theme('colors.purple.50');
+  --primary-100: theme('colors.purple.100');
+  --primary-200: theme('colors.purple.200');
+  --primary-300: theme('colors.purple.300');
+  --primary-400: theme('colors.purple.400');
+  --primary-500: theme('colors.purple.500');
+  --primary-600: theme('colors.purple.600');
+  --primary-700: theme('colors.purple.700');
+  --primary-800: theme('colors.purple.800');
+  --primary-900: theme('colors.purple.900');
+}
+
+/* Green Theme */
+.theme-green {
+  --primary-50: theme('colors.green.50');
+  --primary-100: theme('colors.green.100');
+  --primary-200: theme('colors.green.200');
+  --primary-300: theme('colors.green.300');
+  --primary-400: theme('colors.green.400');
+  --primary-500: theme('colors.green.500');
+  --primary-600: theme('colors.green.600');
+  --primary-700: theme('colors.green.700');
+  --primary-800: theme('colors.green.800');
+  --primary-900: theme('colors.green.900');
+}
+
+/* Pink Theme */
+.theme-pink {
+  --primary-50: theme('colors.pink.50');
+  --primary-100: theme('colors.pink.100');
+  --primary-200: theme('colors.pink.200');
+  --primary-300: theme('colors.pink.300');
+  --primary-400: theme('colors.pink.400');
+  --primary-500: theme('colors.pink.500');
+  --primary-600: theme('colors.pink.600');
+  --primary-700: theme('colors.pink.700');
+  --primary-800: theme('colors.pink.800');
+  --primary-900: theme('colors.pink.900');
+}
+
+/* Font Size Classes */
+.text-sm body {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.text-base body {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.text-lg body {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+
+.text-xl body {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+/* Dark mode specific styling */
+.dark {
+  background-color: theme('colors.gray.900');
+  color: theme('colors.white');
+}
+
+/* Study mode components styling */
+.study-mode-card {
+  @apply transition-all duration-300 hover:scale-105;
+}
+
+.study-mode-card.completed {
+  @apply ring-2 ring-green-400;
+}
+
+/* Settings page specific styling */
+.settings-tab.active {
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  color: white;
+  box-shadow: theme('boxShadow.md');
+}
+
+.settings-tab:not(.active):hover {
+  background-color: var(--primary-50);
+}
+
+.dark .settings-tab:not(.active):hover {
+  background-color: theme('colors.gray.700');
+}
+
+/* Toggle switch styling */
+.toggle-switch.checked {
+  background-color: var(--primary-500);
+}
+
+.toggle-switch:not(.checked) {
+  background-color: theme('colors.gray.300');
+}
+
+.dark .toggle-switch:not(.checked) {
+  background-color: theme('colors.gray.600');
+}
+
+/* Music player styling */
+.music-category-tab.active {
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  color: white;
+  box-shadow: theme('boxShadow.lg');
+}
+
+.music-track-card.playing {
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  color: white;
+  border-color: var(--primary-500);
+  box-shadow: theme('boxShadow.xl');
+}
+
+/* Timer circle styling */
+.timer-circle-bg {
+  color: var(--primary-100);
+}
+
+.dark .timer-circle-bg {
+  color: theme('colors.gray.700');
+}
+
+.timer-circle-progress {
+  color: var(--primary-500);
+}
+
+/* Button variants */
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+  color: white;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  box-shadow: theme('boxShadow.xl');
+}
+
+.btn-secondary {
+  background-color: var(--primary-100);
+  color: var(--primary-600);
+}
+
+.btn-secondary:hover {
+  background-color: var(--primary-200);
+}
+
+.dark .btn-secondary {
+  background-color: theme('colors.gray.700');
+  color: theme('colors.gray.300');
+}
+
+.dark .btn-secondary:hover {
+  background-color: theme('colors.gray.600');
+}
+
+/* Dashboard quick action buttons */
+.quick-action-primary {
+  background-color: var(--primary-100);
+}
+
+.quick-action-primary:hover {
+  background-color: var(--primary-200);
+}
+
+.dark .quick-action-primary {
+  background-color: color-mix(in srgb, var(--primary-900) 40%, transparent);
+}
+
+.dark .quick-action-primary:hover {
+  background-color: color-mix(in srgb, var(--primary-900) 60%, transparent);
+}
+
+/* Responsive font scaling */
+@media (max-width: 640px) {
+  .text-sm body { font-size: 0.8rem; }
+  .text-base body { font-size: 0.9rem; }
+  .text-lg body { font-size: 1rem; }
+  .text-xl body { font-size: 1.1rem; }
+}
+
+@media (min-width: 1024px) {
+  .text-sm body { font-size: 0.875rem; }
+  .text-base body { font-size: 1rem; }
+  .text-lg body { font-size: 1.25rem; }
+  .text-xl body { font-size: 1.5rem; }
+}

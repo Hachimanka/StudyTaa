@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import TopNav from '../components/TopNav'
 import ChatWidget from '../components/ChatWidget'
+import { useSettings } from '../context/SettingsContext'
 import axios from 'axios'
 
 // Event Modal Component
-function EventModal({ isOpen, onClose, event, onSave, onDelete, date }) {
+function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, themeColors }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -58,15 +59,15 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date }) {
 
   return (
     <div className="fixed inset-0 backdrop-blur-md backdrop-brightness-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto`}>
         <div className="p-5">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
               {event ? 'Edit Event' : 'Add Event'}
             </h2>
             <button
               onClick={onClose}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              className={`p-1.5 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg transition-colors`}
             >
               <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
@@ -76,33 +77,33 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date }) {
 
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+              <label className={`block text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Title *</label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({...formData, title: e.target.value})}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className={`w-full p-2.5 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors?.primary || 'teal'}-500 focus:border-transparent`}
                 placeholder="Event title"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Time</label>
                 <input
                   type="time"
                   value={formData.time}
                   onChange={(e) => setFormData({...formData, time: e.target.value})}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className={`w-full p-2.5 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors?.primary || 'teal'}-500 focus:border-transparent`}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Priority</label>
                 <select
                   value={formData.priority}
                   onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className={`w-full p-2.5 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors?.primary || 'teal'}-500 focus:border-transparent`}
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -112,11 +113,11 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <label className={`block text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Category</label>
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({...formData, category: e.target.value})}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className={`w-full p-2.5 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors?.primary || 'teal'}-500 focus:border-transparent`}
               >
                 <option value="general">General</option>
                 <option value="study">Study</option>
@@ -128,11 +129,11 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label className={`block text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Description</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent h-16 resize-none"
+                className={`w-full p-2.5 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors?.primary || 'teal'}-500 focus:border-transparent h-16 resize-none`}
                 placeholder="Event description"
               />
             </div>
@@ -143,16 +144,16 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date }) {
                 id="reminder"
                 checked={formData.reminder}
                 onChange={(e) => setFormData({...formData, reminder: e.target.checked})}
-                className="mr-2 h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                className={`mr-2 h-4 w-4 text-${themeColors?.primary || 'teal'}-600 focus:ring-${themeColors?.primary || 'teal'}-500 border-gray-300 rounded`}
               />
-              <label htmlFor="reminder" className="text-sm text-gray-700">Set reminder</label>
+              <label htmlFor="reminder" className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Set reminder</label>
             </div>
           </div>
 
           <div className="flex gap-2 mt-5">
             <button
               onClick={handleSave}
-              className="flex-1 px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
+              className={`flex-1 px-3 py-2 bg-${themeColors?.primary || 'teal'}-600 text-white rounded-lg hover:bg-${themeColors?.primary || 'teal'}-700 transition-colors text-sm font-medium`}
             >
               {event ? 'Update' : 'Add'} Event
             </button>
@@ -166,7 +167,7 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date }) {
             )}
             <button
               onClick={onClose}
-              className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+              className={`px-3 py-2 ${darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} rounded-lg transition-colors text-sm font-medium`}
             >
               Cancel
             </button>
@@ -341,6 +342,13 @@ const preprocessTextForAI = (text) => {
 };
 
 export default function Calendar(){
+  const { 
+    darkMode, 
+    getThemeColors 
+  } = useSettings();
+  
+  const themeColors = getThemeColors();
+  
   // Calendar state
   const [events, setEvents] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -847,19 +855,19 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className={`flex min-h-screen ${darkMode ? 'bg-gray-900' : ''}`}>
       <Sidebar />
       <main className="flex-1 p-12 ml-20 md:ml-30">
         <ChatWidget />
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h1 className="text-4xl font-bold mt-6">Smart Calendar</h1>
-            <p className="mt-2 text-gray-600">Manage your study schedule with intelligent event organization</p>
+            <h1 className={`text-4xl font-bold mt-6 bg-gradient-to-r ${themeColors.gradient} bg-clip-text text-transparent`}>Smart Calendar</h1>
+            <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Manage your study schedule with intelligent event organization</p>
           </div>
           <div className="mt-6 flex gap-2">
             <button
               onClick={() => {setSelectedDate(new Date()); setSelectedEvent(null); setIsModalOpen(true);}}
-              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2"
+              className={`px-4 py-2 bg-${themeColors.primary}-600 text-white rounded-lg hover:bg-${themeColors.primary}-700 transition-colors flex items-center gap-2`}
             >
               <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
@@ -871,7 +879,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         </div>
 
         {/* Search and Filter Bar */}
-        <div className="mb-6 bg-white rounded-xl shadow p-4">
+        <div className={`mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-4`}>
           <div className="flex flex-col md:flex-row gap-4 items-center">
             <div className="flex-1 relative">
               <input
@@ -879,15 +887,15 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                 placeholder="Search events by title, description, or category..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className={`w-full pl-10 pr-10 py-2 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors.primary}-500 focus:border-transparent`}
               />
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="absolute left-3 top-2.5 text-gray-400">
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className={`absolute left-3 top-2.5 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                 <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
               </svg>
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 transition-colors"
+                  className={`absolute right-3 top-2.5 ${darkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'} transition-colors`}
                   title="Clear search"
                 >
                   <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -898,17 +906,17 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             </div>
             
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Upload Any File:</label>
+              <label className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Upload Any File:</label>
               <input 
                 type="file" 
                 accept="*/*" 
                 onChange={handleCalendarUpload} 
-                className="file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 file:cursor-pointer cursor-pointer text-sm" 
+                className={`file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:${themeColors.light} file:${themeColors.text} hover:file:${themeColors.hover} file:cursor-pointer cursor-pointer text-sm`} 
                 title="Upload any file type - PDF, Word, Excel, images, text files, etc."
               />
               {uploading && (
-                <div className="flex items-center gap-2 text-teal-600">
-                  <div className="w-4 h-4 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className={`flex items-center gap-2 ${themeColors.text}`}>
+                  <div className={`w-4 h-4 border-2 border-${themeColors.primary}-600 border-t-transparent rounded-full animate-spin`}></div>
                   <span className="text-sm">Processing...</span>
                 </div>
               )}
@@ -940,12 +948,12 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         )}
 
         {/* Calendar grid with year/month selectors */}
-        <div className="bg-white rounded-xl shadow p-6 mb-8">
+        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 mb-8`}>
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setViewMonth(viewMonth === 0 ? 11 : viewMonth - 1)} 
-                className="p-2 rounded-lg bg-gray-100 hover:bg-teal-100 hover:text-teal-700 transition-all duration-200 flex items-center justify-center group"
+                className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:' + themeColors.light} hover:${themeColors.text} transition-all duration-200 flex items-center justify-center group`}
               >
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="group-hover:scale-110 transition-transform">
                   <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
@@ -956,7 +964,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                 <select 
                   value={viewMonth} 
                   onChange={e => setViewMonth(Number(e.target.value))} 
-                  className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent hover:border-teal-300 transition-colors cursor-pointer"
+                  className={`appearance-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-700'} rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-${themeColors.primary}-500 focus:border-transparent hover:border-${themeColors.primary}-300 transition-colors cursor-pointer`}
                 >
                   {[...Array(12)].map((_, i) => (
                     <option key={i} value={i}>{new Date(viewYear, i).toLocaleString('default', { month: 'long' })}</option>
@@ -973,7 +981,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                 <select 
                   value={viewYear} 
                   onChange={e => setViewYear(Number(e.target.value))} 
-                  className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent hover:border-teal-300 transition-colors cursor-pointer"
+                  className={`appearance-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-700'} rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-${themeColors.primary}-500 focus:border-transparent hover:border-${themeColors.primary}-300 transition-colors cursor-pointer`}
                 >
                   {[...Array(11)].map((_, i) => {
                     const y = new Date().getFullYear() - 5 + i;
@@ -981,7 +989,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                   })}
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                  <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16" className="text-gray-400">
+                  <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16" className={`${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                     <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
                   </svg>
                 </div>
@@ -989,18 +997,18 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
               
               <button 
                 onClick={() => setViewMonth(viewMonth === 11 ? 0 : viewMonth + 1)} 
-                className="p-2 rounded-lg bg-gray-100 hover:bg-teal-100 hover:text-teal-700 transition-all duration-200 flex items-center justify-center group"
+                className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:' + themeColors.light} hover:${themeColors.text} transition-all duration-200 flex items-center justify-center group`}
               >
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="group-hover:scale-110 transition-transform">
                   <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
                 </svg>
               </button>
             </div>
-            <span className="text-xl font-semibold text-teal-700">{new Date(viewYear, viewMonth).toLocaleString('default', { month: 'long' })} {viewYear}</span>
+            <span className={`text-xl font-semibold ${themeColors.textDark}`}>{new Date(viewYear, viewMonth).toLocaleString('default', { month: 'long' })} {viewYear}</span>
           </div>
           <div className="grid grid-cols-7 gap-2">
             {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => (
-              <div key={d} className="text-center font-medium text-gray-500">{d}</div>
+              <div key={d} className={`text-center font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{d}</div>
             ))}
             {weeks.map((week, wi) => week.map((d, di) => {
               const dayEvents = d ? getFilteredEventsForDay(d) : [];
@@ -1011,9 +1019,9 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                 <div 
                   key={wi + '-' + di} 
                   className={`h-20 flex flex-col border rounded-lg cursor-pointer transition-all p-1 ${
-                    d ? 'hover:bg-teal-50 hover:shadow-md' : 'bg-gray-50'
+                    d ? `hover:${themeColors.light} hover:shadow-md` : `${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`
                   } ${
-                    isToday(d) ? 'ring-2 ring-teal-500 bg-teal-50' : 'border-gray-200'
+                    isToday(d) ? `ring-2 ring-${themeColors.primary}-500 ${themeColors.light}` : `${darkMode ? 'border-gray-600' : 'border-gray-200'}`
                   } ${
                     searchTerm.trim() && dayEvents.length === 0 && allDayEvents.length > 0 ? 'opacity-50' : ''
                   }`} 
@@ -1021,7 +1029,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                 >
                   <div className="flex justify-between items-start mb-1">
                     <span className={`text-sm font-medium ${
-                      d ? (isToday(d) ? 'text-teal-700' : 'text-gray-800') : 'text-gray-300'
+                      d ? (isToday(d) ? themeColors.textDark : `${darkMode ? 'text-white' : 'text-gray-800'}`) : `${darkMode ? 'text-gray-600' : 'text-gray-300'}`
                     }`}>
                       {d || ''}
                     </span>
@@ -1071,9 +1079,9 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         {/* Upcoming Events and Statistics */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Upcoming Events */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-teal-600">
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6`}>
+            <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : ''}`}>
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className={`${themeColors.text}`}>
                 <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
                 <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
               </svg>
@@ -1088,28 +1096,28 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                   <div
                     key={i}
                     onClick={() => handleEventClick(ev, { stopPropagation: () => {} })}
-                    className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    className={`p-3 border ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'} rounded-lg cursor-pointer transition-colors`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span>{getPriorityIndicator(ev.priority)}</span>
-                        <span className="font-medium text-gray-900">{ev.title}</span>
+                        <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{ev.title}</span>
                         <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor(ev.category)}`}>
                           {ev.category}
                         </span>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm text-gray-600">{ev.date.toLocaleDateString()}</div>
-                        {ev.time && <div className="text-xs text-gray-500">{ev.time}</div>}
+                        <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{ev.date.toLocaleDateString()}</div>
+                        {ev.time && <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{ev.time}</div>}
                       </div>
                     </div>
                     {ev.description && (
-                      <p className="text-sm text-gray-600 mt-1 truncate">{ev.description}</p>
+                      <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} mt-1 truncate`}>{ev.description}</p>
                     )}
                   </div>
                 ))}
               {filteredEvents.filter(ev => ev.date >= today).length === 0 && (
-                <div className="text-center text-gray-500 py-8">
+                <div className={`text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'} py-8`}>
                   No upcoming events
                 </div>
               )}
@@ -1117,17 +1125,17 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           </div>
 
           {/* Calendar Statistics */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-teal-600">
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6`}>
+            <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : ''}`}>
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className={`${themeColors.text}`}>
                 <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5v12h-2V2h2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zM1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
               </svg>
               Calendar Stats
             </h2>
             <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-teal-50 rounded-lg">
-                <div className="text-2xl font-bold text-teal-700">{events.length}</div>
-                <div className="text-sm text-teal-600">Total Events</div>
+              <div className={`text-center p-3 ${themeColors.light} rounded-lg`}>
+                <div className={`text-2xl font-bold ${themeColors.textDark}`}>{events.length}</div>
+                <div className={`text-sm ${themeColors.text}`}>Total Events</div>
               </div>
               <div className="text-center p-3 bg-blue-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-700">
@@ -1151,7 +1159,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
 
             {/* Category Distribution */}
             <div className="mt-4">
-              <h3 className="font-medium text-gray-700 mb-2">Categories</h3>
+              <h3 className={`font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-2`}>Categories</h3>
               {['study', 'exam', 'assignment', 'meeting', 'personal', 'general'].map(cat => {
                 const count = events.filter(ev => ev.category === cat).length;
                 if (count === 0) return null;
@@ -1160,7 +1168,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                     <span className={`px-2 py-1 rounded text-xs ${getCategoryColor(cat)} capitalize`}>
                       {cat}
                     </span>
-                    <span className="text-sm text-gray-600">{count}</span>
+                    <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{count}</span>
                   </div>
                 );
               })}
@@ -1176,6 +1184,8 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           onSave={handleSaveEvent}
           onDelete={handleDeleteEvent}
           date={selectedDate}
+          darkMode={darkMode}
+          themeColors={themeColors}
         />
       </main>
     </div>

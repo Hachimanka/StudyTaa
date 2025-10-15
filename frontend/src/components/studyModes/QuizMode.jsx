@@ -78,24 +78,40 @@ export default function QuizMode({ content, currentIndex, selectedAnswer, handle
           <div className="bg-white rounded-xl p-6 shadow">
             <h3 className="text-xl font-semibold mb-4">{qText}</h3>
             <div className="space-y-3">
-              {optionsArr.map((option, index) => (
-                <button
-                  key={index}
-                  className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
-                    selected === index
-                      ? index === correctIndex
-                        ? 'border-green-500 bg-green-50 text-green-800'
-                        : 'border-red-500 bg-red-50 text-red-800'
-                      : 'border-gray-200 hover:border-teal-300 hover:bg-teal-50'
-                  }`}
-                  onClick={() => {
-                    handleAnswerSelect(index, index === correctIndex);
-                  }}
-                  disabled={selected !== null}
-                >
-                  {option}
-                </button>
-              ))}
+              {optionsArr.map((option, index) => {
+                let buttonClass = 'border-gray-200 hover:border-teal-300 hover:bg-teal-50';
+                
+                if (selected !== null) {
+                  // First check if this is the correct answer
+                  if (index === correctIndex) {
+                    // Always highlight the correct answer in green when an answer is selected
+                    buttonClass = 'border-green-500 bg-green-50 text-green-800';
+                  }
+                  // Then check if this is the selected wrong answer (this can override correct answer styling)
+                  else if (selected === index && index !== correctIndex) {
+                    // Highlight the selected wrong answer in red
+                    buttonClass = 'border-red-500 bg-red-50 text-red-800';
+                  }
+                  // Other unselected options
+                  else if (selected !== index && index !== correctIndex) {
+                    // Other options remain neutral
+                    buttonClass = 'border-gray-200 bg-gray-50 text-gray-500';
+                  }
+                }
+
+                return (
+                  <button
+                    key={index}
+                    className={`w-full p-3 rounded-lg border-2 transition-all text-left ${buttonClass}`}
+                    onClick={() => {
+                      handleAnswerSelect(index, index === correctIndex);
+                    }}
+                    disabled={selected !== null}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

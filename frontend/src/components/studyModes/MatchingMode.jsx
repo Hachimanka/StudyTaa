@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function MatchingMode({ content, matchedPairs, selectedTerm, setSelectedTerm, selectedDef, setSelectedDef, matchingScore }) {
+export default function MatchingMode({ content, matchedPairs, selectedTerm, setSelectedTerm, selectedDef, setSelectedDef, matchingScore, onComplete }) {
   if (content.length === 0) {
     return (
       <div className="space-y-6">
@@ -42,6 +42,84 @@ export default function MatchingMode({ content, matchedPairs, selectedTerm, setS
   const unmatchedTerms = shuffledTerms.filter(t => !matchedPairs.some(mp => mp.termIdx === t.idx));
   const unmatchedDefs = shuffledDefs.filter(d => !matchedPairs.some(mp => mp.defIdx === d.idx));
   const totalPairs = Math.min(shuffledTerms.length, shuffledDefs.length);
+  
+  // Check if completed and notify parent
+  const isCompleted = matchedPairs.length === totalPairs && totalPairs > 0;
+  React.useEffect(() => {
+    if (isCompleted && onComplete) {
+      onComplete(true);
+    }
+  }, [isCompleted, onComplete]);
+
+  // If completed, show results and review
+  if (isCompleted) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 shadow-lg border border-emerald-200">
+          <div className="text-center mb-6">
+            <div className="text-4xl mb-2">🎉</div>
+            <h2 className="text-2xl font-bold text-emerald-800 mb-2">
+              Matching Completed!
+            </h2>
+            <p className="text-emerald-700">
+              You have matched all {totalPairs} pairs!
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 mb-6">
+            <div className="text-4xl font-bold text-emerald-700 mb-2">
+              {matchingScore} / {totalPairs}
+            </div>
+            <div className="text-xl font-semibold text-emerald-600 mb-1">
+              {Math.round((matchingScore / totalPairs) * 100)}% Correct
+            </div>
+            <div className={`text-lg font-medium ${
+              matchingScore === totalPairs ? 'text-emerald-600' : 
+              matchingScore >= totalPairs * 0.8 ? 'text-emerald-600' :
+              matchingScore >= totalPairs * 0.6 ? 'text-yellow-600' : 'text-red-600'
+            }`}>
+              {matchingScore === totalPairs ? 'Perfect Score! 🏆' :
+               matchingScore >= totalPairs * 0.8 ? 'Great Job! 🌟' :
+               matchingScore >= totalPairs * 0.6 ? 'Good Effort! 👍' : 'Keep Practicing! 💪'}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">📝 Review Your Answers</h3>
+            <div className="space-y-3">
+              {matchedPairs.map((pair, index) => {
+                const term = shuffledTerms.find(t => t.idx === pair.termIdx);
+                const definition = shuffledDefs.find(d => d.idx === pair.defIdx);
+                const isCorrect = pair.termIdx === pair.defIdx;
+                
+                return (
+                  <div key={index} className={`p-4 rounded-lg border-2 ${
+                    isCorrect ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-800">{term?.value}</div>
+                        <div className="text-sm text-gray-600 mt-1">↔ {definition?.value}</div>
+                      </div>
+                      <div className={`text-2xl ${isCorrect ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {isCorrect ? '✅' : '❌'}
+                      </div>
+                    </div>
+                    {!isCorrect && (
+                      <div className="mt-2 text-sm text-gray-600 bg-white p-2 rounded border">
+                        <strong>Correct match:</strong> {term?.value} ↔ {content.find(c => c.left === term?.value || c.term === term?.value)?.right || content.find(c => c.left === term?.value || c.term === term?.value)?.definition || content.find(c => c.left === term?.value || c.term === term?.value)?.answer || 'N/A'}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl p-6 shadow">

@@ -6,7 +6,10 @@ export const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
-      return localStorage.getItem('stuyta_auth') === '1'
+      // Clear any stale authentication state on app load
+      const authState = localStorage.getItem('stuyta_auth');
+      console.log('Initial auth state from localStorage:', authState);
+      return authState === '1'
     } catch (e) {
       return false
     }
@@ -34,6 +37,8 @@ export function AuthProvider({ children }) {
       if (res.ok) {
         setIsAuthenticated(true);
         setUser(data.user);
+        // Dispatch custom event to notify other components
+        window.dispatchEvent(new Event('authChanged'));
         if (cb) cb();
       } else {
         alert(data.message || 'Login failed');
@@ -83,8 +88,18 @@ export function AuthProvider({ children }) {
   };
 
   const logout = (cb) => {
-    setIsAuthenticated(false)
-    if (cb) cb()
+    console.log('Logging out...');
+    setIsAuthenticated(false);
+    setUser(null);
+    try {
+      localStorage.removeItem('stuyta_auth');
+      localStorage.removeItem('token');
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new Event('authChanged'));
+    } catch (e) {
+      console.error('Error clearing localStorage:', e);
+    }
+    if (cb) cb();
   }
 
   return (

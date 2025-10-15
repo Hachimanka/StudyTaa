@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const { isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
 
   // ✅ Initialize from localStorage right away
   const [isDark, setIsDark] = useState(() => {
@@ -14,6 +17,10 @@ export default function Sidebar() {
   });
 
   const location = useLocation();
+
+  const handleLogout = () => {
+    logout(() => navigate("/"));
+  };
 
   useEffect(() => {
     const handleThemeChange = () => {
@@ -47,12 +54,6 @@ export default function Sidebar() {
     ) },
     { name: "Library", path: "/library", icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 19.5V6a1 1 0 011-1h3v15M13 4h6a1 1 0 011 1v15" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-    ) },
-    { name: "Progress", path: "/progress", icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 12h4v6H4zM10 8h4v10h-4zM16 2h4v16h-4z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
-    ) },
-    { name: "Quote", path: "/quote", icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 7h3v6H5v-2a4 4 0 014-4zM16 7h3v6h-5v-2a4 4 0 014-4z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
     ) },
     { name: "Music", path: "/music", icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V5l10-2v13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="7" cy="18" r="2" stroke="currentColor" strokeWidth="1.2"/></svg>
@@ -130,16 +131,17 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Logout */}
-      <div className="px-1.5 pb-2 mt-auto">
-        <Link
-          to="/logout"
-          className={`
-            flex items-center p-3 rounded-xl
-            ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-gray-100"}
-            transition-colors duration-200
-          `}
-        >
+      {/* Logout - Only show when authenticated */}
+      {isAuthenticated && (
+        <div className="px-1.5 pb-2 mt-auto">
+          <button
+            onClick={handleLogout}
+            className={`
+              flex items-center p-3 rounded-xl w-full text-left
+              ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-gray-100"}
+              transition-colors duration-200
+            `}
+          >
           <span className="text-xl w-7 text-center flex-shrink-0" style={{lineHeight:0}}>
             {/* Use same neutral icons as TopNav: show sun when dark (to indicate toggle), moon when light */}
             {isDark ? (
@@ -148,15 +150,16 @@ export default function Sidebar() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="1.5" fill="none" /></svg>
             )}
           </span>
-          <span
-            className={`ml-3 ${
-              isCollapsed ? "opacity-0" : "opacity-100"
-            } transition-opacity duration-300 whitespace-nowrap`}
-          >
-            Logout
-          </span>
-        </Link>
-      </div>
+            <span
+              className={`ml-3 ${
+                isCollapsed ? "opacity-0" : "opacity-100"
+              } transition-opacity duration-300 whitespace-nowrap`}
+            >
+              Logout
+            </span>
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

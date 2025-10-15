@@ -1,15 +1,36 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from 'react-router-dom'
 import { useAuth } from "../context/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function TopNav() {
-  const { isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const [forceUpdate, setForceUpdate] = useState(0);
 
-  const onLogout = () => {
-    logout(() => navigate("/"));
-  };
+  // Force re-render when localStorage changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setForceUpdate(prev => prev + 1);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom auth events
+    const handleAuthChange = () => {
+      setForceUpdate(prev => prev + 1);
+    };
+    
+    window.addEventListener('authChanged', handleAuthChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('authChanged', handleAuthChange);
+    };
+  }, []);
+
+  // Debug log to check authentication state
+  console.log('TopNav isAuthenticated:', isAuthenticated);
+  console.log('TopNav localStorage stuyta_auth:', localStorage.getItem('stuyta_auth'));
 
   // Theme (dark mode) state: persisted to localStorage and applied via a `dark` class
   const [isDark, setIsDark] = useState(() => {
@@ -74,19 +95,18 @@ export default function TopNav() {
         </div>
 
         {/* Auth Section */}
-        <div className="flex items-center space-x-4">
-          {/* Dark Mode Button Placeholder (optional to implement later) */}
-          {/* neutral SVG icons instead of emoji */}
+        <div className="flex items-center space-x-3">
+          {/* Dark Mode Toggle */}
           <button
             onClick={() => setIsDark(d => !d)}
             aria-label="Toggle dark mode"
             title="Toggle Dark Mode"
-            className="theme-toggle p-3 rounded-2xl hover:bg-gray-100 transition-all duration-300 interactive"
+            className="theme-toggle p-2 rounded-xl hover:bg-gray-100 transition-all duration-300 interactive flex-shrink-0"
             style={{ lineHeight: 0 }}
           >
             {isDark ? (
               /* neutral sun */
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                 <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.5" />
                 <g stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
                   <path d="M12 1v2" />
@@ -101,35 +121,27 @@ export default function TopNav() {
               </svg>
             ) : (
               /* neutral crescent moon */
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                 <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="1.5" fill="none" />
               </svg>
             )}
           </button>
 
-          {isAuthenticated ? (
-            <button
-              onClick={onLogout}
-              className="btn-modern btn-secondary text-caption"
+          {/* Authentication Buttons */}
+          <div className="flex items-center space-x-2">
+            <Link
+              to="/login"
+              className="btn-modern btn-secondary text-caption whitespace-nowrap"
             >
-              Logout
-            </button>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="btn-modern btn-secondary text-caption"
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className="btn-modern btn-primary text-caption"
-              >
-                Sign Up
-              </Link>
-            </>
-          )}
+              Login
+            </Link>
+            <Link
+              to="/register"
+              className="btn-modern btn-primary text-caption whitespace-nowrap"
+            >
+              Sign Up
+            </Link>
+          </div>
         </div>
       </div>
     </nav>

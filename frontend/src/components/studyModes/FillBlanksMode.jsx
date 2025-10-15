@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function FillBlanksMode({ content, currentIndex, userAnswer, setUserAnswer, showAnswer, setShowAnswer, score, setScore }) {
+export default function FillBlanksMode({ content, currentIndex, userAnswer, setUserAnswer, showAnswer, setShowAnswer, score, setScore, onComplete, answeredQuestions = [] }) {
   if (content.length === 0) {
     return (
       <div className="space-y-6">
@@ -22,6 +22,98 @@ export default function FillBlanksMode({ content, currentIndex, userAnswer, setU
   const blankText = item.title || item.sentence || item.text || item.question || item.statement || '';
   const rawAnswer = item.content || item.answer || '';
   const answerText = rawAnswer.split(' ').slice(0, 2).join(' ');
+  
+  // Check if all questions have been answered
+  const isCompleted = answeredQuestions.length === content.length && content.length > 0;
+  
+  // Notify parent when completed
+  React.useEffect(() => {
+    if (isCompleted && onComplete) {
+      onComplete(true);
+    }
+  }, [isCompleted, onComplete]);
+
+  // If completed, show results
+  if (isCompleted) {
+    const percentage = Math.round((score / content.length) * 100);
+    const performanceMessage = 
+      score === content.length ? 'Perfect Score! 🏆' :
+      score >= content.length * 0.8 ? 'Great Job! 🌟' :
+      score >= content.length * 0.6 ? 'Good Effort! 👍' : 'Keep Practicing! 💪';
+    const performanceColor = 
+      score === content.length ? 'text-emerald-600' :
+      score >= content.length * 0.8 ? 'text-emerald-600' :
+      score >= content.length * 0.6 ? 'text-yellow-600' : 'text-red-600';
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 shadow-lg border border-emerald-200">
+          <div className="text-center mb-6">
+            <div className="text-4xl mb-2">🎉</div>
+            <h2 className="text-2xl font-bold text-emerald-800 mb-2">
+              Fill-in-the-Blanks Completed!
+            </h2>
+            <p className="text-emerald-700">
+              You have answered all {content.length} questions!
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 mb-6">
+            <div className="text-4xl font-bold text-emerald-700 mb-2">
+              {score} / {content.length}
+            </div>
+            <div className="text-xl font-semibold text-emerald-600 mb-1">
+              {percentage}% Correct
+            </div>
+            <div className={`text-lg font-medium ${performanceColor}`}>
+              {performanceMessage}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">📝 Review Your Answers</h3>
+            <div className="space-y-4">
+              {answeredQuestions.map((answered, index) => {
+                const questionItem = content[answered.questionIndex];
+                const questionText = questionItem.title || questionItem.sentence || questionItem.text || questionItem.question || questionItem.statement || '';
+                const correctAnswer = questionItem.content || questionItem.answer || '';
+                const correctAnswerText = correctAnswer.split(' ').slice(0, 2).join(' ');
+                const isCorrect = answered.userAnswer.toLowerCase().trim() === correctAnswerText.toLowerCase().trim();
+                
+                return (
+                  <div key={index} className={`p-4 rounded-lg border-2 ${
+                    isCorrect ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'
+                  }`}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-800 mb-2">
+                          <strong>Q{answered.questionIndex + 1}:</strong> {questionText}
+                        </div>
+                        <div className="text-sm space-y-1">
+                          <div className={`${isCorrect ? 'text-emerald-700' : 'text-red-700'}`}>
+                            <strong>Your answer:</strong> {answered.userAnswer}
+                          </div>
+                          {!isCorrect && (
+                            <div className="text-emerald-700">
+                              <strong>Correct answer:</strong> {correctAnswerText}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className={`text-2xl ml-4 ${isCorrect ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {isCorrect ? '✅' : '❌'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl p-6 shadow">

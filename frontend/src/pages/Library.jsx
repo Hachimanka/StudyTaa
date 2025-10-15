@@ -3,6 +3,7 @@ import Sidebar from '../components/Sidebar';
 import ChatWidget from '../components/ChatWidget';
 import { useAuth } from '../context/AuthContext';
 
+
 // File Modal Component
 function FileModal({ file, isOpen, onClose, onDownload }) {
   if (!isOpen || !file) return null;
@@ -893,7 +894,7 @@ export default function Library() {
           <ChatWidget />
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <div class="loading loading-spinner text-primary"></div>
               <p className="mt-4 text-gray-600">Loading your library...</p>
             </div>
           </div>

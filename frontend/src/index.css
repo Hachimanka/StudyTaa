@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin 'daisyui';
 
 /* small layout helpers used by the app */
 html, body, #root { height: 100%; }

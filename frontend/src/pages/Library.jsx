@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import Sidebar from '../components/Sidebar';
 import ChatWidget from '../components/ChatWidget';
 import { useAuth } from '../context/AuthContext';
 
 // File Modal Component
-function FileModal({ file, isOpen, onClose, onDownload }) {
+const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload }) {
   if (!isOpen || !file) return null;
 
   const getFileIcon = (fileName) => {
@@ -283,9 +283,9 @@ function FileModal({ file, isOpen, onClose, onDownload }) {
       </div>
     </div>
   );
-}
+});
 
-function Folder({ folder, onAddFile, onAddFolder, onDeleteFile, onDeleteFolder, onViewFile, level = 0 }) {
+const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFile, onDeleteFolder, onViewFile, level = 0 }) {
   const [expanded, setExpanded] = useState(folder.expanded !== undefined ? folder.expanded : level === 0);
   const [showFileInput, setShowFileInput] = useState(false);
   const [showFolderInput, setShowFolderInput] = useState(false);
@@ -510,7 +510,7 @@ function Folder({ folder, onAddFile, onAddFolder, onDeleteFile, onDeleteFolder, 
       </div>
     </div>
   );
-}
+});
 
 export default function Library() {
   const { user } = useAuth();
@@ -643,25 +643,25 @@ export default function Library() {
   };
 
   // Count total files recursively
-  const countFiles = (folder) => {
+  const countFiles = useCallback((folder) => {
     let count = folder.files.length;
     folder.folders.forEach(subFolder => {
       count += countFiles(subFolder);
     });
     return count;
-  };
+  }, []);
 
   // Count total folders recursively (excluding root)
-  const countFolders = (folder) => {
+  const countFolders = useCallback((folder) => {
     let count = folder.folders.length;
     folder.folders.forEach(subFolder => {
       count += countFolders(subFolder);
     });
     return count;
-  };
+  }, []);
 
   // Add file to folder
-  const handleAddFile = async (folderId, file) => {
+  const handleAddFile = useCallback(async (folderId, file) => {
     if (!file || !user) return;
     
     try {
@@ -689,10 +689,10 @@ export default function Library() {
       console.error('Error uploading file:', error);
       setError('Failed to upload file. Please try again.');
     }
-  };
+  }, [user]);
 
   // Add folder to folder
-  const handleAddFolder = async (folderId, name) => {
+  const handleAddFolder = useCallback(async (folderId, name) => {
     if (!name || !user) return;
     
     try {
@@ -718,10 +718,10 @@ export default function Library() {
       console.error('Error creating folder:', error);
       setError('Failed to create folder. Please try again.');
     }
-  };
+  }, [user]);
 
   // Delete file from folder
-  const handleDeleteFile = async (folderId, fileIndex) => {
+  const handleDeleteFile = useCallback(async (folderId, fileIndex) => {
     if (!user) return;
     
     // Find the file to delete from current state
@@ -759,10 +759,10 @@ export default function Library() {
       console.error('Error deleting file:', error);
       setError('Failed to delete file. Please try again.');
     }
-  };
+  }, [user, root]);
 
   // Delete folder
-  const handleDeleteFolder = async (folderId) => {
+  const handleDeleteFolder = useCallback(async (folderId) => {
     if (!user || folderId === 'root') return;
     
     if (!window.confirm('Are you sure you want to delete this folder and all its contents?')) return;
@@ -785,16 +785,16 @@ export default function Library() {
       console.error('Error deleting folder:', error);
       setError('Failed to delete folder. Please try again.');
     }
-  };
+  }, [user]);
 
   // View file
-  const handleViewFile = (file) => {
+  const handleViewFile = useCallback((file) => {
     setSelectedFile(file);
     setIsModalOpen(true);
-  };
+  }, []);
 
   // Download file
-  const handleDownloadFile = async (file) => {
+  const handleDownloadFile = useCallback(async (file) => {
     try {
       if (file.downloadUrl) {
         // File is stored on server
@@ -832,16 +832,16 @@ export default function Library() {
       console.error('Error downloading file:', error);
       setError('Failed to download file. Please try again.');
     }
-  };
+  }, []);
 
   // Close modal
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
     setSelectedFile(null);
-  };
+  }, []);
 
   // Search functionality
-  const searchInFolder = (folder, term) => {
+  const searchInFolder = useCallback((folder, term) => {
     if (!term.trim()) return folder;
     
     const filteredFiles = folder.files.filter(file => 
@@ -862,30 +862,30 @@ export default function Library() {
       folders: filteredFolders,
       expanded: term.trim() ? true : folder.expanded // Auto-expand when searching
     };
-  };
+  }, []);
 
   // Quick upload functionality
-  const handleQuickUpload = () => {
+  const handleQuickUpload = useCallback(() => {
     setShowQuickUpload(true);
-  };
+  }, []);
 
-  const handleQuickUploadSubmit = async () => {
+  const handleQuickUploadSubmit = useCallback(async () => {
     if (quickUploadFile) {
       await handleAddFile('root', quickUploadFile);
       setQuickUploadFile(null);
       setShowQuickUpload(false);
     }
-  };
+  }, [quickUploadFile, handleAddFile]);
 
   // Import from Drive functionality (placeholder)
-  const handleImportFromDrive = () => {
+  const handleImportFromDrive = useCallback(() => {
     alert('Import from Drive functionality would connect to Google Drive API. This is a placeholder for demonstration.');
     // In a real implementation, this would:
     // 1. Open Google Drive picker
     // 2. Allow user to select files
     // 3. Download selected files
     // 4. Add them to the library
-  };
+  }, []);
 
   const totalFiles = countFiles(root);
   const totalFolders = countFolders(root);

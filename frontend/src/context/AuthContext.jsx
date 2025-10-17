@@ -37,6 +37,8 @@ export function AuthProvider({ children }) {
       if (res.ok) {
         setIsAuthenticated(true);
         setUser(data.user);
+        // Store user ID as token for authenticated API calls
+        localStorage.setItem('token', data.user._id);
         // Dispatch custom event to notify other components
         window.dispatchEvent(new Event('authChanged'));
         if (cb) cb();

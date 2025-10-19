@@ -4,7 +4,7 @@ export default function ChatWidget() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([
-    { from: 'bot', text: 'Hi! I can help summarize text, create flashcards, or answer questions about TecnnecT. Try asking me anything.' }
+    { from: 'bot', text: 'Hi! I can help summarize text, create flashcards, or answer questions about Lemivon. Try asking me anything.' }
   ])
   const listRef = useRef(null)
 

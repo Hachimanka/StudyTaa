@@ -60,10 +60,19 @@ export default function TopNav() {
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
         <div className="flex items-center space-x-3 animate-scaleIn">
-          <div className="w-10 h-10 gradient-primary rounded-2xl flex items-center justify-center animate-pulse-glow">
-            <span className="text-white font-bold text-xl">L</span>
+          <div className="w-10 h-10 flex items-center justify-center overflow-hidden animate-pulse-glow">
+            {/* Using public asset so path is absolute from site root */}
+              <img
+                src="/Lemivon.ico"
+                alt="Lemivon logo"
+                className="w-full h-full object-contain"
+                width={40}
+                height={40}
+                style={{ imageRendering: 'auto' }}
+                loading="eager"
+              />
           </div>
-  <span className="text-heading text-primary font-bold">Lemivon</span>
+          <span className="text-heading text-primary font-bold">Lemivon</span>
         </div>
 
         {/* Navigation Links */}

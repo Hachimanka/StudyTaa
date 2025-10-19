@@ -1,14 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import TopNav from '../components/TopNav'
 import ChatWidget from '../components/ChatWidget'
 import { useSettings } from '../context/SettingsContext'
+import { useAuth } from '../context/AuthContext'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 export default function Settings() {
   const {
     // Settings state
     darkMode,
-    language,
     fontSize,
     colorTheme,
     emailNotifications,
@@ -19,8 +20,8 @@ export default function Settings() {
     sessionDuration,
     autoSave,
     showProgress,
-    profileName,
-    email,
+  profileName,
+  email,
     twoFactorAuth,
     dataCollection,
     analytics,
@@ -28,7 +29,6 @@ export default function Settings() {
     
     // Setters
     setDarkMode,
-    setLanguage,
     setFontSize,
     setColorTheme,
     setEmailNotifications,
@@ -46,12 +46,22 @@ export default function Settings() {
     setAnalytics,
     setShareProgress,
     
-    // Functions
-    saveAllSettings,
-    resetSettings,
-    getThemeColors,
+  // Functions
+  saveAllSettings,
+  resetSettings,
+  getThemeColors,
     playSound
   } = useSettings()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(()=>{
+    // If navigated with state specifying a tab, activate it (e.g., from ChangePassword Cancel)
+    if(location?.state?.tab){
+      setActiveTab(location.state.tab)
+    }
+  }, [location])
   
   // Active settings tab
   const [activeTab, setActiveTab] = useState('appearance')
@@ -59,13 +69,20 @@ export default function Settings() {
   // Save settings with feedback
   const saveSettings = () => {
     const success = saveAllSettings()
-    if (success) {
+      if (success) {
       playSound('success')
       
-      // Show success message with theme colors
-      const themeColors = getThemeColors()
+      // Show success message using CSS variables so it follows the current theme
       const toast = document.createElement('div')
-      toast.className = `fixed top-4 right-4 ${themeColors.bg} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300`
+      toast.style.position = 'fixed'
+      toast.style.top = '1rem'
+      toast.style.right = '1rem'
+      toast.style.background = 'linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 60%, transparent))'
+      toast.style.color = 'white'
+      toast.style.padding = '0.5rem 1rem'
+      toast.style.borderRadius = '0.5rem'
+      toast.style.boxShadow = '0 8px 30px rgba(2,6,23,0.2)'
+      toast.style.zIndex = 50
       toast.textContent = '✅ Settings saved successfully!'
       document.body.appendChild(toast)
       setTimeout(() => {
@@ -119,8 +136,8 @@ export default function Settings() {
       case 'appearance':
         return (
           <div className="space-y-6">
-            <div className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-              <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+            <div className={`p-6 rounded-xl shadow-lg`} style={{ background: 'var(--surface)' }}>
+              <h3 className={`text-lg font-semibold mb-4`} style={{ color: 'var(--text)' }}>
                 Theme & Display
               </h3>
               
@@ -137,11 +154,8 @@ export default function Settings() {
                 <select
                   value={colorTheme}
                   onChange={(e) => setColorTheme(e.target.value)}
-                  className={`w-full p-3 border rounded-lg ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
+                  className={`w-full p-3 border rounded-lg`}
+                  style={{ background: 'var(--surface)', color: 'var(--text)' }}
                 >
                   <option value="teal">Teal</option>
                   <option value="blue">Blue</option>
@@ -158,11 +172,8 @@ export default function Settings() {
                 <select
                   value={fontSize}
                   onChange={(e) => setFontSize(e.target.value)}
-                  className={`w-full p-3 border rounded-lg ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
+                  className={`w-full p-3 border rounded-lg`}
+                  style={{ background: 'var(--surface)', color: 'var(--text)' }}
                 >
                   <option value="small">Small</option>
                   <option value="medium">Medium</option>
@@ -171,26 +182,6 @@ export default function Settings() {
                 </select>
               </div>
 
-              <div className="py-3">
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  🌍 Language
-                </label>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className={`w-full p-3 border rounded-lg ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                >
-                  <option value="english">English</option>
-                  <option value="spanish">Español</option>
-                  <option value="french">Français</option>
-                  <option value="german">Deutsch</option>
-                  <option value="chinese">中文</option>
-                </select>
-              </div>
             </div>
           </div>
         )
@@ -301,13 +292,13 @@ export default function Settings() {
                 Account Information
               </h3>
               
-              <div className="py-3">
+              <div className={`py-3`}>
                 <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   👤 Display Name
                 </label>
                 <input
                   type="text"
-                  value={profileName}
+                  value={user?.name || profileName}
                   onChange={(e) => setProfileName(e.target.value)}
                   className={`w-full p-3 border rounded-lg ${
                     darkMode 
@@ -323,7 +314,7 @@ export default function Settings() {
                 </label>
                 <input
                   type="email"
-                  value={email}
+                  value={user?.email || email}
                   onChange={(e) => setEmail(e.target.value)}
                   className={`w-full p-3 border rounded-lg ${
                     darkMode 
@@ -333,14 +324,34 @@ export default function Settings() {
                 />
               </div>
               
-              <ToggleSwitch 
-                checked={twoFactorAuth} 
-                onChange={setTwoFactorAuth} 
-                label="🔐 Two-Factor Authentication" 
-              />
+              <div className="py-3">
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  🔐 Two-Factor Authentication
+                </label>
+                <ToggleSwitch
+                  checked={twoFactorAuth}
+                  onChange={async (enable) => {
+                    try {
+                      const res = await fetch('http://localhost:5000/api/toggle-2fa', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: user?._id, enable })
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        setTwoFactorAuth(data.twoFactorEnabled)
+                      } else {
+                        alert(data.message || 'Failed to update 2FA')
+                      }
+                    } catch (err) {
+                      alert('Error updating 2FA')
+                    }
+                  }}
+                  label={twoFactorAuth ? 'Enabled' : 'Disabled'}
+                />
+              </div>
 
               <div className="pt-4 space-y-3">
-                <button className="w-full bg-teal-500 hover:bg-teal-600 text-white py-3 px-4 rounded-lg font-medium transition-colors">
+                <button onClick={() => navigate('/change-password')} className="w-full bg-teal-500 hover:bg-teal-600 text-white py-3 px-4 rounded-lg font-medium transition-colors">
                   Change Password
                 </button>
                 <button className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
@@ -448,21 +459,17 @@ export default function Settings() {
   }
 
   return (
-    <div className={`flex min-h-screen transition-colors duration-300 ${
-      darkMode 
-        ? 'bg-gradient-to-br from-gray-900 to-gray-800' 
-        : 'bg-gradient-to-br from-teal-50 to-teal-100'
-    }`}>
+    <div className={`flex min-h-screen transition-colors duration-300`} style={{ background: 'var(--bg)' }}>
       <Sidebar />
       <main className="flex-1 p-8 ml-20 md:ml-30">
         <ChatWidget />
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className={`text-5xl font-bold bg-gradient-to-r from-${themeColors.primary}-600 to-${themeColors.primary}-700 bg-clip-text text-transparent`}>
+          <h1 className={`text-5xl font-bold bg-clip-text text-transparent`} style={{ backgroundImage: `var(--gradient)` }}>
             Settings
           </h1>
-          <p className={`mt-2 text-lg ${darkMode ? 'text-gray-400' : themeColors.text}`}>
+          <p className={`mt-2 text-lg`} style={{ color: 'var(--muted)' }}>
             Customize your StudyTa experience
           </p>
         </div>

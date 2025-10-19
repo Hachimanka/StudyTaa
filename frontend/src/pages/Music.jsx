@@ -108,21 +108,17 @@ export default function Music() {
   }
 
   return (
-    <div className={`flex min-h-screen transition-colors duration-300 ${
-      darkMode 
-        ? 'bg-gradient-to-br from-gray-900 to-gray-800' 
-        : `bg-gradient-to-br from-${themeColors.primary}-50 to-${themeColors.primary}-100`
-    }`}>
+    <div className={`flex min-h-screen transition-colors duration-300`} style={{ background: 'var(--bg)' }}>
       <Sidebar />
       <main className="flex-1 p-8 ml-20 md:ml-30">
         <ChatWidget />
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className={`text-5xl font-bold bg-gradient-to-r from-${themeColors.primary}-600 to-${themeColors.primary}-700 bg-clip-text text-transparent`}>
+          <h1 className={`text-5xl font-bold bg-clip-text text-transparent`} style={{ backgroundImage: 'var(--gradient)' }}>
             Focus Music
           </h1>
-          <p className={`mt-2 text-lg ${darkMode ? 'text-gray-400' : themeColors.text}`}>
+          <p className={`mt-2 text-lg`} style={{ color: 'var(--muted)' }}>
             Enhance your concentration with ambient sounds
           </p>
         </div>
@@ -136,13 +132,8 @@ export default function Music() {
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 ${
-                    selectedCategory === category
-                      ? `bg-gradient-to-r ${themeColors.gradient} text-white shadow-lg`
-                      : darkMode
-                        ? 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-600'
-                        : `bg-white ${themeColors.text} hover:bg-${themeColors.primary}-50 border ${themeColors.border}`
-                  }`}
+                  className={`px-6 py-3 rounded-full text-sm font-medium transition-all duration-300`}
+                  style={selectedCategory === category ? { background: 'var(--gradient)', color: 'white', boxShadow: '0 10px 30px rgba(2,6,23,0.12)' } : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--glass-border)' }}
                 >
                   {category.charAt(0).toUpperCase() + category.slice(1)}
                 </button>
@@ -154,35 +145,18 @@ export default function Music() {
               {focusSounds[selectedCategory].map((track) => (
                 <div
                   key={track.id}
-                  className={`p-6 rounded-2xl border-2 transition-all duration-300 cursor-pointer hover:scale-105 ${
-                    currentTrack?.id === track.id
-                      ? `bg-gradient-to-br ${themeColors.gradient} text-white border-${themeColors.primary}-500 shadow-xl`
-                      : darkMode
-                        ? 'bg-gray-800 border-gray-600 hover:border-gray-500 hover:shadow-lg text-white'
-                        : `bg-white ${themeColors.border} hover:border-${themeColors.primary}-300 hover:shadow-lg`
-                  }`}
+                  className={`p-6 rounded-2xl transition-all duration-300 cursor-pointer`}
                   onClick={() => playTrack(track)}
+                  style={currentTrack?.id === track.id ? { background: 'var(--gradient)', color: 'white', border: '1px solid var(--color-primary)', boxShadow: '0 20px 40px rgba(2,6,23,0.18)' } : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--glass-border)' }}
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-lg">{track.name}</h3>
-                      <p className={`text-sm ${
-                        currentTrack?.id === track.id 
-                          ? `text-${themeColors.primary}-100` 
-                          : darkMode
-                            ? 'text-gray-400'
-                            : themeColors.text
-                      }`}>
+                      <p className="text-sm" style={currentTrack?.id === track.id ? { color: 'rgba(255,255,255,0.9)' } : { color: 'var(--muted)' }}>
                         Duration: {track.duration}
                       </p>
                     </div>
-                    <div className={`p-3 rounded-full ${
-                      currentTrack?.id === track.id 
-                        ? 'bg-white/20' 
-                        : darkMode
-                          ? 'bg-gray-700'
-                          : `bg-${themeColors.primary}-100`
-                    }`}>
+                    <div className="p-3 rounded-full" style={currentTrack?.id === track.id ? { background: 'rgba(255,255,255,0.12)' } : { background: 'color-mix(in srgb, var(--color-primary) 8%, var(--surface))' }}>
                       {currentTrack?.id === track.id && isPlaying ? (
                         <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
@@ -200,25 +174,18 @@ export default function Music() {
 
             {/* Current Player */}
             {currentTrack && (
-              <div className={`rounded-2xl p-6 shadow-xl border ${
-                darkMode 
-                  ? 'bg-gray-800 border-gray-600' 
-                  : `bg-white ${themeColors.border}`
-              }`}>
+              <div className={`rounded-2xl p-6 shadow-xl border`} style={darkMode ? { background: 'var(--surface)', border: '1px solid var(--glass-border)' } : { background: 'var(--surface)', border: '1px solid var(--glass-border)' }}>
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                       Now Playing
                     </h3>
-                    <p className={themeColors.text}>{currentTrack.name}</p>
+                    <p style={{ color: 'var(--muted)' }}>{currentTrack.name}</p>
                   </div>
                   <button
                     onClick={() => setShowVisualizer(!showVisualizer)}
-                    className={`px-4 py-2 rounded-lg transition-colors ${
-                      darkMode
-                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                        : `bg-${themeColors.primary}-100 ${themeColors.text} hover:bg-${themeColors.primary}-200`
-                    }`}
+                    className={`px-4 py-2 rounded-lg transition-colors`}
+                    style={darkMode ? { background: 'var(--surface)', color: 'var(--muted)' } : { background: 'color-mix(in srgb, var(--color-primary) 12%, var(--surface))', color: 'var(--text)' }}
                   >
                     {showVisualizer ? 'Hide' : 'Show'} Player
                   </button>
@@ -242,18 +209,15 @@ export default function Music() {
           {/* Sidebar Controls */}
           <div className="space-y-6">
             {/* Pomodoro Timer */}
-            <div className={`rounded-2xl p-6 shadow-xl border ${
-              darkMode 
-                ? 'bg-gray-800 border-gray-600' 
-                : `bg-white ${themeColors.border}`
-            }`}>
+            <div className={`rounded-2xl p-6 shadow-xl border`} style={{ background: 'var(--surface)', border: '1px solid var(--glass-border)' }}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   Focus Timer
                 </h3>
                 <button
                   onClick={() => setShowTimer(!showTimer)}
-                  className={darkMode ? 'text-gray-400 hover:text-gray-300' : `${themeColors.text} hover:text-${themeColors.primary}-700`}
+                  className={darkMode ? 'text-gray-400 hover:text-gray-300' : ''}
+                  style={!darkMode ? { color: 'var(--color-primary)' } : {}}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -295,11 +259,8 @@ export default function Music() {
                 <div className="flex gap-2 justify-center">
                   <button
                     onClick={toggleTimer}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      isTimerRunning
-                        ? 'bg-red-500 hover:bg-red-600 text-white'
-                        : `${themeColors.bg} ${themeColors.hoverBg} text-white`
-                    }`}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors`}
+                    style={isTimerRunning ? { background: 'var(--accent, #ef4444)', color: 'white' } : { background: 'var(--color-primary)', color: 'white' }}
                   >
                     {isTimerRunning ? 'Pause' : 'Start'}
                   </button>
@@ -318,33 +279,29 @@ export default function Music() {
             </div>
 
             {/* Quick Stats */}
-            <div className={`rounded-2xl p-6 shadow-xl border ${
-              darkMode 
-                ? 'bg-gray-800 border-gray-600' 
-                : `bg-white ${themeColors.border}`
-            }`}>
+            <div className={`rounded-2xl p-6 shadow-xl border`} style={{ background: 'var(--surface)', border: '1px solid var(--glass-border)' }}>
               <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                 Today's Focus
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Sessions</span>
-                  <span className="font-semibold text-teal-600">0</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-primary)' }}>0</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Total Time</span>
-                  <span className="font-semibold text-teal-600">0h 0m</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-primary)' }}>0h 0m</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Streak</span>
-                  <span className="font-semibold text-teal-600">0 days</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-primary)' }}>0 days</span>
                 </div>
               </div>
             </div>
 
             {/* Sound Mix */}
-            <div className="bg-white rounded-2xl p-6 shadow-xl border border-teal-200">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Sound Settings</h3>
+            <div className="rounded-2xl p-6 shadow-xl border" style={{ background: 'var(--surface)', border: '1px solid var(--glass-border)' }}>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4" style={{ color: 'var(--text)' }}>Sound Settings</h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-2">Master Volume</label>
@@ -373,7 +330,7 @@ export default function Music() {
             </div>
 
             {/* Music Tips */}
-            <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl p-6 text-white">
+            <div className="rounded-2xl p-6" style={{ background: 'var(--gradient)', color: 'white' }}>
               <h3 className="text-xl font-semibold mb-3">💡 Focus Tips</h3>
               <ul className="space-y-2 text-sm">
                 <li>• Use nature sounds for deep concentration</li>

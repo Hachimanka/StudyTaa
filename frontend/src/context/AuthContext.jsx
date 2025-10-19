@@ -35,6 +35,12 @@ export function AuthProvider({ children }) {
       });
       const data = await res.json();
       if (res.ok) {
+        if (data.message === '2FA_REQUIRED') {
+          // Notify caller that 2FA is required. We store the partial user info so UI can prompt for code
+          setUser({ _id: data.user._id, email: data.user.email, twoFactorPending: true });
+          if (cb) cb({ twoFactorRequired: true, userId: data.user._id });
+          return;
+        }
         setIsAuthenticated(true);
         setUser(data.user);
         // Dispatch custom event to notify other components
@@ -45,6 +51,30 @@ export function AuthProvider({ children }) {
       }
     } catch (err) {
       alert('Login error');
+    }
+  };
+
+  // Verify 2FA code
+  const verify2FA = async (userId, code, cb) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/verify-2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, code })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsAuthenticated(true);
+        setUser(data.user);
+        window.dispatchEvent(new Event('authChanged'));
+        if (cb) cb(true);
+      } else {
+        alert(data.message || '2FA verification failed');
+        if (cb) cb(false);
+      }
+    } catch (err) {
+      alert('Error verifying 2FA');
+      if (cb) cb(false);
     }
   };
 

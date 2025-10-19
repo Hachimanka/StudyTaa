@@ -12,10 +12,45 @@ export const useSettings = () => {
 
 export const SettingsProvider = ({ children }) => {
   // Theme and appearance settings
-  const [darkMode, setDarkMode] = useState(false)
-  const [language, setLanguage] = useState('english')
-  const [fontSize, setFontSize] = useState('medium')
-  const [colorTheme, setColorTheme] = useState('teal')
+  // Initialize darkMode from saved settings (studyTaSettings) when present,
+  // otherwise fall back to the standalone 'theme' key ('dark'|'light').
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('studyTaSettings')
+      if (saved) {
+        const s = JSON.parse(saved)
+        if (typeof s.darkMode === 'boolean') return s.darkMode
+      }
+      const theme = localStorage.getItem('theme')
+      return theme === 'dark'
+    } catch (e) {
+      return false
+    }
+  })
+  const [fontSize, setFontSize] = useState(() => {
+    try {
+      const saved = localStorage.getItem('studyTaSettings')
+      if (saved) {
+        const s = JSON.parse(saved)
+        if (s && typeof s.fontSize === 'string') return s.fontSize
+      }
+      return 'medium'
+    } catch (e) {
+      return 'medium'
+    }
+  })
+  const [colorTheme, setColorTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('studyTaSettings')
+      if (saved) {
+        const s = JSON.parse(saved)
+        if (s && typeof s.colorTheme === 'string') return s.colorTheme
+      }
+      return 'teal'
+    } catch (e) {
+      return 'teal'
+    }
+  })
   
   // Notification settings
   const [emailNotifications, setEmailNotifications] = useState(true)
@@ -53,10 +88,15 @@ export const SettingsProvider = ({ children }) => {
       if (savedSettings) {
         const settings = JSON.parse(savedSettings)
         
-        // Theme settings
-        setDarkMode(settings.darkMode || false)
-        setLanguage(settings.language || 'english')
-        setFontSize(settings.fontSize || 'medium')
+        // Theme settings: prefer explicit boolean saved value; otherwise fall back
+        // to the standalone 'theme' key which some earlier flows may set.
+        if (typeof settings.darkMode === 'boolean') {
+          setDarkMode(settings.darkMode)
+        } else {
+          const theme = localStorage.getItem('theme')
+          setDarkMode(theme === 'dark')
+        }
+  setFontSize(settings.fontSize || 'medium')
         setColorTheme(settings.colorTheme || 'teal')
         
         // Notification settings
@@ -107,6 +147,53 @@ export const SettingsProvider = ({ children }) => {
     window.dispatchEvent(new CustomEvent('themeChanged', { detail: { darkMode } }))
   }, [darkMode])
 
+  // Persist darkMode and fontSize into studyTaSettings so they survive reloads
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('studyTaSettings')
+      const settings = saved ? JSON.parse(saved) : {}
+      settings.darkMode = darkMode
+      settings.fontSize = fontSize
+      // keep existing colorTheme if present
+      localStorage.setItem('studyTaSettings', JSON.stringify(settings))
+    } catch (err) {
+      console.warn('Failed to persist darkMode/fontSize:', err)
+    }
+  }, [darkMode, fontSize])
+
+  // Keep local darkMode in sync if other components change localStorage or dispatch events
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'theme') {
+        setDarkMode(e.newValue === 'dark')
+      }
+    }
+
+    const onThemeChanged = (ev) => {
+      try {
+        // event may be either a CustomEvent with detail or a simple Event
+        const d = ev.detail && typeof ev.detail === 'object' ? ev.detail : null
+        if (d && typeof d.darkMode === 'boolean') setDarkMode(d.darkMode)
+        else {
+          const t = localStorage.getItem('theme')
+          setDarkMode(t === 'dark')
+        }
+      } catch (err) {
+        // fallback
+        const t = localStorage.getItem('theme')
+        setDarkMode(t === 'dark')
+      }
+    }
+
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('themeChanged', onThemeChanged)
+
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('themeChanged', onThemeChanged)
+    }
+  }, [])
+
   // Apply font size to document
   useEffect(() => {
     const root = document.documentElement
@@ -136,13 +223,24 @@ export const SettingsProvider = ({ children }) => {
     root.classList.remove('theme-teal', 'theme-blue', 'theme-purple', 'theme-green', 'theme-pink')
     root.classList.add(`theme-${colorTheme}`)
   }, [colorTheme])
+
+  // Persist selected colorTheme to studyTaSettings so it survives reloads
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('studyTaSettings')
+      const settings = saved ? JSON.parse(saved) : {}
+      settings.colorTheme = colorTheme
+      localStorage.setItem('studyTaSettings', JSON.stringify(settings))
+    } catch (err) {
+      console.warn('Failed to persist colorTheme:', err)
+    }
+  }, [colorTheme])
   
   // Save all settings to localStorage
   const saveAllSettings = () => {
     try {
       const settings = {
         darkMode,
-        language,
         fontSize,
         colorTheme,
         emailNotifications,
@@ -216,7 +314,6 @@ export const SettingsProvider = ({ children }) => {
   // Reset all settings to defaults
   const resetSettings = () => {
     setDarkMode(false)
-    setLanguage('english')
     setFontSize('medium')
     setColorTheme('teal')
     setEmailNotifications(true)
@@ -248,7 +345,9 @@ export const SettingsProvider = ({ children }) => {
         bg: 'bg-teal-500',
         hoverBg: 'hover:bg-teal-600',
         text: 'text-teal-600',
-        border: 'border-teal-200'
+        border: 'border-teal-200',
+        primaryHex: '#0C969C',
+        gradientCss: 'linear-gradient(90deg, #0C969C, #0A8086)'
       },
       blue: {
         primary: 'blue',
@@ -257,7 +356,9 @@ export const SettingsProvider = ({ children }) => {
         bg: 'bg-blue-500',
         hoverBg: 'hover:bg-blue-600',
         text: 'text-blue-600',
-        border: 'border-blue-200'
+        border: 'border-blue-200',
+        primaryHex: '#3b82f6',
+        gradientCss: 'linear-gradient(90deg, #3b82f6, #2563eb)'
       },
       purple: {
         primary: 'purple',
@@ -266,7 +367,9 @@ export const SettingsProvider = ({ children }) => {
         bg: 'bg-purple-500',
         hoverBg: 'hover:bg-purple-600',
         text: 'text-purple-600',
-        border: 'border-purple-200'
+        border: 'border-purple-200',
+        primaryHex: '#7c3aed',
+        gradientCss: 'linear-gradient(90deg, #7c3aed, #6d28d9)'
       },
       green: {
         primary: 'green',
@@ -275,7 +378,9 @@ export const SettingsProvider = ({ children }) => {
         bg: 'bg-green-500',
         hoverBg: 'hover:bg-green-600',
         text: 'text-green-600',
-        border: 'border-green-200'
+        border: 'border-green-200',
+        primaryHex: '#10b981',
+        gradientCss: 'linear-gradient(90deg, #10b981, #059669)'
       },
       pink: {
         primary: 'pink',
@@ -284,7 +389,9 @@ export const SettingsProvider = ({ children }) => {
         bg: 'bg-pink-500',
         hoverBg: 'hover:bg-pink-600',
         text: 'text-pink-600',
-        border: 'border-pink-200'
+        border: 'border-pink-200',
+        primaryHex: '#ec4899',
+        gradientCss: 'linear-gradient(90deg, #ec4899, #db2777)'
       }
     }
     
@@ -342,7 +449,6 @@ export const SettingsProvider = ({ children }) => {
   const value = {
     // Settings state
     darkMode,
-    language,
     fontSize,
     colorTheme,
     emailNotifications,
@@ -363,7 +469,6 @@ export const SettingsProvider = ({ children }) => {
     
     // Setters
     setDarkMode,
-    setLanguage,
     setFontSize,
     setColorTheme,
     setEmailNotifications,

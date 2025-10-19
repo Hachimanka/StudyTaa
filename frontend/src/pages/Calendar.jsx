@@ -59,15 +59,16 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
 
   return (
     <div className="fixed inset-0 backdrop-blur-md backdrop-brightness-75 flex items-center justify-center z-50 p-4">
-      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto`}>
+      <div style={{ background: 'var(--surface)' }} className={`rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto`}>
         <div className="p-5">
           <div className="flex justify-between items-center mb-4">
-            <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <h2 className={`text-lg font-semibold`} style={{ color: 'var(--text)' }}>
               {event ? 'Edit Event' : 'Add Event'}
             </h2>
             <button
               onClick={onClose}
-              className={`p-1.5 hover:${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg transition-colors`}
+              className={`p-1.5 rounded-lg transition-colors`}
+              style={{ background: 'transparent' }}
             >
               <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
@@ -77,33 +78,36 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
 
           <div className="space-y-3">
             <div>
-              <label className={`block text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Title *</label>
+              <label className={`block text-sm font-medium mb-1`} style={{ color: 'var(--text)' }}>Title *</label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({...formData, title: e.target.value})}
-                className={`w-full p-2.5 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors?.primary || 'teal'}-500 focus:border-transparent`}
+                className={`w-full p-2.5 border rounded-lg`}
+                style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
                 placeholder="Event title"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Time</label>
+                <label className={`block text-sm font-medium mb-1`} style={{ color: 'var(--text)' }}>Time</label>
                 <input
                   type="time"
                   value={formData.time}
                   onChange={(e) => setFormData({...formData, time: e.target.value})}
-                  className={`w-full p-2.5 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors?.primary || 'teal'}-500 focus:border-transparent`}
+                  className={`w-full p-2.5 border rounded-lg`}
+                  style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Priority</label>
+                <label className={`block text-sm font-medium mb-1`} style={{ color: 'var(--text)' }}>Priority</label>
                 <select
                   value={formData.priority}
                   onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                  className={`w-full p-2.5 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors?.primary || 'teal'}-500 focus:border-transparent`}
+                  className={`w-full p-2.5 border rounded-lg`}
+                  style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -113,11 +117,12 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
             </div>
 
             <div>
-              <label className={`block text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Category</label>
+              <label className={`block text-sm font-medium mb-1`} style={{ color: 'var(--text)' }}>Category</label>
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({...formData, category: e.target.value})}
-                className={`w-full p-2.5 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors?.primary || 'teal'}-500 focus:border-transparent`}
+                className={`w-full p-2.5 border rounded-lg`}
+                style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
               >
                 <option value="general">General</option>
                 <option value="study">Study</option>
@@ -129,11 +134,12 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
             </div>
 
             <div>
-              <label className={`block text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Description</label>
+              <label className={`block text-sm font-medium mb-1`} style={{ color: 'var(--text)' }}>Description</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                className={`w-full p-2.5 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors?.primary || 'teal'}-500 focus:border-transparent h-16 resize-none`}
+                className={`w-full p-2.5 border rounded-lg`}
+                style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
                 placeholder="Event description"
               />
             </div>
@@ -144,7 +150,8 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
                 id="reminder"
                 checked={formData.reminder}
                 onChange={(e) => setFormData({...formData, reminder: e.target.checked})}
-                className={`mr-2 h-4 w-4 text-${themeColors?.primary || 'teal'}-600 focus:ring-${themeColors?.primary || 'teal'}-500 border-gray-300 rounded`}
+                className={`mr-2 h-4 w-4 rounded`}
+                style={{ accentColor: 'var(--color-primary)' }}
               />
               <label htmlFor="reminder" className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Set reminder</label>
             </div>
@@ -153,7 +160,8 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
           <div className="flex gap-2 mt-5">
             <button
               onClick={handleSave}
-              className={`flex-1 px-3 py-2 bg-${themeColors?.primary || 'teal'}-600 text-white rounded-lg hover:bg-${themeColors?.primary || 'teal'}-700 transition-colors text-sm font-medium`}
+              className={`flex-1 px-3 py-2 text-white rounded-lg transition-colors text-sm font-medium`}
+              style={{ background: 'var(--color-primary)' }}
             >
               {event ? 'Update' : 'Add'} Event
             </button>

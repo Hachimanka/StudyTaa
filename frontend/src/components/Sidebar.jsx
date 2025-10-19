@@ -46,20 +46,21 @@ export default function Sidebar() {
       className={`
         fixed left-4 top-4 bottom-4
         flex flex-col
-        ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}
         shadow-xl rounded-2xl
         transition-all duration-300 ease-in-out
         ${isCollapsed ? "w-16" : "w-50"}
-        border
         overflow-hidden
         z-50
       `}
+      style={{ background: 'var(--surface)', border: `1px solid var(--glass-border)` }}
       onMouseEnter={() => setIsCollapsed(false)}
       onMouseLeave={() => setIsCollapsed(true)}
     >
       {/* Logo */}
       <div className="flex items-center px-3 py-4 min-h-[64px]">
-        <div className={`w-10 h-10 bg-gradient-to-br ${themeColors.gradient} rounded-xl flex items-center justify-center flex-shrink-0`}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0`} style={{
+          background: `linear-gradient(135deg, var(--color-primary) 0%, color-mix(in srgb, var(--color-primary) 80%, transparent) 100%)`
+        }}>
           <span className="text-white font-bold text-lg">S</span>
         </div>
         <span
@@ -77,23 +78,12 @@ export default function Sidebar() {
           <Link
             key={i}
             to={item.path}
-            className={`
-              flex items-center p-3 rounded-xl
-              transition-colors duration-200
-              ${
-                location.pathname === item.path
-                  ? `${
-                      darkMode
-                        ? `bg-${themeColors.primary}-900/30 text-${themeColors.primary}-300 border-${themeColors.primary}-700`
-                        : `bg-${themeColors.primary}-100 text-${themeColors.primary}-700 border-${themeColors.primary}-200`
-                    } border`
-                  : `${
-                      darkMode
-                        ? "text-gray-300 hover:bg-gray-700"
-                        : "text-gray-600 hover:bg-gray-100"
-                    }`
-              }
-            `}
+            className={`flex items-center p-3 rounded-xl transition-colors duration-200`}
+            style={location.pathname === item.path ? {
+              border: '1px solid rgba(0,0,0,0.04)',
+              background: 'color-mix(in srgb, var(--color-primary) 12%, transparent) ',
+              color: 'var(--color-primary)'
+            } : undefined}
           >
             <span className="text-xl w-7 text-center flex-shrink-0">
               {item.icon}

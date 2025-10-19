@@ -10,6 +10,15 @@ import express from "express";
 const router = express.Router();
 // Temporary store for pending verifications (use DB for production)
 const pendingVerifications = {};
+// Helper to send a simple 2FA code via email
+async function sendTwoFactorEmail(email, code) {
+  try {
+    // Reuse sendVerificationEmail util to deliver the code, or a simple mail
+    await sendVerificationEmail(email, `2fa:${code}`);
+  } catch (err) {
+    console.error('Failed to send 2FA email:', err);
+  }
+}
 
 // Get user info by userId
 router.get("/userinfo/:userId", async (req, res) => {
@@ -38,10 +47,59 @@ router.post("/login", async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
-  res.status(200).json({ message: "Login successful", user: { _id: user._id, name: user.name, email: user.email } });
+
+    // If user has 2FA enabled, generate a short code, store it, and email it
+    if (user.twoFactorEnabled) {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expire = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+      user.twoFactorCode = code;
+      user.twoFactorCodeExpires = expire;
+      await user.save();
+      await sendTwoFactorEmail(user.email, code);
+      return res.status(200).json({ message: "2FA_REQUIRED", user: { _id: user._id, email: user.email } });
+    }
+
+    res.status(200).json({ message: "Login successful", user: { _id: user._id, name: user.name, email: user.email } });
   } catch (error) {
     console.error("Error logging in:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Verify 2FA code
+router.post('/verify-2fa', async (req, res) => {
+  const { userId, code } = req.body;
+  if (!userId || !code) return res.status(400).json({ message: 'Missing params' });
+  try {
+    const user = await Users.findById(userId);
+    if (!user) return res.status(400).json({ message: 'Invalid user' });
+    if (!user.twoFactorCode || !user.twoFactorCodeExpires) return res.status(400).json({ message: 'No 2FA pending' });
+    if (new Date() > user.twoFactorCodeExpires) return res.status(400).json({ message: 'Code expired' });
+    if (user.twoFactorCode !== code) return res.status(400).json({ message: 'Invalid code' });
+    // Clear 2FA code and confirm
+    user.twoFactorCode = undefined;
+    user.twoFactorCodeExpires = undefined;
+    await user.save();
+    return res.status(200).json({ message: '2FA verified', user: { _id: user._id, name: user.name, email: user.email } });
+  } catch (err) {
+    console.error('2FA verify error', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Toggle 2FA for current user (authenticated endpoint expected)
+router.post('/toggle-2fa', async (req, res) => {
+  const { userId, enable } = req.body;
+  if (!userId) return res.status(400).json({ message: 'Missing user' });
+  try {
+    const user = await Users.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.twoFactorEnabled = !!enable;
+    await user.save();
+    res.status(200).json({ message: '2FA updated', twoFactorEnabled: user.twoFactorEnabled });
+  } catch (err) {
+    console.error('Error toggling 2FA', err);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 

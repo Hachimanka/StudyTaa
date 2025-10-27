@@ -60,7 +60,7 @@ export default function TopNav() {
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
         <div className="flex items-center space-x-3 animate-scaleIn">
-          <div className="w-10 h-10 flex items-center justify-center overflow-hidden animate-pulse-glow">
+          <div className="w-8 h-8 flex items-center justify-center overflow-hidden animate-pulse-glow">
             {/* Using public asset so path is absolute from site root */}
               <img
                 src="/Lemivon.ico"

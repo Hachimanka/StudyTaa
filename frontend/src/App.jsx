@@ -18,6 +18,7 @@ import Music from './pages/Music'
 import Settings from './pages/Settings'
 import ChatWidget from './components/ChatWidget'
 import AuthenticatedWidget from './components/AuthenticatedWidget'
+import GlobalMusicPlayer from './components/GlobalMusicPlayer'
 
 export default function App() {
   return (
@@ -43,6 +44,8 @@ export default function App() {
         </Routes>
         {/* Render chat widget for authenticated users */}
         <AuthenticatedWidget />
+        {/* Global music player stays mounted across routes */}
+        <GlobalMusicPlayer />
       </SettingsProvider>
     </AuthProvider>
   )

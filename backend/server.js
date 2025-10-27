@@ -51,8 +51,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // --- StudyTa AI context with plain text instructions ---
 const STUDYTA_CONTEXT = `
-You are the StudyTa AI assistant.
-StudyTa is a learning platform for students.
+You are the Lemivon AI assistant.
+Lemivon is a learning platform for students.
 
 Features:
 - Create and join study groups

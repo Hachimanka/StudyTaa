@@ -59,15 +59,23 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center px-3 py-4 min-h-[64px]">
-        <div className={`w-10 h-10 bg-gradient-to-br ${themeColors.gradient} rounded-xl flex items-center justify-center flex-shrink-0`}>
-          <span className="text-white font-bold text-lg">S</span>
+          <div className="w-8 h-8 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <img
+              src="/Lemivon.ico"
+              alt="Lemivon logo"
+              className="w-full h-full object-contain"
+              width={32}
+              height={32}
+              loading="eager"
+              style={{ imageRendering: 'auto' }}
+            />
         </div>
         <span
           className={`ml-3 text-xl font-bold ${
             darkMode ? "text-white" : "text-gray-900"
           } ${isCollapsed ? "opacity-0" : "opacity-100"} transition-opacity duration-300 whitespace-nowrap`}
         >
-          StudyTa
+          Lemivon
         </span>
       </div>
 
@@ -121,12 +129,12 @@ export default function Sidebar() {
             `}
           >
           <span className="text-xl w-7 text-center flex-shrink-0" style={{lineHeight:0}}>
-            {/* Use same neutral icons as TopNav: show sun when dark (to indicate toggle), moon when light */}
-            {darkMode ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.5"/><g stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"><path d="M12 1v2" /><path d="M12 21v2" /><path d="M4.2 4.2l1.4 1.4" /><path d="M18.4 18.4l1.4 1.4" /><path d="M1 12h2" /><path d="M21 12h2" /><path d="M4.2 19.8l1.4-1.4" /><path d="M18.4 5.6l1.4-1.4" /></g></svg>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="1.5" fill="none" /></svg>
-            )}
+            {/* Standard logout icon (arrow leaving a door) */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 17l5-5-5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M21 12H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M13 19H6a2 2 0 01-2-2V7a2 2 0 012-2h7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </span>
             <span
               className={`ml-3 ${

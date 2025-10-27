@@ -535,6 +535,45 @@ export default function Summarize() {
                 </div>
               </div>
             )}
+
+            {/* Saved Summaries (always visible) */}
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 mt-6`}> 
+              <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4 flex items-center`}>
+                <span className="mr-2">💾</span>
+                Saved Summaries
+              </h3>
+              {summaryHistory.length === 0 ? (
+                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No saved summaries yet. Save a summary to see it here.</div>
+              ) : (
+                <div className="space-y-3">
+                  {summaryHistory.map((item) => (
+                    <div key={`saved-${item.id}`} className={`p-3 border ${darkMode ? 'border-gray-600' : 'border-gray-200'} rounded-lg flex items-start justify-between`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'} text-sm truncate`}>{item.title}</h4>
+                          <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} ml-2`}>{item.date} {item.time}</span>
+                        </div>
+                        <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'} mt-1 line-clamp-2`}>{item.content.substring(0, 120)}{item.content.length > 120 ? '...' : ''}</p>
+                      </div>
+                      <div className="flex flex-col items-end ml-4 space-y-2">
+                        <button
+                          onClick={() => loadSavedSummary(item)}
+                          className={`px-3 py-1 text-xs rounded-md ${themeColors.primary ? 'bg-' + themeColors.primary + '-500 text-white' : 'bg-blue-500 text-white'} hover:opacity-90 transition-opacity`}
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => deleteSummary(item.id)}
+                          className="px-3 py-1 text-xs rounded-md bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>

@@ -430,10 +430,13 @@ export default function Home() {
                 <div key={i} className="flex items-center justify-between">
                   <span className="font-medium w-12">{day.day}</span>
                   <div className="flex-1 mx-4">
-                    <div className={`h-2 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                      <div className={`h-2 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
                       <div 
-                        className={`h-2 rounded-full bg-gradient-to-r from-${themeColors.primary}-500 to-${themeColors.primary}-600`}
-                        style={{ width: `${Math.min(day.sessions * 20, 100)}%` }}
+                        className="h-2 rounded-full"
+                        style={{
+                          background: `linear-gradient(to right, ${themeColors.primary}, ${themeColors.primary}dd)`,
+                          width: `${Math.min(day.sessions * 20, 100)}%`
+                        }}
                       ></div>
                     </div>
                   </div>
@@ -491,7 +494,10 @@ export default function Home() {
                 <p className="text-lg">No files yet</p>
                 <p className="text-sm mt-1">Upload your first file to get started!</p>
                 <Link to="/library">
-                  <button className={`mt-3 px-4 py-2 rounded-lg bg-${themeColors.primary}-600 text-white hover:bg-${themeColors.primary}-700`}>
+                  <button 
+                    className="mt-3 px-4 py-2 rounded-lg text-white hover:opacity-90 transition-opacity"
+                    style={{ backgroundColor: themeColors.primary }}
+                  >
                     Go to Library
                   </button>
                 </Link>

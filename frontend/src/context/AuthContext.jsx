@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const login = async (email, password, cb) => {
     try {
-      const res = await fetch('http://localhost:5000/api/login', {
+      const res = await fetch('http://10.73.96.7:5173/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -43,6 +43,8 @@ export function AuthProvider({ children }) {
         }
         setIsAuthenticated(true);
         setUser(data.user);
+        // Store user ID as token for authenticated API calls
+        localStorage.setItem('token', data.user._id);
         // Dispatch custom event to notify other components
         window.dispatchEvent(new Event('authChanged'));
         if (cb) cb();

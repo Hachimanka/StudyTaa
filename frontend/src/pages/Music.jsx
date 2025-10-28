@@ -93,6 +93,46 @@ export default function Music() {
     setIsPlaying(true)
   }
 
+  // Listen for global playMusic events (dispatched by ChatWidget)
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const { category, trackId } = e?.detail || {}
+        if (category && focusSounds[category] && focusSounds[category].length > 0) {
+          setSelectedCategory(category)
+          const track = focusSounds[category][0]
+          setCurrentTrack(track)
+          setIsPlaying(true)
+          setShowVisualizer(track.type === 'youtube')
+          return
+        }
+        if (trackId) {
+          // find track across categories
+          let found = null
+          for (const cat of Object.keys(focusSounds)) {
+            const t = focusSounds[cat].find(x => x.id === trackId)
+            if (t) { found = t; setSelectedCategory(cat); break }
+          }
+          if (found) {
+            setCurrentTrack(found)
+            setIsPlaying(true)
+            setShowVisualizer(found.type === 'youtube')
+            return
+          }
+        }
+        // Default: play first track of selected category
+        const track = focusSounds[selectedCategory][0]
+        setCurrentTrack(track)
+        setIsPlaying(true)
+        setShowVisualizer(track.type === 'youtube')
+      } catch (err) {
+        // ignore
+      }
+    }
+    window.addEventListener('playMusic', handler)
+    return () => window.removeEventListener('playMusic', handler)
+  }, [selectedCategory])
+
   const toggleTimer = () => {
     setIsTimerRunning(!isTimerRunning)
   }

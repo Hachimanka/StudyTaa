@@ -325,29 +325,7 @@ export default function Settings() {
               </div>
               
               <div className="py-3">
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  🔐 Two-Factor Authentication
-                </label>
-                <ToggleSwitch
-                  checked={twoFactorAuth}
-                  onChange={async (enable) => {
-                    try {
-                      const res = await fetch('http://localhost:5000/api/toggle-2fa', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: user?._id, enable })
-                      });
-                      const data = await res.json();
-                      if (res.ok) {
-                        setTwoFactorAuth(data.twoFactorEnabled)
-                      } else {
-                        alert(data.message || 'Failed to update 2FA')
-                      }
-                    } catch (err) {
-                      alert('Error updating 2FA')
-                    }
-                  }}
-                  label={twoFactorAuth ? 'Enabled' : 'Disabled'}
-                />
+                {/* Two-Factor Authentication option removed per request */}
               </div>
 
               <div className="pt-4 space-y-3">

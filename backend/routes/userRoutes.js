@@ -48,16 +48,9 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    // If user has 2FA enabled, generate a short code, store it, and email it
-    if (user.twoFactorEnabled) {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const expire = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-      user.twoFactorCode = code;
-      user.twoFactorCodeExpires = expire;
-      await user.save();
-      await sendTwoFactorEmail(user.email, code);
-      return res.status(200).json({ message: "2FA_REQUIRED", user: { _id: user._id, email: user.email } });
-    }
+    // Note: Two-Factor Authentication enforcement removed — login will succeed
+    // even if `user.twoFactorEnabled` is true. This prevents the app from
+    // asking for verification codes when existing users log in.
 
     res.status(200).json({ message: "Login successful", user: { _id: user._id, name: user.name, email: user.email } });
   } catch (error) {

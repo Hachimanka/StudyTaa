@@ -96,6 +96,32 @@ router.post('/toggle-2fa', async (req, res) => {
   }
 });
 
+// Update user display name (and mirror into UserInfo)
+router.put('/update-name', async (req, res) => {
+  const { userId, name } = req.body;
+  if (!userId || !name) return res.status(400).json({ message: 'Missing params' });
+  try {
+    const user = await Users.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.name = name;
+    await user.save();
+
+    // Update or create UserInfo fullName to keep display consistent
+    const UserInfo = (await import('../models/UserInfo.js')).default;
+    await UserInfo.findOneAndUpdate(
+      { userId: user._id },
+      { fullName: name },
+      { upsert: true }
+    );
+
+    res.status(200).json({ message: 'Name updated', user: { _id: user._id, name: user.name, email: user.email } });
+  } catch (err) {
+    console.error('Error updating name', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Forgot password route (mock, does not send email)
 router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;

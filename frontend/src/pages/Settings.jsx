@@ -45,6 +45,7 @@ export default function Settings() {
     playSound
   } = useSettings()
   const { user } = useAuth()
+  const { updateProfile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -54,6 +55,17 @@ export default function Settings() {
       setActiveTab(location.state.tab)
     }
   }, [location])
+
+  // Keep local profileName in sync with authenticated user if present.
+  useEffect(() => {
+    if (user?.name) {
+      // Only overwrite if different to avoid clobbering edits in-progress
+      setProfileName(prev => (prev !== user.name ? user.name : prev))
+    }
+    if (user?.email) {
+      setEmail(prev => (prev !== user.email ? user.email : prev))
+    }
+  }, [user, setProfileName, setEmail])
   
   // Active settings tab
   const [activeTab, setActiveTab] = useState('appearance')
@@ -61,37 +73,50 @@ export default function Settings() {
   // Save settings with feedback
   const saveSettings = () => {
     const success = saveAllSettings()
-      if (success) {
-      playSound('success')
-      
-      // Show success message using CSS variables so it follows the current theme
-      const toast = document.createElement('div')
-      toast.style.position = 'fixed'
-      toast.style.top = '1rem'
-      toast.style.right = '1rem'
-      toast.style.background = 'linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 60%, transparent))'
-      toast.style.color = 'white'
-      toast.style.padding = '0.5rem 1rem'
-      toast.style.borderRadius = '0.5rem'
-      toast.style.boxShadow = '0 8px 30px rgba(2,6,23,0.2)'
-      toast.style.zIndex = 50
-      toast.textContent = '✅ Settings saved successfully!'
-      document.body.appendChild(toast)
-      setTimeout(() => {
-        toast.remove()
-      }, 3000)
-    } else {
+    // Attempt to update authenticated user's profile if present
+  const updatePromise = user ? updateProfile({ name: profileName }) : Promise.resolve(true)
+
+    updatePromise.then((profileOk) => {
+      if (success && profileOk) {
+        playSound('success')
+
+        // Show success message using CSS variables so it follows the current theme
+        const toast = document.createElement('div')
+        toast.style.position = 'fixed'
+        toast.style.top = '1rem'
+        toast.style.right = '1rem'
+        toast.style.background = 'linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 60%, transparent))'
+        toast.style.color = 'white'
+        toast.style.padding = '0.5rem 1rem'
+        toast.style.borderRadius = '0.5rem'
+        toast.style.boxShadow = '0 8px 30px rgba(2,6,23,0.2)'
+        toast.style.zIndex = 50
+        toast.textContent = '✅ Settings saved successfully!'
+        document.body.appendChild(toast)
+        setTimeout(() => {
+          toast.remove()
+        }, 3000)
+      } else {
+        playSound('error')
+
+        // Show error message
+        const toast = document.createElement('div')
+        toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300'
+        toast.textContent = '❌ Failed to save settings!'
+        document.body.appendChild(toast)
+        setTimeout(() => {
+          toast.remove()
+        }, 3000)
+      }
+    }).catch((err) => {
+      console.error('Profile update failed', err)
       playSound('error')
-      
-      // Show error message
       const toast = document.createElement('div')
       toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300'
       toast.textContent = '❌ Failed to save settings!'
       document.body.appendChild(toast)
-      setTimeout(() => {
-        toast.remove()
-      }, 3000)
-    }
+      setTimeout(() => { toast.remove() }, 3000)
+    })
   }
 
   const tabs = [
@@ -191,7 +216,7 @@ export default function Settings() {
                 </label>
                 <input
                   type="text"
-                  value={user?.name || profileName}
+                  value={profileName}
                   onChange={(e) => setProfileName(e.target.value)}
                   className={`w-full p-3 border rounded-lg ${
                     darkMode 
@@ -208,12 +233,12 @@ export default function Settings() {
                 <input
                   type="email"
                   value={user?.email || email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  readOnly
                   className={`w-full p-3 border rounded-lg ${
                     darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
+                      ? 'bg-gray-700 border-gray-600 text-gray-300' 
+                      : 'bg-white border-gray-300 text-gray-500'
+                  } cursor-not-allowed`}
                 />
               </div>
               
@@ -328,21 +353,23 @@ export default function Settings() {
           <div className="lg:col-span-3">
             {renderTabContent()}
             
-            {/* Save Button */}
-            <div className="mt-8 flex justify-end gap-4">
-              <button
-                onClick={resetSettings}
-                className={`${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} px-6 py-3 rounded-lg font-medium transition-all duration-200`}
-              >
-                🔄 Reset to Defaults
-              </button>
-              <button
-                onClick={saveSettings}
-                className={`bg-gradient-to-r ${themeColors.gradient} ${themeColors.hover} text-white px-8 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl`}
-              >
-                💾 Save Settings
-              </button>
-            </div>
+            {/* Save/Reset Buttons shown only for Appearance and Account tabs */}
+            {(activeTab === 'appearance' || activeTab === 'account') && (
+              <div className="mt-8 flex justify-end gap-4">
+                <button
+                  onClick={resetSettings}
+                  className={`${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} px-6 py-3 rounded-lg font-medium transition-all duration-200`}
+                >
+                  🔄 Reset to Defaults
+                </button>
+                <button
+                  onClick={saveSettings}
+                  className={`bg-gradient-to-r ${themeColors.gradient} ${themeColors.hover} text-white px-8 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl`}
+                >
+                  💾 Save Settings
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>

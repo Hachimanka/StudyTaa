@@ -162,8 +162,50 @@ export function AuthProvider({ children }) {
     if (cb) cb();
   }
 
+  // Update user profile locally and persist to localStorage.
+  // Returns true on success. If a backend exists it may be extended
+  // to call an API; for now we perform a local optimistic update.
+  const updateProfile = async ({ name, email: newEmail }) => {
+    try {
+      // If we have an authenticated user with an id, attempt to persist to backend
+      if (user && user._id) {
+        try {
+          const res = await fetch('http://localhost:5000/api/update-name', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user._id, name })
+          })
+          const data = await res.json()
+          if (res.ok) {
+            const updatedUser = data.user || { _id: user._id, name, email: user.email }
+            setUser(updatedUser)
+            try { localStorage.setItem('user', JSON.stringify(updatedUser)) } catch (e) {}
+            try { window.dispatchEvent(new Event('authChanged')) } catch (e) {}
+            return true
+          }
+        } catch (err) {
+          console.warn('Backend update failed, falling back to local update', err)
+          // fallthrough to local update
+        }
+      }
+
+      // Local optimistic update
+      setUser(prev => {
+        if (!prev) return prev
+        const updated = { ...prev, name: name ?? prev.name, email: newEmail ?? prev.email }
+        try { localStorage.setItem('user', JSON.stringify(updated)) } catch (e) {}
+        return updated
+      })
+      try { window.dispatchEvent(new Event('authChanged')) } catch (e) {}
+      return true
+    } catch (err) {
+      console.error('Failed to update profile:', err)
+      return false
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, signup, forgotPassword, user }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, signup, forgotPassword, user, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )

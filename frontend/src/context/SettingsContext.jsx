@@ -335,6 +335,38 @@ export const SettingsProvider = ({ children }) => {
     localStorage.removeItem('studyTaStats')
   }
 
+  // Apply only the appearance-related defaults (used on logout)
+  // This intentionally does NOT remove `studyTaSettings` from localStorage so
+  // the user's saved preferences remain available to be restored on login.
+  const applyDefaultAppearance = () => {
+    console.debug('[Settings] applyDefaultAppearance: applying default appearance (logout)')
+    setDarkMode(false)
+    setFontSize('medium')
+    setColorTheme('teal')
+    // Do not touch persisted settings here
+  }
+
+  // Load appearance-related settings from persisted storage without
+  // overwriting other ephemeral state. Used on login to restore the user's
+  // selected theme/font-size.
+  const loadSavedSettingsFromStorage = () => {
+    try {
+      const savedSettings = localStorage.getItem('studyTaSettings')
+      console.debug('[Settings] loadSavedSettingsFromStorage: found', savedSettings)
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings)
+        console.debug('[Settings] loadSavedSettingsFromStorage: parsed', settings)
+        if (typeof settings.darkMode === 'boolean') setDarkMode(settings.darkMode)
+        if (settings.fontSize) setFontSize(settings.fontSize)
+        if (settings.colorTheme) setColorTheme(settings.colorTheme)
+      } else {
+        console.debug('[Settings] loadSavedSettingsFromStorage: no saved settings found')
+      }
+    } catch (err) {
+      console.warn('Failed to load saved settings on auth change', err)
+    }
+  }
+
   // Get theme colors based on current color theme
   const getThemeColors = () => {
     const themes = {
@@ -446,6 +478,35 @@ export const SettingsProvider = ({ children }) => {
     }
   }
 
+  // Listen for auth changes (login/logout) so we can apply appearance defaults
+  // on logout (landing page) and restore saved user appearance on login.
+  useEffect(() => {
+    const onAuthChanged = () => {
+      try {
+        const isAuth = localStorage.getItem('stuyta_auth') === '1' || !!localStorage.getItem('token') || !!localStorage.getItem('user')
+        console.debug('[Settings] authChanged event, isAuth=', isAuth)
+        if (isAuth) {
+          // User logged in -> restore saved appearance
+          console.debug('[Settings] authChanged -> loading saved appearance')
+          loadSavedSettingsFromStorage()
+        } else {
+          // User logged out -> apply default landing appearance
+          console.debug('[Settings] authChanged -> applying default appearance')
+          applyDefaultAppearance()
+        }
+      } catch (err) {
+        console.warn('Error handling authChanged in SettingsContext', err)
+      }
+    }
+
+    window.addEventListener('authChanged', onAuthChanged)
+
+    // Run once on mount so initial UI matches current auth state
+    onAuthChanged()
+
+    return () => window.removeEventListener('authChanged', onAuthChanged)
+  }, [])
+
   const value = {
     // Settings state
     darkMode,
@@ -494,6 +555,10 @@ export const SettingsProvider = ({ children }) => {
     getThemeColors,
     playSound,
     sendNotification
+    ,
+    // New helpers for auth-based flows
+    applyDefaultAppearance,
+    loadSavedSettingsFromStorage
   }
 
   return (

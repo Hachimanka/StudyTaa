@@ -12,10 +12,6 @@ export default function Settings() {
     darkMode,
     fontSize,
     colorTheme,
-    emailNotifications,
-    pushNotifications,
-    studyReminders,
-    soundEffects,
     defaultStudyMode,
     sessionDuration,
     autoSave,
@@ -31,10 +27,6 @@ export default function Settings() {
     setDarkMode,
     setFontSize,
     setColorTheme,
-    setEmailNotifications,
-    setPushNotifications,
-    setStudyReminders,
-    setSoundEffects,
     setDefaultStudyMode,
     setSessionDuration,
     setAutoSave,
@@ -104,10 +96,7 @@ export default function Settings() {
 
   const tabs = [
     { id: 'appearance', name: 'Appearance', icon: '🎨' },
-    { id: 'notifications', name: 'Notifications', icon: '🔔' },
-    { id: 'study', name: 'Study', icon: '📚' },
     { id: 'account', name: 'Account', icon: '👤' },
-    { id: 'privacy', name: 'Privacy', icon: '🔒' },
     { id: 'about', name: 'About', icon: 'ℹ️' }
   ]
 
@@ -186,103 +175,7 @@ export default function Settings() {
           </div>
         )
 
-      case 'notifications':
-        return (
-          <div className="space-y-6">
-            <div className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-              <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                Notification Preferences
-              </h3>
-              
-              <ToggleSwitch 
-                checked={emailNotifications} 
-                onChange={setEmailNotifications} 
-                label="📧 Email Notifications" 
-              />
-              
-              <ToggleSwitch 
-                checked={pushNotifications} 
-                onChange={setPushNotifications} 
-                label="📱 Push Notifications" 
-              />
-              
-              <ToggleSwitch 
-                checked={studyReminders} 
-                onChange={setStudyReminders} 
-                label="⏰ Study Reminders" 
-              />
-              
-              <ToggleSwitch 
-                checked={soundEffects} 
-                onChange={setSoundEffects} 
-                label="🔊 Sound Effects" 
-              />
-            </div>
-          </div>
-        )
-
-      case 'study':
-        return (
-          <div className="space-y-6">
-            <div className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-              <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                Study Preferences
-              </h3>
-              
-              <div className="py-3">
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  📚 Default Study Mode
-                </label>
-                <select
-                  value={defaultStudyMode}
-                  onChange={(e) => setDefaultStudyMode(e.target.value)}
-                  className={`w-full p-3 border rounded-lg ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                >
-                  <option value="flashcard">Flashcards</option>
-                  <option value="quiz">Quiz Mode</option>
-                  <option value="matching">Matching</option>
-                  <option value="fillblanks">Fill in the Blanks</option>
-                  <option value="truefalse">True/False</option>
-                </select>
-              </div>
-
-              <div className="py-3">
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  ⏱️ Default Session Duration (minutes)
-                </label>
-                <input
-                  type="range"
-                  min="5"
-                  max="120"
-                  value={sessionDuration}
-                  onChange={(e) => setSessionDuration(e.target.value)}
-                  className="w-full h-2 bg-teal-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <div className="flex justify-between text-sm text-gray-500 mt-1">
-                  <span>5 min</span>
-                  <span className="font-medium">{sessionDuration} min</span>
-                  <span>120 min</span>
-                </div>
-              </div>
-              
-              <ToggleSwitch 
-                checked={autoSave} 
-                onChange={setAutoSave} 
-                label="💾 Auto-save Progress" 
-              />
-              
-              <ToggleSwitch 
-                checked={showProgress} 
-                onChange={setShowProgress} 
-                label="📊 Show Progress Indicators" 
-              />
-            </div>
-          </div>
-        )
+      
 
       case 'account':
         return (
@@ -331,52 +224,6 @@ export default function Settings() {
               <div className="pt-4 space-y-3">
                 <button onClick={() => navigate('/change-password')} className="w-full bg-teal-500 hover:bg-teal-600 text-white py-3 px-4 rounded-lg font-medium transition-colors">
                   Change Password
-                </button>
-                <button className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  darkMode 
-                    ? 'bg-gray-700 hover:bg-gray-600 text-white' 
-                    : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-                }`}>
-                  Download My Data
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-
-      case 'privacy':
-        return (
-          <div className="space-y-6">
-            <div className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-              <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                Privacy & Data
-              </h3>
-              
-              <ToggleSwitch 
-                checked={dataCollection} 
-                onChange={setDataCollection} 
-                label="📊 Allow Data Collection for Improvements" 
-              />
-              
-              <ToggleSwitch 
-                checked={analytics} 
-                onChange={setAnalytics} 
-                label="📈 Analytics & Usage Statistics" 
-              />
-              
-              <ToggleSwitch 
-                checked={shareProgress} 
-                onChange={setShareProgress} 
-                label="🎯 Share Progress with Friends" 
-              />
-
-              <div className="pt-4 space-y-3">
-                <button className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                  darkMode 
-                    ? 'bg-gray-700 hover:bg-gray-600 text-white' 
-                    : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-                }`}>
-                  Clear All Data
                 </button>
                 <button className="w-full bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-lg font-medium transition-colors">
                   Delete Account

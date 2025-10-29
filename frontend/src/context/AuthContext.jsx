@@ -25,7 +25,25 @@ export function AuthProvider({ children }) {
   }, [isAuthenticated])
 
   // Login with backend
-  const [user, setUser] = useState(null);
+  // Restore user from localStorage if present so refresh doesn't lose identity
+  const [user, setUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      if (raw) return JSON.parse(raw);
+    } catch (e) {
+      // ignore parse errors
+    }
+    return null;
+  });
+  // Persist user to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (user) localStorage.setItem('user', JSON.stringify(user));
+      else localStorage.removeItem('user');
+    } catch (e) {
+      // ignore
+    }
+  }, [user]);
   const login = async (email, password, cb) => {
     try {
       // Use backend server URL (backend runs on port 5000)
@@ -39,11 +57,14 @@ export function AuthProvider({ children }) {
         if (data.message === '2FA_REQUIRED') {
           // Notify caller that 2FA is required. We store the partial user info so UI can prompt for code
           setUser({ _id: data.user._id, email: data.user.email, twoFactorPending: true });
+          // Persist partial user so refresh doesn't lose the pending state
+          try { localStorage.setItem('user', JSON.stringify({ _id: data.user._id, email: data.user.email, twoFactorPending: true })) } catch(e) {}
           if (cb) cb({ twoFactorRequired: true, userId: data.user._id });
           return;
         }
         setIsAuthenticated(true);
         setUser(data.user);
+        try { localStorage.setItem('user', JSON.stringify(data.user)) } catch(e) {}
         // Store user ID as token for authenticated API calls
         localStorage.setItem('token', data.user._id);
         // Dispatch custom event to notify other components
@@ -71,6 +92,7 @@ export function AuthProvider({ children }) {
       if (res.ok) {
         setIsAuthenticated(true);
         setUser(data.user);
+        try { localStorage.setItem('user', JSON.stringify(data.user)) } catch(e) {}
         window.dispatchEvent(new Event('authChanged'));
         if (cb) cb(true);
       } else {
@@ -94,6 +116,8 @@ export function AuthProvider({ children }) {
       const data = await res.json();
       if (res.ok) {
         setIsAuthenticated(true);
+        // If backend returns created user info later, prefer storing it; registration here triggers email verification flow
+        // Keep user null until verification completes or login occurs
         if (cb) cb();
       } else {
         alert(data.message || 'Registration failed');
@@ -128,6 +152,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     try {
       localStorage.removeItem('stuyta_auth');
+      localStorage.removeItem('user');
       localStorage.removeItem('token');
       // Dispatch custom event to notify other components
       window.dispatchEvent(new Event('authChanged'));

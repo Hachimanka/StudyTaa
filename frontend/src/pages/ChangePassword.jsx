@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext'
+import { useAuth } from '../context/AuthContext'
 import EyeIcon from '../components/EyeIcon'
 
 export default function ChangePassword(){
   const { darkMode, getThemeColors } = useSettings()
   const themeColors = getThemeColors()
+  const { user } = useAuth()
   const [email, setEmail] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -28,9 +30,31 @@ export default function ChangePassword(){
     const err = validate()
     if (err) { alert(err); return }
 
-    // TODO: call API to change password
-    alert('Password updated (mock)')
-    navigate('/login')
+    // Call backend to change password
+    (async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user?._id, currentPassword, newPassword })
+        })
+        const data = await res.json()
+        if (res.ok) {
+          // Keep user logged in — just show success and return to Settings (Account)
+          alert(data.message || 'Password updated')
+          // Clear fields
+          setCurrentPassword('')
+          setNewPassword('')
+          setConfirmPassword('')
+          navigate('/settings', { state: { tab: 'account' } })
+        } else {
+          alert(data.message || 'Failed to update password')
+        }
+      } catch (err) {
+        console.error('Change password error', err)
+        alert('Network error while changing password')
+      }
+    })()
   }
 
   return (

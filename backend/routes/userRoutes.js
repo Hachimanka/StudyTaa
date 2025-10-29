@@ -141,6 +141,31 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
+// Change password for a user: verify current password and update to new one
+router.post('/change-password', async (req, res) => {
+  const { userId, currentPassword, newPassword } = req.body;
+  if (!userId || !currentPassword || !newPassword) return res.status(400).json({ message: 'Missing params' });
+  try {
+    const user = await Users.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ message: 'Current password is incorrect' });
+
+    // Validate new password (basic server-side checks)
+    if (newPassword.length < 8) return res.status(400).json({ message: 'New password must be at least 8 characters' });
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.status(200).json({ message: 'Password updated' });
+  } catch (err) {
+    console.error('Error changing password', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Registration with email verification
 router.post("/register", async (req, res) => {
   const { name, email, password } = req.body;

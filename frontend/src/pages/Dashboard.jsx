@@ -207,11 +207,11 @@ export default function Home() {
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-5xl font-bold">
+          <h1 className="text-5xl font-bold page-title">
             {fullName ? `Welcome back, ${fullName}!` : "Welcome back!"}
           </h1>
           <p
-            className={`mt-1 text-xl ${
+            className={`mt-1 text-xl page-subtitle ${
               darkMode ? "text-gray-400" : "text-gray-500"
             }`}
           >

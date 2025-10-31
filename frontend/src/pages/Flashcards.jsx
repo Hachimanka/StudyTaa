@@ -1283,7 +1283,7 @@ export default function FileBasedStudyApp() {
       <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28">
         {/* Header */}
         <div className="mb-8 transform transition-all duration-500 hover:scale-105">
-          <h1 className={`text-3xl md:text-4xl font-bold bg-gradient-to-r ${themeColors.gradient} bg-clip-text text-transparent`}>
+          <h1 className={`text-5xl font-bold page-title`}>
             AI Study Mode - File Based
           </h1>
           <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-lg`}>Upload your study material and practice with AI-generated content</p>

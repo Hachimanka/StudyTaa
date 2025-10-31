@@ -41,6 +41,7 @@ export default function Settings() {
   // Functions
   saveAllSettings,
   resetSettings,
+  resetAppearance,
   getThemeColors,
     playSound
   } = useSettings()
@@ -316,7 +317,7 @@ export default function Settings() {
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className={`text-5xl font-bold bg-clip-text text-transparent`} style={{ backgroundImage: `var(--gradient)` }}>
+          <h1 className={`text-5xl font-bold page-title`}>
             Settings
           </h1>
           <p className={`mt-2 text-lg`} style={{ color: 'var(--muted)' }}>
@@ -353,15 +354,20 @@ export default function Settings() {
           <div className="lg:col-span-3">
             {renderTabContent()}
             
-            {/* Save/Reset Buttons shown only for Appearance and Account tabs */}
+            {/* Action buttons: Reset only on Appearance; Save on Appearance and Account */}
             {(activeTab === 'appearance' || activeTab === 'account') && (
               <div className="mt-8 flex justify-end gap-4">
-                <button
-                  onClick={resetSettings}
-                  className={`${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} px-6 py-3 rounded-lg font-medium transition-all duration-200`}
-                >
-                  🔄 Reset to Defaults
-                </button>
+                {/* Show Reset only for the Appearance tab */}
+                {activeTab === 'appearance' && (
+                  <button
+                    onClick={resetAppearance}
+                    className={`${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} px-6 py-3 rounded-lg font-medium transition-all duration-200`}
+                  >
+                    🔄 Reset to Defaults
+                  </button>
+                )}
+
+                {/* Save is still available for Appearance and Account */}
                 <button
                   onClick={saveSettings}
                   className={`bg-gradient-to-r ${themeColors.gradient} ${themeColors.hover} text-white px-8 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl`}

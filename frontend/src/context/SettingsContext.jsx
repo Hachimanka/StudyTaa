@@ -335,6 +335,36 @@ export const SettingsProvider = ({ children }) => {
     localStorage.removeItem('studyTaStats')
   }
 
+  // Reset only appearance-related settings to defaults and persist them
+  // This does NOT touch account/privacy/stats, so Account and About remain unaffected.
+  const resetAppearance = () => {
+    const defaults = {
+      darkMode: false,
+      fontSize: 'medium',
+      colorTheme: 'teal'
+    }
+
+    // Apply to current state
+    setDarkMode(defaults.darkMode)
+    setFontSize(defaults.fontSize)
+    setColorTheme(defaults.colorTheme)
+
+    try {
+      // Merge into existing persisted settings without removing other keys
+      const saved = localStorage.getItem('studyTaSettings')
+      const settings = saved ? JSON.parse(saved) : {}
+      settings.darkMode = defaults.darkMode
+      settings.fontSize = defaults.fontSize
+      settings.colorTheme = defaults.colorTheme
+      localStorage.setItem('studyTaSettings', JSON.stringify(settings))
+
+      // Also update the standalone 'theme' key used elsewhere
+      localStorage.setItem('theme', defaults.darkMode ? 'dark' : 'light')
+    } catch (err) {
+      console.warn('Failed to persist appearance defaults:', err)
+    }
+  }
+
   // Apply only the appearance-related defaults (used on logout)
   // This intentionally does NOT remove `studyTaSettings` from localStorage so
   // the user's saved preferences remain available to be restored on login.
@@ -547,10 +577,12 @@ export const SettingsProvider = ({ children }) => {
     setAnalytics,
     setShareProgress,
     
-    // Functions
-    saveAllSettings,
-    resetSettings,
-    updateStudyStats,
+  // Functions
+  saveAllSettings,
+  resetSettings,
+  // Reset only appearance-related settings (does not affect account/privacy/stats)
+  resetAppearance,
+  updateStudyStats,
     incrementStudySession,
     getThemeColors,
     playSound,

@@ -869,7 +869,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         <ChatWidget />
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h1 className={`text-4xl font-bold mt-6 bg-gradient-to-r ${themeColors.gradient} bg-clip-text text-transparent`}>Smart Calendar</h1>
+            <h1 className={`text-5xl font-bold page-title mt-6`}>Smart Calendar</h1>
             <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Manage your study schedule with intelligent event organization</p>
           </div>
           <div className="mt-6 flex gap-2">

@@ -344,3 +344,18 @@
   .text-lg body { font-size: 1.25rem; }
   .text-xl body { font-size: 1.5rem; }
 }
+
+/* Page title / subtitle utilities to enforce consistent sizing and theme color */
+.page-title {
+  font-size: 3rem; /* text-5xl */
+  line-height: 1.05;
+  font-weight: 700; /* font-bold */
+  /* Use a strong theme color; fall back to --color-primary */
+  color: var(--primary-600, var(--color-primary));
+}
+
+.page-subtitle {
+  margin-top: 0.25rem; /* mt-1 */
+  font-size: 1.25rem; /* text-xl */
+  color: var(--color-muted);
+}

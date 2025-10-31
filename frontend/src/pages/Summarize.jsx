@@ -169,7 +169,7 @@ export default function Summarize() {
       <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28">
         {/* Page Title */}
         <div className="mb-8 transform transition-all duration-500 hover:scale-105">
-          <h1 className={`text-3xl md:text-4xl font-bold bg-clip-text text-transparent`} style={{ backgroundImage: `var(--gradient)` }}>
+          <h1 className={`text-5xl font-bold page-title`}>
             🤖 AI Content Summarizer
           </h1>
           <p className={`mt-2 text-lg`} style={{ color: 'var(--muted)' }}>

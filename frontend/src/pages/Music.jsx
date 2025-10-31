@@ -155,7 +155,7 @@ export default function Music() {
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className={`text-5xl font-bold bg-clip-text text-transparent`} style={{ backgroundImage: 'var(--gradient)' }}>
+          <h1 className={`text-5xl font-bold page-title`}>
             Focus Music
           </h1>
           <p className={`mt-2 text-lg`} style={{ color: 'var(--muted)' }}>

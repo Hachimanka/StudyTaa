@@ -18,7 +18,7 @@ export default function Landing() {
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
           >
-            <h1 className="text-display mb-8 max-w-4xl mx-auto text-10xl md:text-6xl font-extrabold leading-18">
+            <h1 className="text-5xl font-bold page-title mb-8 max-w-4xl mx-auto">
               Master Any Subject with{" "}
               <span className="text-primary">
                 AI Intelligence

@@ -121,17 +121,26 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchUserInfo() {
-      if (user?._id) {
-        try {
-          const res = await fetch(`http://localhost:5000/api/userinfo/${user._id}`);
-          const info = await res.json();
-          setFullName(info.fullName || profileName);
-        } catch {
-          setFullName(profileName);
+      // Prefer the client-side authenticated user's name when available
+      if (user) {
+        if (user.name) {
+          setFullName(user.name)
+          return
         }
-      } else {
-        setFullName(profileName);
+
+        if (user._id) {
+          try {
+            const res = await fetch(`http://localhost:5000/api/userinfo/${user._id}`);
+            const info = await res.json();
+            setFullName(info.fullName || profileName);
+          } catch {
+            setFullName(profileName);
+          }
+          return
+        }
       }
+
+      setFullName(profileName);
     }
 
     const loadDashboardData = async () => {
@@ -198,11 +207,11 @@ export default function Home() {
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-5xl font-bold">
+          <h1 className="text-5xl font-bold page-title">
             {fullName ? `Welcome back, ${fullName}!` : "Welcome back!"}
           </h1>
           <p
-            className={`mt-1 text-xl ${
+            className={`mt-1 text-xl page-subtitle ${
               darkMode ? "text-gray-400" : "text-gray-500"
             }`}
           >

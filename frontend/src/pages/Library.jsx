@@ -514,6 +514,7 @@ function Folder({ folder, onAddFile, onAddFolder, onDeleteFile, onDeleteFolder, 
 
 export default function Library() {
   const { user } = useAuth();
+  const API_BASE = import.meta.env.VITE_API_BASE || '';
   const [root, setRoot] = useState({
     id: 'root',
     name: 'My Library',
@@ -540,12 +541,12 @@ export default function Library() {
     try {
       setLoading(true);
       const [filesResponse, foldersResponse] = await Promise.all([
-        fetch(`http://localhost:5000/api/library/files`, {
+        fetch(`${API_BASE}/api/library/files`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         }),
-        fetch(`http://localhost:5000/api/library/folders`, {
+        fetch(`${API_BASE}/api/library/folders`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -616,8 +617,8 @@ export default function Library() {
               dataUrl: dataUrl,
               content: file.textContent || null,
               textContent: file.textContent || null,
-              downloadUrl: file.filePath ? `http://localhost:5000/api/library/download/${file._id}` : null,
-              viewUrl: `http://localhost:5000/api/library/view/${file._id}` // For viewing PDFs and other files
+              downloadUrl: file.filePath ? `${API_BASE}/api/library/download/${file._id}` : null,
+              viewUrl: `${API_BASE}/api/library/view/${file._id}` // For viewing PDFs and other files
             });
           }
         });
@@ -671,7 +672,7 @@ export default function Library() {
         formData.append('folderId', folderId);
       }
 
-      const response = await fetch('http://localhost:5000/api/library/upload', {
+      const response = await fetch(`${API_BASE}/api/library/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -696,7 +697,7 @@ export default function Library() {
     if (!name || !user) return;
     
     try {
-      const response = await fetch('http://localhost:5000/api/library/folders', {
+      const response = await fetch(`${API_BASE}/api/library/folders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -742,7 +743,7 @@ export default function Library() {
     if (!window.confirm('Are you sure you want to delete this file?')) return;
     
     try {
-      const response = await fetch(`http://localhost:5000/api/library/files/${fileToDelete.id}`, {
+      const response = await fetch(`${API_BASE}/api/library/files/${fileToDelete.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -768,7 +769,7 @@ export default function Library() {
     if (!window.confirm('Are you sure you want to delete this folder and all its contents?')) return;
     
     try {
-      const response = await fetch(`http://localhost:5000/api/library/folders/${folderId}`, {
+      const response = await fetch(`${API_BASE}/api/library/folders/${folderId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`

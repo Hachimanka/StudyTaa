@@ -45,6 +45,7 @@ app.use('/api', userRoutes);
 app.use('/api/library', libraryRoutes);
 
 const PORT = process.env.PORT || 5000;
+const BACKEND_BASE = process.env.BACKEND_BASE || `http://localhost:${PORT}`;
 
 // --- Initialize Gemini AI ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -317,5 +318,5 @@ app.use((error, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`PDF extraction endpoint: http://localhost:${PORT}/api/pdf/extract-text`);
+  console.log(`PDF extraction endpoint: ${BACKEND_BASE.replace(/\/$/, '')}/api/pdf/extract-text`);
 });

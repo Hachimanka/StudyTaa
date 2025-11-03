@@ -125,7 +125,7 @@ export default function Home() {
                     : "bg-teal-100 hover:bg-teal-200"
                 }`}
               >
-                <div className="w-8 h-8 bg-teal-700 rounded-lg mr-3" />
+                <div className="w-8 h-8 bg-teal-700 rounded-lg mr-2" />
                 <div>
                   <p className="font-semibold">Create Summary</p>
                   <p
@@ -145,7 +145,7 @@ export default function Home() {
                     : "bg-blue-100 hover:bg-blue-200 border-blue-400"
                 }`}
               >
-                <div className="w-8 h-8 bg-teal-700 rounded-lg mr-3" />
+                <div className="w-8 h-8 bg-teal-700 rounded-lg mr-2" />
                 <div>
                   <p className="font-semibold">Make Flashcards</p>
                   <p
@@ -165,7 +165,7 @@ export default function Home() {
                     : "bg-teal-100 hover:bg-teal-200"
                 }`}
               >
-                <div className="w-8 h-8 bg-teal-700 rounded-lg mr-3" />
+                <div className="w-8 h-8 bg-teal-700 rounded-lg mr-2" />
                 <div>
                   <p className="font-semibold">Browse Library</p>
                   <p

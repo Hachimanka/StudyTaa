@@ -211,6 +211,26 @@ html {
 .dark .chat-mic { color: var(--text); }
 .dark .chat-mic:hover { background: rgba(255,255,255,0.04); }
 
+/* Hover bounce animation for quick action icons/buttons */
+@keyframes hover-bounce {
+	0% { transform: translateY(0); }
+	30% { transform: translateY(-6px); }
+	60% { transform: translateY(0); }
+	100% { transform: translateY(0); }
+}
+.hover-bounce:hover {
+	animation: hover-bounce 420ms cubic-bezier(.2,.9,.3,1);
+}
+
+.quick-icon {
+	width: 2rem;
+	height: 2rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 0.5rem;
+}
+
 @media (max-width: 640px){
 	.chat-panel { width: 92vw; right: 12px; bottom: 80px }
 	.chat-toggle-button { width:48px; height:48px }

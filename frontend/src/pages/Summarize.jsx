@@ -7,6 +7,7 @@ import { useSettings } from "../context/SettingsContext";
 export default function Summarize() {
   const { darkMode, getThemeColors, playSound } = useSettings();
   const themeColors = getThemeColors();
+  const API_BASE = import.meta.env.VITE_API_BASE || '';
   const [inputText, setInputText] = useState("");
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,7 +40,7 @@ export default function Summarize() {
         formData.append("pdf", selectedFile);
 
         const extractResponse = await axios.post(
-          "http://localhost:5000/api/pdf/extract-text",
+          `${API_BASE}/api/pdf/extract-text`,
           formData,
           {
             headers: {
@@ -51,7 +52,7 @@ export default function Summarize() {
       }
 
       // Now summarize the text
-      const res = await axios.post("http://localhost:5000/api/ai/summarize", {
+      const res = await axios.post(`${API_BASE}/api/ai/summarize`, {
         text: textToSummarize,
       });
       setSummary(res.data.summary);

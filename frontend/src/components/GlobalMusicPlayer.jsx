@@ -5,16 +5,18 @@ export default function GlobalMusicPlayer() {
   const [currentTrack, setCurrentTrack] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const iframeRef = useRef(null)
+  const audioRef = useRef(null)
 
   useEffect(() => {
     const handler = (e) => {
-      const { category, trackId } = e?.detail || {}
+      const detail = e?.detail || {}
       // If a full track object is passed, use it directly
-      if (e?.detail && e.detail.url) {
-        setCurrentTrack(e.detail)
+      if (detail && (detail.url || detail.viewUrl || detail.downloadUrl)) {
+        setCurrentTrack({ ...detail, url: detail.url || detail.viewUrl || detail.downloadUrl })
         setIsPlaying(true)
         return
       }
+      const { category, trackId } = detail
       // Resolve track from category / trackId
       if (trackId) {
         for (const cat of Object.keys(focusSounds)) {
@@ -35,6 +37,17 @@ export default function GlobalMusicPlayer() {
     return () => window.removeEventListener('playMusic', handler)
   }, [])
 
+  // Control audio element when currentTrack or isPlaying changes
+  useEffect(() => {
+    if (!currentTrack) return
+    if (currentTrack.type === 'audio' || (!currentTrack.type && currentTrack.url && !currentTrack.url.includes('youtube.com'))) {
+      if (audioRef.current) {
+        if (isPlaying) audioRef.current.play().catch(() => {})
+        else audioRef.current.pause()
+      }
+    }
+  }, [currentTrack, isPlaying])
+
   if (!currentTrack) return null
 
   return (
@@ -49,6 +62,8 @@ export default function GlobalMusicPlayer() {
           </button>
         </div>
       </div>
+
+      {/* YouTube embed */}
       {currentTrack.type === 'youtube' && currentTrack.url && (
         <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden', height: 0, paddingBottom: '56.25%' }}>
           <iframe
@@ -60,6 +75,13 @@ export default function GlobalMusicPlayer() {
             allowFullScreen
             title="Global Music Player"
           />
+        </div>
+      )}
+
+      {/* Direct audio */}
+      {(currentTrack.type === 'audio' || (currentTrack.url && !currentTrack.url.includes('youtube.com'))) && (
+        <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden' }}>
+          <audio ref={audioRef} src={currentTrack.url} controls style={{ width: '100%', borderRadius: 8 }} autoPlay={isPlaying} />
         </div>
       )}
     </div>

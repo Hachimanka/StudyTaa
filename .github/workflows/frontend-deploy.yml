@@ -1,0 +1,42 @@
+name: Frontend Build & Deploy (Vercel)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies (frontend)
+        working-directory: frontend
+        run: |
+          npm ci
+
+      - name: Build frontend (Vite)
+        working-directory: frontend
+        env:
+          # Ensure VITE_API_BASE is available at build time (set this secret in repo settings)
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+        run: |
+          npm run build
+
+      - name: Deploy to Vercel (using Vercel CLI)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # Install Vercel CLI and deploy the pre-built dist directory
+          npm install -g vercel@28
+          # Deploy the already-built production output (frontend/dist)
+          npx vercel --prod frontend/dist --confirm --token $VERCEL_TOKEN
+
+      - name: Notify success
+        run: echo "Frontend deployed to Vercel"

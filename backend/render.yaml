@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: StudyTaa Backend
+    env: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: node server.js
+    repo: ./
+    rootDirectory: backend
+    envVars:
+      - key: MONGO_URI
+        value: "${MONGO_URI}"
+      - key: GEMINI_API_KEY
+        value: "${GEMINI_API_KEY}"
+      - key: FRONTEND_BASE
+        value: "${FRONTEND_BASE}"
+      - key: BACKEND_BASE
+        value: "${BACKEND_BASE}"
+      - key: OPENAI_API_KEY
+        value: "${OPENAI_API_KEY}"

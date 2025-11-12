@@ -12,6 +12,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import userRoutes from './routes/userRoutes.js';
 import libraryRoutes from './routes/libraryRoutes.js';
+import sttRoutes from './routes/sttRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,7 +45,11 @@ app.use('/api', userRoutes);
 // Register library routes
 app.use('/api/library', libraryRoutes);
 
+// Register server-side STT route (MediaRecorder -> /api/stt)
+app.use('/api', sttRoutes);
+
 const PORT = process.env.PORT || 5000;
+const BACKEND_BASE = process.env.BACKEND_BASE || `http://localhost:${PORT}`;
 
 // --- Initialize Gemini AI ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -317,5 +322,5 @@ app.use((error, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`PDF extraction endpoint: http://localhost:${PORT}/api/pdf/extract-text`);
+  console.log(`PDF extraction endpoint: ${BACKEND_BASE.replace(/\/$/, '')}/api/pdf/extract-text`);
 });

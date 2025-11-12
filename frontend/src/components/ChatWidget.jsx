@@ -175,10 +175,57 @@ export default function ChatWidget() {
   const startListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
-      setMessages(m => [...m, { from: 'bot', text: 'Voice commands are not supported in this browser.' }])
+      // Fallback: if SpeechRecognition is not available, try MediaRecorder -> /api/stt upload
+      recordAudioFallback()
       return
     }
     if (recognitionRef.current) return
+
+    // Secure context check: SpeechRecognition typically requires HTTPS except on localhost.
+    if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      setMessages(m => [...m, { from: 'bot', text: 'Voice recognition requires a secure (HTTPS) connection. Please access the app over HTTPS or use localhost for voice features.' }])
+      return
+    }
+
+    // Helper: check microphone permission state (where supported) and optionally request permission
+    const ensureMicrophonePermission = async () => {
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          try {
+            const status = await navigator.permissions.query({ name: 'microphone' })
+            if (status.state === 'denied') {
+              return { ok: false, reason: 'denied' }
+            }
+            if (status.state === 'prompt') {
+              // Attempt to prompt via getUserMedia to ensure the browser asks for permission
+              try {
+                await navigator.mediaDevices.getUserMedia({ audio: true })
+                return { ok: true }
+              } catch (err) {
+                return { ok: false, reason: err.name || 'not-allowed' }
+              }
+            }
+            return { ok: true }
+          } catch (e) {
+            // Permissions API might throw on some browsers; fall back to getUserMedia
+          }
+        }
+
+        // Fallback: try requesting getUserMedia which will trigger permission prompt on most browsers
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          try {
+            await navigator.mediaDevices.getUserMedia({ audio: true })
+            return { ok: true }
+          } catch (err) {
+            return { ok: false, reason: err.name || 'not-allowed' }
+          }
+        }
+
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, reason: err.message }
+      }
+    }
 
     const r = new SpeechRecognition()
     r.lang = 'en-US'
@@ -272,8 +319,29 @@ export default function ChatWidget() {
       setListening(false)
     }
 
-    r.onerror = (e) => {
-      setMessages(m => [...m, { from: 'bot', text: 'Voice recognition error: ' + e.error }])
+    r.onerror = async (e) => {
+      // Provide a clearer message for permission issues and attempt to help
+      if (e && e.error === 'not-allowed') {
+        setMessages(m => [...m, { from: 'bot', text: 'Voice recognition error: permission denied or blocked. Please allow microphone access for this site (check the padlock icon or browser site settings).' }])
+
+        // Try to prompt permission via getUserMedia as a fallback to trigger browser permission dialog
+        try {
+          const resp = await ensureMicrophonePermission()
+          if (!resp.ok) {
+            if (resp.reason === 'denied') {
+              setMessages(m => [...m, { from: 'bot', text: 'Microphone access appears to be blocked. Open your browser settings (Privacy & security → Site settings → Microphone) and allow this site.' }])
+            } else {
+              setMessages(m => [...m, { from: 'bot', text: `Microphone permission could not be obtained: ${resp.reason}` }])
+            }
+          } else {
+            setMessages(m => [...m, { from: 'bot', text: 'Microphone permission granted — please try voice input again.' }])
+          }
+        } catch (permErr) {
+          setMessages(m => [...m, { from: 'bot', text: 'Unable to request microphone permission programmatically. Please enable it in your browser settings.' }])
+        }
+      } else {
+        setMessages(m => [...m, { from: 'bot', text: 'Voice recognition error: ' + (e && e.error ? e.error : String(e)) }])
+      }
       recognitionRef.current = null
       setListening(false)
     }
@@ -281,6 +349,51 @@ export default function ChatWidget() {
     recognitionRef.current = r
     r.start()
     setListening(true)
+  }
+
+  // Fallback for browsers without SpeechRecognition (eg. iOS Safari)
+  const recordAudioFallback = async () => {
+    const API_BASE = import.meta.env.VITE_API_BASE || ''
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setMessages(m => [...m, { from: 'bot', text: 'This browser does not support audio capture.' }])
+        return
+      }
+      setMessages(m => [...m, { from: 'bot', text: 'Recording audio (fallback) — please speak now...' }])
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      const chunks = []
+      recorder.ondataavailable = e => chunks.push(e.data)
+      recorder.start()
+      // record for up to 4 seconds by default
+      await new Promise(res => setTimeout(res, 4000))
+      recorder.stop()
+      await new Promise(resolve => { recorder.onstop = resolve })
+      stream.getTracks().forEach(t => t.stop())
+
+      const blob = new Blob(chunks, { type: 'audio/webm' })
+      const fd = new FormData()
+      fd.append('audio', blob, 'recording.webm')
+
+      setMessages(m => [...m, { from: 'bot', text: 'Uploading audio for transcription...' }])
+      const res = await fetch(`${API_BASE}/api/stt`, { method: 'POST', body: fd })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setMessages(m => [...m, { from: 'bot', text: `Transcription failed: ${err.error || res.statusText}` }])
+        return
+      }
+      const data = await res.json()
+      const text = data.transcript || data.text || ''
+      if (!text) {
+        setMessages(m => [...m, { from: 'bot', text: 'No speech detected in the recording.' }])
+        return
+      }
+      // Append user's transcribed message and send to AI (skip re-appending inside send)
+      setMessages(m => [...m, { from: 'user', text }])
+      send(text, true, true)
+    } catch (err) {
+      setMessages(m => [...m, { from: 'bot', text: 'Recording or upload failed: ' + err.message }])
+    }
   }
 
   const stopListening = () => {

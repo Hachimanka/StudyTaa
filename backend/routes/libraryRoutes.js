@@ -4,11 +4,9 @@ import path from 'path';
 import fs from 'fs';
 import UploadedFile from '../models/UploadedFile.js';
 import Folder from '../models/Folder.js';
+import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
-
-// TEMPORARY: Dummy user ID for testing (replace with proper auth later)
-const TEMP_USER_ID = '507f1f77bcf86cd799439011';
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -58,10 +56,10 @@ const readTextFile = (filePath) => {
 };
 
 // Upload file
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
   try {
-    // TEMPORARY: Use dummy user ID for testing (replace with auth later)
-    const userId = TEMP_USER_ID;
+    // Get user ID from authenticated request
+    const userId = req.userId;
     const { folderId = 'root' } = req.body;
 
     if (!req.file) {
@@ -385,10 +383,11 @@ router.get('/view/:fileId', async (req, res) => {
 // Additional endpoints expected by frontend
 
 // Get all files for authenticated user (frontend expects this)
-router.get('/files', async (req, res) => {
+router.get('/files', verifyToken, async (req, res) => {
   try {
-    // TEMPORARY: Use dummy user ID for testing
-    const files = await UploadedFile.find({ userId: TEMP_USER_ID });
+    // Get files for the authenticated user
+    const userId = req.userId;
+    const files = await UploadedFile.find({ userId });
     res.json(files);
   } catch (error) {
     console.error('Error fetching files:', error);
@@ -397,10 +396,11 @@ router.get('/files', async (req, res) => {
 });
 
 // Get all folders for authenticated user (frontend expects this)
-router.get('/folders', async (req, res) => {
+router.get('/folders', verifyToken, async (req, res) => {
   try {
-    // TEMPORARY: Use dummy user ID for testing
-    const folders = await Folder.find({ userId: TEMP_USER_ID });
+    // Get folders for the authenticated user
+    const userId = req.userId;
+    const folders = await Folder.find({ userId });
     res.json(folders);
   } catch (error) {
     console.error('Error fetching folders:', error);
@@ -409,7 +409,7 @@ router.get('/folders', async (req, res) => {
 });
 
 // Create folder (frontend expects POST /folders)
-router.post('/folders', async (req, res) => {
+router.post('/folders', verifyToken, async (req, res) => {
   try {
     const { name, parentFolderId } = req.body;
     
@@ -417,8 +417,8 @@ router.post('/folders', async (req, res) => {
       return res.status(400).json({ error: 'Folder name is required' });
     }
 
-    // TEMPORARY: Use dummy user ID for testing
-    const userId = TEMP_USER_ID;
+    // Get user ID from authenticated request
+    const userId = req.userId;
 
     // Calculate path and level
     let path = name;
@@ -450,16 +450,20 @@ router.post('/folders', async (req, res) => {
 });
 
 // Delete file (frontend expects DELETE /files/:fileId)
-router.delete('/files/:fileId', async (req, res) => {
+router.delete('/files/:fileId', verifyToken, async (req, res) => {
   try {
     const { fileId } = req.params;
+    const userId = req.userId;
     const file = await UploadedFile.findById(fileId);
     
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // TEMPORARY: Skip user authorization check for testing
+    // Verify that the file belongs to the authenticated user
+    if (file.userId.toString() !== userId) {
+      return res.status(403).json({ error: 'Unauthorized: This file does not belong to you' });
+    }
 
     // Delete file from filesystem if it exists
     if (file.filePath && fs.existsSync(file.filePath)) {
@@ -477,16 +481,20 @@ router.delete('/files/:fileId', async (req, res) => {
 });
 
 // Delete folder (frontend expects DELETE /folders/:folderId)
-router.delete('/folders/:folderId', async (req, res) => {
+router.delete('/folders/:folderId', verifyToken, async (req, res) => {
   try {
     const { folderId } = req.params;
+    const userId = req.userId;
     const folder = await Folder.findById(folderId);
     
     if (!folder) {
       return res.status(404).json({ error: 'Folder not found' });
     }
 
-    // TEMPORARY: Skip user authorization check for testing
+    // Verify that the folder belongs to the authenticated user
+    if (folder.userId.toString() !== userId) {
+      return res.status(403).json({ error: 'Unauthorized: This folder does not belong to you' });
+    }
 
     // Recursively delete all subfolders and files
     const deleteRecursively = async (currentFolderId) => {

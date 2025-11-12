@@ -41,9 +41,8 @@ export default function Home() {
       {/* Main Dashboard */}
       <main className="p-12 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300">
         {/* Header */}
-        <h1 className="text-5xl font-bold">Welcome back, Student!</h1>
-        <p
-          className={`mt-1 text-xl ${
+          <h1 className="text-5xl font-bold page-title">Welcome back, Student!</h1>
+          <p className={`mt-1 text-xl page-subtitle ${
             isDark ? "text-gray-400" : "text-gray-500"
           }`}
         >

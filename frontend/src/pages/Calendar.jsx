@@ -5,6 +5,9 @@ import ChatWidget from '../components/ChatWidget'
 import { useSettings } from '../context/SettingsContext'
 import axios from 'axios'
 
+// Debug toggle: set true to log extraction details
+const DEBUG_EXTRACTION = false;
+
 // Event Modal Component
 function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, themeColors }) {
   const [formData, setFormData] = useState({
@@ -15,6 +18,20 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
     category: 'general',
     reminder: false
   });
+  const [formDate, setFormDate] = useState('');
+
+  const toInputDate = (d) => {
+    if (!d) return '';
+    try {
+      const dt = typeof d === 'string' ? new Date(d) : d;
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const da = String(dt.getDate()).padStart(2, '0');
+      return `${y}-${m}-${da}`;
+    } catch (e) {
+      return '';
+    }
+  };
 
   useEffect(() => {
     if (event) {
@@ -26,6 +43,7 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
         category: event.category || 'general',
         reminder: event.reminder || false
       });
+      setFormDate(toInputDate(event.date || date));
     } else {
       setFormData({
         title: '',
@@ -35,15 +53,19 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
         category: 'general',
         reminder: false
       });
+      setFormDate(toInputDate(date));
     }
   }, [event, isOpen]);
 
   const handleSave = () => {
     if (!formData.title.trim()) return;
+    const selected = formDate ? parseISODateLocal(formDate) : date;
     onSave({
       ...formData,
+      title: cleanTitle(formData.title),
+      description: cleanLabelTokens(formData.description),
       id: event?.id || Date.now(),
-      date: date
+      date: selected
     });
     onClose();
   };
@@ -91,6 +113,16 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
 
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <label className={`block text-sm font-medium mb-1`} style={{ color: 'var(--text)' }}>Date</label>
+                <input
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                  className={`w-full p-2.5 border rounded-lg`}
+                  style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
+                />
+              </div>
+              <div>
                 <label className={`block text-sm font-medium mb-1`} style={{ color: 'var(--text)' }}>Time</label>
                 <input
                   type="time"
@@ -100,7 +132,9 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
                   style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={`block text-sm font-medium mb-1`} style={{ color: 'var(--text)' }}>Priority</label>
                 <select
@@ -114,23 +148,22 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
                   <option value="high">High</option>
                 </select>
               </div>
-            </div>
-
-            <div>
-              <label className={`block text-sm font-medium mb-1`} style={{ color: 'var(--text)' }}>Category</label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({...formData, category: e.target.value})}
-                className={`w-full p-2.5 border rounded-lg`}
-                style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
-              >
-                <option value="general">General</option>
-                <option value="study">Study</option>
-                <option value="exam">Exam</option>
-                <option value="assignment">Assignment</option>
-                <option value="meeting">Meeting</option>
-                <option value="personal">Personal</option>
-              </select>
+              <div>
+                <label className={`block text-sm font-medium mb-1`} style={{ color: 'var(--text)' }}>Category</label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  className={`w-full p-2.5 border rounded-lg`}
+                  style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
+                >
+                  <option value="general">General</option>
+                  <option value="study">Study</option>
+                  <option value="exam">Exam</option>
+                  <option value="assignment">Assignment</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="personal">Personal</option>
+                </select>
+              </div>
             </div>
 
             <div>
@@ -220,6 +253,75 @@ const formatFileSize = (bytes) => {
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// Utility: clean noisy labels and normalize titles for display/dedup
+const cleanLabelTokens = (text) => {
+  let t = (text || '');
+  // Remove "Extracted from <filename> - " and optional leading quote
+  t = t.replace(/Extracted from\s+[^\n\r"]+?\s+-\s*"?/gi, '');
+  // Remove common label prefixes anywhere (more permissive)
+  t = t.replace(/\bDate\s*Entry\s*\d+\s*:/gi, ' ');
+  t = t.replace(/\bLine\s*:\s*/gi, ' ');
+  t = t.replace(/EVENT[\s_\-]*CONTEXT\s*:\s*/gi, ' ');
+  t = t.replace(/DATE[\s_\-]*CONTENT\s*:\s*/gi, ' ');
+  t = t.replace(/TABLE[\s_\-]*ROW\s*:\s*/gi, ' ');
+  t = t.replace(/TIME[\s_\-]*INFO\s*:\s*/gi, ' ');
+  t = t.replace(/\bTEXT\s*:\s*/gi, ' ');
+  // Remove remaining leading/trailing quotes
+  t = t.replace(/^["'“”]+/g, '');
+  t = t.replace(/["'“”]+$/g, '');
+  // Replace various dash/minus types and box drawing
+  t = t.replace(/[\u2010-\u2015\u2212]/g, ' '); // hyphen to horizontal bar and minus
+  t = t.replace(/[\u2500-\u257F]/g, ' '); // box-drawing
+  // Replace bars and collapse punctuation runs
+  t = t.replace(/[|]+/g, ' ');
+  t = t.replace(/[\-_]{2,}/g, ' ');
+  // Collapse whitespace
+  t = t.replace(/\s{2,}/g, ' ');
+  return t.trim();
+};
+
+const cleanTitle = (raw) => {
+  let t = cleanLabelTokens(raw)
+    .replace(/^[\s\-—_•|]+/, '')
+    .replace(/[\s\-—_•|]+$/, '')
+    .trim();
+  if (!t) t = 'Extracted Event';
+  return t;
+};
+
+const normalizeTitleKey = (title) => cleanLabelTokens(title)
+  .toLowerCase()
+  .replace(/[^a-z0-9\s]/g, '')
+  .replace(/\s{2,}/g, ' ')
+  .trim();
+
+// Choose one best event per unique date
+const collapseEventsByDate = (list) => {
+  const byDate = new Map();
+  list.forEach(ev => {
+    if (!ev?.date || !/^\d{4}-\d{2}-\d{2}$/.test(ev.date)) return;
+    const cleanedTitle = cleanTitle(ev.title || '');
+    const cleanedDesc = cleanLabelTokens(ev.description || '');
+    const hasMeaning = cleanedTitle && cleanedTitle.toLowerCase() !== 'extracted event';
+    const score = (hasMeaning ? 1000 : 0) + (cleanedTitle ? cleanedTitle.length : 0) + (cleanedDesc ? Math.min(cleanedDesc.length, 50) : 0);
+    const prev = byDate.get(ev.date);
+    if (!prev || score > prev._score) {
+      byDate.set(ev.date, { ...ev, title: cleanedTitle, description: cleanedDesc, _score: score });
+    }
+  });
+  return Array.from(byDate.values()).map(({ _score, ...rest }) => rest);
+};
+
+// Parse ISO YYYY-MM-DD to a local Date to avoid UTC shift issues
+const parseISODateLocal = (iso) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  if (!m) return new Date(NaN);
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  return new Date(y, mo - 1, d);
 };
 
 // Enhanced OCR text formatting for comprehensive date extraction
@@ -347,6 +449,260 @@ const preprocessTextForAI = (text) => {
   processedText += 'RAW TEXT BACKUP:\n' + text;
   
   return processedText;
+};
+
+// Extract date ranges like "November 6–9" or "10th–15th of December" and expand
+const extractDateRangesFromText = (text, fileName) => {
+  if (!text) return [];
+  const lines = text.split('\n');
+  const monthMap = {
+    january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+    july: 7, august: 8, september: 9, october: 10, november: 11, december: 12
+  };
+  const currentYear = new Date().getFullYear();
+  const events = [];
+  // Track contextual month/year from headers like "November 2025" or "DATE_CONTENT: November 2025"
+  let contextMonth = null; // 1-12
+  let contextYear = null;
+
+  const patterns = [
+    // November 6–9, 2025 or November 6-9
+    /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?\s*[\-–]\s*(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/gi,
+    // 10th–15th of December 2025
+    /\b(\d{1,2})(?:st|nd|rd|th)?\s*[\-–]\s*(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)(?:\s*,?\s*(\d{4}))?\b/gi,
+    // Nov 28 – Dec 2, 2025
+    /\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})\s*[\-–]\s*(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})(?:\s*,?\s*(\d{4}))?\b/gi,
+    // 11/6–9 or 11-06 – 09 (assume same month)
+    /\b(\d{1,2})[\/\.\-](\d{1,2})\s*[\-–]\s*(\d{1,2})(?:\s*,?\s*(\d{4}))?\b/g,
+    // 11/28–12/2 or 11-28 - 12-02 (optionally with /2025 at end)
+    /\b(\d{1,2})[\/\.\-](\d{1,2})\s*[\-–]\s*(\d{1,2})[\/\.\-](\d{1,2})(?:[\/\.\-](\d{2,4}))?\b/g,
+    // 11/28/2025–12/02/2025 (year on both sides)
+    /\b(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})\s*[\-–]\s*(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})\b/g,
+    // 6–9 Nov 2025 or 6-9 Nov (day-before-month range)
+    /\b(\d{1,2})(?:st|nd|rd|th)?\s*[\-–]\s*(\d{1,2})(?:st|nd|rd|th)?\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s*,?\s*(\d{4}))?\b/gi
+  ];
+
+  const monthShortToLong = (m) => {
+    const lower = m.toLowerCase();
+    if (lower.length <= 3) {
+      for (const full in monthMap) {
+        if (full.startsWith(lower)) return full;
+      }
+    }
+    return lower;
+  };
+
+  const pushRange = (startY, startM, startD, endY, endM, endD, contextLine) => {
+    const startDate = new Date(startY, startM - 1, startD);
+    const endDate = new Date(endY, endM - 1, endD);
+    if (endDate < startDate) return;
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      const iso = `${y}-${m}-${da}`;
+      // Extract a cleaner title from the context line excluding dates and labels
+      let title = (contextLine || '')
+        .replace(/\b\d{1,2}(?:st|nd|rd|th)?\b/g, ' ')
+        .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\b/gi, ' ');
+      title = cleanTitle(title);
+      const desc = contextLine ? cleanLabelTokens(contextLine).trim() : '';
+      events.push({
+        date: iso,
+        title: title.substring(0, 60),
+        description: desc
+      });
+    }
+  };
+
+  lines.forEach((line) => {
+    // Update month/year context headers
+    const headerMatch = line.match(/(?:DATE_CONTENT:\s*)?\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i);
+    if (headerMatch) {
+      contextMonth = monthMap[headerMatch[1].toLowerCase()];
+      contextYear = parseInt(headerMatch[2], 10);
+    }
+    let matched = false;
+    for (const pattern of patterns) {
+      pattern.lastIndex = 0;
+      let m;
+      while ((m = pattern.exec(line)) !== null) {
+        matched = true;
+        if (pattern === patterns[0]) {
+          const month = monthMap[m[1].toLowerCase()];
+          const d1 = parseInt(m[2], 10);
+          const d2 = parseInt(m[3], 10);
+          const y = m[4] ? parseInt(m[4], 10) : currentYear;
+          pushRange(y, month, d1, y, month, d2, line);
+        } else if (pattern === patterns[1]) {
+          const d1 = parseInt(m[1], 10);
+          const d2 = parseInt(m[2], 10);
+          const month = monthMap[m[3].toLowerCase()];
+          const y = m[4] ? parseInt(m[4], 10) : currentYear;
+          pushRange(y, month, d1, y, month, d2, line);
+        } else if (pattern === patterns[2]) {
+          const m1 = monthMap[monthShortToLong(m[1])];
+          const d1 = parseInt(m[2], 10);
+          const m2 = monthMap[monthShortToLong(m[3])];
+          const d2 = parseInt(m[4], 10);
+          const y = m[5] ? parseInt(m[5], 10) : currentYear;
+          // Handle potential year rollover if Dec -> Jan and no explicit year
+          let startY = y;
+          let endY = y;
+          if (!m[5] && m1 === 12 && m2 === 1) {
+            endY = y + 1;
+          }
+          pushRange(startY, m1, d1, endY, m2, d2, line);
+        } else if (pattern === patterns[3]) {
+          // Numeric month/day start to day end (same month)
+          const month = parseInt(m[1], 10);
+          const d1 = parseInt(m[2], 10);
+          const d2 = parseInt(m[3], 10);
+          const y = m[4] ? parseInt(m[4], 10) : currentYear;
+          pushRange(y, month, d1, y, month, d2, line);
+        } else if (pattern === patterns[4]) {
+          // Numeric cross-month: mm/dd – mm/dd (optional year at end)
+          const m1 = parseInt(m[1], 10);
+          const d1 = parseInt(m[2], 10);
+          const m2 = parseInt(m[3], 10);
+          const d2 = parseInt(m[4], 10);
+          let y = m[5] ? parseInt(m[5].length === 2 ? '20' + m[5] : m[5], 10) : currentYear;
+          let startY = y;
+          let endY = y;
+          if (!m[5] && m1 === 12 && m2 === 1) {
+            endY = y + 1;
+          }
+          pushRange(startY, m1, d1, endY, m2, d2, line);
+        } else if (pattern === patterns[5]) {
+          // Numeric with year on both sides: mm/dd/yyyy – mm/dd/yyyy
+          const m1 = parseInt(m[1], 10);
+          const d1 = parseInt(m[2], 10);
+          const y1 = parseInt(m[3].length === 2 ? '20' + m[3] : m[3], 10);
+          const m2 = parseInt(m[4], 10);
+          const d2 = parseInt(m[5], 10);
+          const y2 = parseInt(m[6].length === 2 ? '20' + m[6] : m[6], 10);
+          pushRange(y1, m1, d1, y2, m2, d2, line);
+        } else if (pattern === patterns[6]) {
+          // Day-before-month range e.g., 6–9 Nov 2025
+          const d1 = parseInt(m[1], 10);
+          const d2 = parseInt(m[2], 10);
+          const month = monthMap[monthShortToLong(m[3])];
+          const y = m[4] ? parseInt(m[4], 10) : currentYear;
+          pushRange(y, month, d1, y, month, d2, line);
+        }
+      }
+    }
+
+    // Single day-before-month like "6 Nov 2025" or "6 Nov"
+    if (!matched) {
+      const singleDayBeforeMonth = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s*,?\s*(\d{4}))?\b/i;
+      const sm = singleDayBeforeMonth.exec(line);
+      if (sm) {
+        matched = true;
+        const dNum = parseInt(sm[1], 10);
+        const month = monthMap[monthShortToLong(sm[2])];
+        const year = sm[3] ? parseInt(sm[3], 10) : (contextYear || currentYear);
+        const dt = new Date(year, month - 1, dNum);
+        const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        let title = (line || '')
+          .replace(singleDayBeforeMonth, ' ')
+          .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\b/gi, ' ');
+        title = cleanTitle(title);
+        const desc = cleanLabelTokens(line).trim();
+        events.push({ date: iso, title: title.substring(0, 60), description: desc });
+        if (DEBUG_EXTRACTION) {
+          console.log('[Calendar] Single day-before-month matched:', { line, dNum, month, year });
+        }
+      }
+    }
+
+    // Month followed by comma/and-separated day list, e.g., "November 17, 18, 19, 2025"
+    if (!matched) {
+      // Ensure the day-list stops before the 4-digit year using a lookahead
+      const dayListRe = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+((?:\d{1,2}(?:st|nd|rd|th)?(?:\s*(?:,|and)\s*)?)+?)(?=\s*,?\s*\d{4}\b|$)(?:\s*,?\s*(\d{4}))?\b/i;
+      const m = dayListRe.exec(line);
+      if (m) {
+        matched = true;
+        const month = monthMap[m[1].toLowerCase()];
+        const year = m[3] ? parseInt(m[3], 10) : (contextYear || currentYear);
+        const daysStr = m[2];
+        // Extract day numbers not part of a larger number (avoid picking 20 and 25 from 2025)
+        const dayMatches = [];
+        const re2 = /\d{1,2}/g;
+        let mm2;
+        while ((mm2 = re2.exec(daysStr)) !== null) {
+          const start = mm2.index;
+          const end = start + mm2[0].length;
+          const prev = start > 0 ? daysStr[start - 1] : '';
+          const next = end < daysStr.length ? daysStr[end] : '';
+          if (!/[0-9]/.test(prev) && !/[0-9]/.test(next)) {
+            dayMatches.push(mm2[0]);
+          }
+        }
+        // Build a clean title without the date pieces
+        let title = (line || '')
+          .replace(dayListRe, ' ')
+          .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\b/gi, ' ');
+        title = cleanTitle(title);
+        const desc = cleanLabelTokens(line).trim();
+        for (const dStr of dayMatches) {
+          const dNum = parseInt(dStr, 10);
+          const dt = new Date(year, month - 1, dNum);
+          const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+          events.push({ date: iso, title: title.substring(0, 60), description: desc });
+        }
+        if (DEBUG_EXTRACTION) {
+          console.log('[Calendar] Day-list matched:', { line, month, year, days: dayMatches });
+        }
+      }
+    }
+    // Day-only range with month/year context: support lines with/without text and with bullets
+    if (!matched && contextMonth) {
+      let m;
+      const dayRange = /^\s*[-•*]?\s*(\d{1,2})(?:st|nd|rd|th)?\s*[\-–]\s*(\d{1,2})(?:st|nd|rd|th)?\b/;
+      if ((m = dayRange.exec(line)) !== null) {
+        const d1 = parseInt(m[1], 10);
+        const d2 = parseInt(m[2], 10);
+        const y = contextYear || currentYear;
+        pushRange(y, contextMonth, d1, y, contextMonth, d2, line);
+        matched = true;
+      }
+
+      // Single day like "12 Deadline: ..." with context month/year
+      if (!matched) {
+        // Only match if line starts with optional bullet then the day (ignoring whitespace)
+        const dayOnly = /^\s*[-•*]?\s*(\d{1,2})(?:st|nd|rd|th)?\b/;
+        if ((m = dayOnly.exec(line)) !== null) {
+          const d1 = parseInt(m[1], 10);
+          const y = contextYear || currentYear;
+          const dt = new Date(y, contextMonth - 1, d1);
+          const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+          let title = line
+            .replace(/^\s*[-•*]?\s*\d{1,2}(?:st|nd|rd|th)?\s*[:\-–]?\s*/, '');
+          title = cleanTitle(title);
+          const desc = line ? cleanLabelTokens(line).trim() : '';
+          events.push({
+            date: iso,
+            title: title.substring(0, 60),
+            description: desc
+          });
+        }
+      }
+    }
+    return matched;
+  });
+
+  // Normalize to unique entries
+  const unique = [];
+  const seen = new Set();
+  for (const ev of events) {
+    const key = `${ev.date}-${normalizeTitleKey(ev.title || '')}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(ev);
+    }
+  }
+  return unique;
 };
 
 export default function Calendar(){
@@ -525,9 +881,17 @@ export default function Calendar(){
         return;
       }
 
+      if (DEBUG_EXTRACTION) {
+        const preview = fileText.split('\n').slice(0, 12);
+        console.log('[Calendar] File text preview', { name: file.name, type: fileType, size: file.size, lines: fileText.split('\n').length, preview });
+      }
+
       // Comprehensive text preprocessing for AI
       const processedText = preprocessTextForAI(fileText);
       const fullText = processedText.substring(0, 8000); // Significantly increased limit to capture ALL dates
+      if (DEBUG_EXTRACTION) {
+        console.log('[Calendar] Processed text length', { length: fullText.length });
+      }
       
       const dateKeywords = ['date', 'due', 'deadline', 'exam', 'test', 'meeting', 'event', 'schedule', 'assignment', 'project', 'class', 'lecture', 'quiz', 'homework', 'calendar'];
       const hasDateKeywords = dateKeywords.some(keyword => 
@@ -575,11 +939,18 @@ ${fullText}
 
 RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
       
-      const aiRes = await axios.post('/api/ai', { prompt });
+      // Call AI; if it fails (e.g., 429 quota), proceed with fallback extraction
+      let aiRes;
+      try {
+        aiRes = await axios.post('/api/ai', { prompt });
+      } catch (err) {
+        console.warn('AI request failed, falling back to local extraction:', err?.response?.status || err?.message);
+        aiRes = { data: { reply: '' } };
+      }
       let aiEvents = [];
       
       try {
-        const aiResponse = aiRes.data.reply.trim();
+        const aiResponse = (aiRes?.data?.reply || '').trim();
         
         // Enhanced JSON extraction
         const jsonMatch = aiResponse.match(/\[[\s\S]*?\]/);
@@ -635,7 +1006,11 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           /\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/g,  // MM/DD/YYYY
           /\b(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/g,    // YYYY/MM/DD
           /\b(\d{1,2})(st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{2,4})\b/gi,
-          /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(st|nd|rd|th)?\s*,?\s*(\d{2,4})\b/gi
+          /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(st|nd|rd|th)?\s*,?\s*(\d{2,4})\b/gi,
+          // 6–9 Nov 2025 or 6-9 Nov (day-before-month range)
+          /\b(\d{1,2})(?:st|nd|rd|th)?\s*[\-–]\s*(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(\d{2,4})?\b/gi,
+          // 6 Nov 2025 or 6 Nov (single day before month)
+          /\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(\d{2,4})?\b/gi
         ];
         
         const monthMap = {
@@ -645,7 +1020,14 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         
         lines.forEach((line, index) => {
           // Extract ALL dates from each line
-          allDatePatterns.forEach(pattern => {
+          // Guard: if the line is a month with a list of days followed by a 4-digit year,
+          // skip the Month Day, Year pattern to avoid misreading "2" as year.
+          const looksLikeMonthDayList = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,\s*\d{1,2}(?:st|nd|rd|th)?){1,}\s*,?\s*\d{4}\b/i.test(line);
+
+          allDatePatterns.forEach((pattern, idx) => {
+            if (looksLikeMonthDayList && idx === 3) {
+              return; // skip Month Day, Year on day-list lines
+            }
             let match;
             while ((match = pattern.exec(line)) !== null) {
               let dateStr = '';
@@ -666,27 +1048,55 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                 const [, month, day, , year] = match;
                 const monthNum = monthMap[month.toLowerCase().substring(0, 3)];
                 dateStr = `${year}-${monthNum}-${day.padStart(2, '0')}`;
-              } else if (pattern === allDatePatterns[4]) { // Aug 19, Sep 2
-                const [, month, day] = match;
-                const monthNum = monthMap[month.toLowerCase().substring(0, 3)];
-                const currentYear = new Date().getFullYear();
-                dateStr = `${currentYear}-${monthNum}-${day.padStart(2, '0')}`;
-              } else if (pattern === allDatePatterns[5]) { // 25 Dec
-                const [, day, month] = match;
-                const monthNum = monthMap[month.toLowerCase().substring(0, 3)];
-                const currentYear = new Date().getFullYear();
-                dateStr = `${currentYear}-${monthNum}-${day.padStart(2, '0')}`;
-              } else if (pattern === allDatePatterns[6]) { // 14-Jun-25
-                const parts = match[0].split('-');
-                const day = parts[0];
-                const month = monthMap[parts[1].toLowerCase()];
-                const year = `20${parts[2]}`;
-                dateStr = `${year}-${month}-${day.padStart(2, '0')}`;
+              } else if (pattern === allDatePatterns[4]) { // 6–9 Nov [2025]
+                const [, dStart, dEnd, mon, yr] = match;
+                const monthNum = monthMap[mon.toLowerCase().substring(0, 3)];
+                const fullYear = yr ? (yr.length === 2 ? `20${yr}` : yr) : String(new Date().getFullYear());
+                // Build title text once from the line
+                let rawLine = line.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim();
+                let titleParts = cleanLabelTokens(rawLine.replace(match[0], ''))
+                  .replace(/^\s*[-|•]\s*/, '')
+                  .replace(/\s*[-|•]\s*$/, '')
+                  .replace(/^\d+\s*/, '')
+                  .replace(/\s{2,}/g, ' ')
+                  .trim();
+                if (titleParts && titleParts.length > 2) {
+                  const eventPatterns = [
+                    /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g,
+                    /([A-Z\s]{3,})/g,
+                    /([\w\s]{5,})/g
+                  ];
+                  let bestTitle = '';
+                  eventPatterns.forEach(p => {
+                    const matches = titleParts.match(p);
+                    if (matches && matches[0] && matches[0].length > bestTitle.length) bestTitle = matches[0].trim();
+                  });
+                  title = bestTitle || titleParts;
+                }
+                const tMatch = line.match(/\b(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)\b/);
+                const time = tMatch ? tMatch[1] : '';
+                const start = parseInt(dStart, 10);
+                const end = parseInt(dEnd, 10);
+                for (let d = start; d <= end; d++) {
+                  const dd = String(d).padStart(2, '0');
+                  const iso = `${fullYear}-${monthNum}-${dd}`;
+                  aiEvents.push({
+                    date: iso,
+                    title: cleanTitle((title || '').substring(0, 60) || 'Extracted Event'),
+                    description: `${time ? 'Time: ' + time + '. ' : ''}${cleanLabelTokens(line.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim())}`
+                  });
+                }
+                continue; // handled expansion; proceed to next match
+              } else if (pattern === allDatePatterns[5]) { // 6 Nov [2025]
+                const [, d, mon, yr] = match;
+                const monthNum = monthMap[mon.toLowerCase().substring(0, 3)];
+                const fullYear = yr ? (yr.length === 2 ? `20${yr}` : yr) : String(new Date().getFullYear());
+                dateStr = `${fullYear}-${monthNum}-${String(d).padStart(2, '0')}`;
               }
               
               // Smart title extraction from calendar context
               let rawLine = line.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim();
-              let titleParts = rawLine.replace(match[0], '').replace(/\|/g, ' ').trim();
+              let titleParts = cleanLabelTokens(rawLine.replace(match[0], ''));
               
               // Clean up common calendar artifacts
               titleParts = titleParts
@@ -727,12 +1137,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                 for (const contextLine of contextLines) {
                   if (contextLine && contextLine.length > 5 && !contextLine.match(/^\d+[\/-]\d+/)) {
                     // Extract meaningful text from context
-                    const cleanContext = contextLine
-                      .replace(/\|/g, ' ')
-                      .replace(/^\s*[-|•]\s*/, '')
-                      .replace(/\s*[-|•]\s*$/, '')
-                      .replace(/\s{2,}/g, ' ')
-                      .trim();
+                    const cleanContext = cleanTitle(contextLine);
                     
                     if (cleanContext.length > title.length) {
                       title = cleanContext;
@@ -755,13 +1160,16 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
               if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
                 aiEvents.push({
                   date: dateStr,
-                  title: title.substring(0, 60) || 'Extracted Event',
-                  description: `${time ? 'Time: ' + time + '. ' : ''}Extracted from ${file.name} - Line: "${line.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim()}"`
+                  title: cleanTitle(title.substring(0, 60) || 'Extracted Event'),
+                  description: `${time ? 'Time: ' + time + '. ' : ''}${cleanLabelTokens(line.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim())}`
                 });
               }
             }
           });
         });
+        if (DEBUG_EXTRACTION) {
+          console.log('[Calendar] Fallback patterns pass extracted', aiEvents.length);
+        }
         
         // Remove duplicates by date
         const uniqueEvents = [];
@@ -776,20 +1184,59 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         
         aiEvents = uniqueEvents.slice(0, 25); // Increased limit to capture more events
       }
-      // Quick event creation
-      if (aiEvents.length > 0) {
-        const newEvents = aiEvents.map((ev, index) => ({
-          ...ev,
-          id: Date.now() + index,
-          date: new Date(ev.date),
-          category: 'study',
-          priority: 'medium',
-          time: '',
-          reminder: false
-        }));
 
-        setEvents([...events, ...newEvents]);
-        alert(`✅ Added ${newEvents.length} event${newEvents.length !== 1 ? 's' : ''} from ${file.name}`);
+      // Always supplement with explicit range extraction to ensure coverage
+      try {
+        const rangeEvents = extractDateRangesFromText(fullText, file.name);
+        if (Array.isArray(rangeEvents) && rangeEvents.length) {
+          aiEvents = [...aiEvents, ...rangeEvents];
+        }
+      } catch (_) {}
+
+      // Do not collapse to one event per date; allow multiple events with different titles on the same date
+      // Quick event creation with dedup against existing dates
+      if (aiEvents.length > 0) {
+        // Build existing date set
+        const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const existingKeys = new Set(
+          events.map(ev => `${toISO(ev.date)}|${normalizeTitleKey(ev.title || '')}`)
+        );
+
+        // Dedup within new list as well
+        const newKeys = new Set();
+        const newEvents = [];
+        aiEvents.forEach((ev, index) => {
+          const key = `${ev.date}|${normalizeTitleKey(ev.title || '')}`;
+          if (!newKeys.has(key) && !existingKeys.has(key)) {
+            newKeys.add(key);
+            newEvents.push({
+              ...ev,
+              id: Date.now() + index,
+              date: parseISODateLocal(ev.date),
+              title: cleanTitle(ev.title || 'Extracted Event'),
+              description: cleanLabelTokens(ev.description || ''),
+              category: ev.category || 'study',
+              priority: ev.priority || 'medium',
+              time: ev.time || '',
+              reminder: !!ev.reminder
+            });
+          }
+        });
+
+        if (DEBUG_EXTRACTION) {
+          console.log('[Calendar] Extraction summary', {
+            source: file.name,
+            totalExtracted: aiEvents.length,
+            added: newEvents.length
+          });
+        }
+
+        if (newEvents.length > 0) {
+          setEvents([...events, ...newEvents]);
+          alert(`✅ Added ${newEvents.length} date${newEvents.length !== 1 ? 's' : ''} from ${file.name}`);
+        } else {
+          alert(`No new events added — possible duplicates detected.`);
+        }
       } else {
         alert(`📄 File processed - no events found in ${file.name}`);
       }

@@ -267,29 +267,45 @@ export default function Home() {
               )
             }
           ].map((stat, i) => (
-            <div
-              key={i}
-              className={`p-6 flex items-center justify-between rounded-2xl shadow transition-transform hover:scale-105 ${
-                darkMode ? "bg-gray-800" : "bg-white"
-              }`}
-            >
-              <div>
-                <p
-                  className={`text-lg ${
-                    darkMode ? "text-gray-400" : "text-gray-500"
-                  }`}
-                >
-                  {stat.label}
-                </p>
-                <h2 className="text-4xl font-bold">{stat.value}</h2>
+            loading ? (
+              <div key={i} className={`p-6 flex items-center justify-between rounded-2xl shadow transition-transform hover:scale-105 ${darkMode ? "bg-gray-800" : "bg-white"}`}>
+                <div className="mx-auto w-full max-w-sm rounded-md p-2">
+                  <div className="flex animate-pulse space-x-4">
+                    <div className="w-10 h-10 rounded-full bg-gray-200"></div>
+                    <div className="flex-1 space-y-4 py-1">
+                      <div className="h-4 rounded bg-gray-200 w-40"></div>
+                      <div className="space-y-2">
+                        <div className="h-6 rounded bg-gray-200 w-28"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
+            ) : (
               <div
-                className={`w-12 h-12 rounded-lg flex items-center justify-center text-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
-                style={{ color: themeColors.primary }}
+                key={i}
+                className={`p-6 flex items-center justify-between rounded-2xl shadow transition-transform hover:scale-105 ${
+                  darkMode ? "bg-gray-800" : "bg-white"
+                }`}
               >
-                {stat.icon}
+                <div>
+                  <p
+                    className={`text-lg ${
+                      darkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    {stat.label}
+                  </p>
+                  <h2 className="text-4xl font-bold">{stat.value}</h2>
+                </div>
+                <div
+                  className={`w-12 h-12 rounded-lg flex items-center justify-center text-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
+                  style={{ color: themeColors.primary }}
+                >
+                  {stat.icon}
+                </div>
               </div>
-            </div>
+            )
           ))}
         </div>
 
@@ -302,7 +318,19 @@ export default function Home() {
             }`}
           >
             <h3 className="text-2xl font-semibold mb-4">Recent Activity</h3>
-            {recentActivities.length > 0 ? (
+            {loading ? (
+              <div className="space-y-3">
+                {[1,2,3].map(n => (
+                  <div key={n} className="flex animate-pulse items-start space-x-4">
+                    <div className={`w-10 h-10 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+                    <div className="flex-1 space-y-2 py-1">
+                      <div className={`h-3 rounded bg-gray-200 w-3/4`}></div>
+                      <div className={`h-2 rounded bg-gray-200 w-1/3`}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : recentActivities.length > 0 ? (
               <ul className="space-y-4">
                 {recentActivities.map((item, i) => (
                   <li key={i} className="flex items-start">
@@ -474,25 +502,39 @@ export default function Home() {
           >
             <h3 className="text-2xl font-semibold mb-4">This Week's Progress</h3>
             <div className="space-y-3">
-              {weeklyProgress.map((day, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <span className="font-medium w-12">{day.day}</span>
-                  <div className="flex-1 mx-4">
+              {loading ? (
+                ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d, i) => (
+                  <div key={i} className="flex items-center justify-between animate-pulse">
+                    <span className="w-12 h-4 rounded bg-gray-200"></span>
+                    <div className="flex-1 mx-4">
                       <div className={`h-2 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                      <div 
-                        className="h-2 rounded-full"
-                        style={{
-                          background: `linear-gradient(to right, ${themeColors.primary}, ${themeColors.primary}dd)`,
-                          width: `${Math.min(day.sessions * 20, 100)}%`
-                        }}
-                      ></div>
+                        <div className="h-2 rounded-full bg-gray-200 w-3/4"></div>
+                      </div>
                     </div>
+                    <span className={`w-16 h-4 rounded bg-gray-200`} />
                   </div>
-                  <span className={`text-sm w-16 text-right ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {day.minutes}min
-                  </span>
-                </div>
-              ))}
+                ))
+              ) : (
+                weeklyProgress.map((day, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="font-medium w-12">{day.day}</span>
+                    <div className="flex-1 mx-4">
+                        <div className={`h-2 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                        <div 
+                          className="h-2 rounded-full"
+                          style={{
+                            background: `linear-gradient(to right, ${themeColors.primary}, ${themeColors.primary}dd)`,
+                            width: `${Math.min(day.sessions * 20, 100)}%`
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                    <span className={`text-sm w-16 text-right ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {day.minutes}min
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -513,7 +555,21 @@ export default function Home() {
                 View all
               </Link>
             </div>
-            {libraryStats.recentFiles.length > 0 ? (
+            {loading ? (
+              <div className="space-y-3">
+                {[1,2,3,4].map(n => (
+                  <div key={n} className="flex items-center justify-between animate-pulse">
+                    <div className="flex items-center flex-1">
+                      <div className={`w-8 h-8 rounded-lg mr-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="h-4 rounded bg-gray-200 w-3/4"></div>
+                        <div className="h-2 rounded bg-gray-200 w-1/3 mt-2"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : libraryStats.recentFiles.length > 0 ? (
               <ul className="space-y-3">
                 {libraryStats.recentFiles.slice(0, 4).map((file, i) => (
                   <li key={i} className="flex items-center justify-between">

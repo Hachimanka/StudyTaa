@@ -9,6 +9,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { verify2FA } = useAuth();
   const navigate = useNavigate();
 
   const onSubmit = async (e) => {
@@ -18,12 +19,36 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    await login(email, password, () => {
+    await login(email, password, ({ twoFactorRequired, userId } = {}) => {
       setLoading(false);
+      if (twoFactorRequired) {
+        // Show 2FA code input
+        setTwoFactorPending(true);
+        setPendingUserId(userId);
+        return;
+      }
       navigate("/dashboard");
     });
     setLoading(false);
   };
+
+  // Two-factor UI state
+  const [twoFactorPending, setTwoFactorPending] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+
+  const submit2FA = async () => {
+    if (!pendingUserId || !twoFactorCode) return alert('Enter the verification code');
+    setLoading(true);
+    verify2FA(pendingUserId, twoFactorCode, (ok) => {
+      setLoading(false);
+      if (ok) {
+        setTwoFactorPending(false);
+        setPendingUserId(null);
+        navigate('/dashboard');
+      }
+    });
+  }
 
   return (
     <div className="auth-page">
@@ -31,7 +56,7 @@ export default function Login() {
         <h2 className="auth-title">Welcome Back</h2>
         <p className="auth-subtitle">Sign in to your account</p>
 
-        <form onSubmit={onSubmit} className="auth-form">
+  <form onSubmit={onSubmit} className="auth-form">
           <input
             type="email"
             placeholder="Email"
@@ -56,9 +81,20 @@ export default function Login() {
             <Link to="/forgot-password" className="auth-link">Forgot Password?</Link>
           </div>
 
-          <button type="submit" className="btn-modern btn-primary auth-btn-full" disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
-          </button>
+          {!twoFactorPending ? (
+            <button type="submit" className="btn-modern btn-primary auth-btn-full" disabled={loading}>
+              {loading ? "Logging in..." : "Login"}
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm">A verification code has been sent to your email. Enter it below to continue.</p>
+              <input type="text" placeholder="Enter verification code" value={twoFactorCode} onChange={(e)=>setTwoFactorCode(e.target.value)} className="auth-input" />
+              <div className="flex gap-2">
+                <button type="button" onClick={submit2FA} className="btn-modern btn-primary auth-btn-full">Verify</button>
+                <button type="button" onClick={() => { setTwoFactorPending(false); setPendingUserId(null); setTwoFactorCode('') }} className="btn-modern btn-secondary auth-btn-full">Cancel</button>
+              </div>
+            </div>
+          )}
         </form>
 
         {loading && (

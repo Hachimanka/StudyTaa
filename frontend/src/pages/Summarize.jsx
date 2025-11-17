@@ -164,16 +164,16 @@ export default function Summarize() {
   };
 
   return (
-    <div className={`flex min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
+    <div className={`flex min-h-screen`} style={{ background: 'var(--bg)' }}>
       <Sidebar />
 
       <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28">
         {/* Page Title */}
         <div className="mb-8 transform transition-all duration-500 hover:scale-105">
-          <h1 className={`text-3xl md:text-4xl font-bold bg-gradient-to-r ${themeColors.gradient} bg-clip-text text-transparent`}>
+          <h1 className={`text-5xl font-bold page-title`}>
             🤖 AI Content Summarizer
           </h1>
-          <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-lg`}>
+          <p className={`mt-2 text-lg`} style={{ color: 'var(--muted)' }}>
             Transform any content into intelligent, concise summaries with advanced AI
           </p>
         </div>
@@ -181,7 +181,7 @@ export default function Summarize() {
         {/* Content Wrapper */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-8">
           {/* Input Section */}
-          <div className={`xl:col-span-2 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`}>
+          <div className={`xl:col-span-2 shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} flex items-center`}>
                 <span className="mr-2">📝</span>
@@ -230,11 +230,16 @@ export default function Summarize() {
               <>
                 <div className="relative">
                   <textarea
-                    className={`w-full h-48 p-4 border-2 ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-200 bg-gradient-to-br from-gray-50 to-white'} rounded-xl text-sm focus:ring-2 focus:ring-${themeColors.primary}-400 focus:border-${themeColors.primary}-400 outline-none transition-all duration-200 resize-none`}
+                    className={`w-full h-48 p-4 border-2 rounded-xl text-sm outline-none transition-all duration-200 resize-none`}
                     placeholder="✨ Paste your text, article, document, or any content here to get an intelligent AI summary..."
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     disabled={selectedFile}
+                    style={{
+                      background: 'var(--surface)',
+                      color: 'var(--text)',
+                      borderColor: 'var(--glass-border)'
+                    }}
                   />
                   {selectedFile && (
                     <div className={`absolute inset-0 ${themeColors.light} bg-opacity-90 rounded-xl flex items-center justify-center`}>
@@ -247,14 +252,14 @@ export default function Summarize() {
                   )}
                 </div>
 
-                <div className={`flex justify-between items-center text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-3`}>
+                <div className={`flex justify-between items-center text-xs mt-3`} style={{ color: 'var(--muted)' }}>
                   <div className="flex items-center space-x-4">
                     <span className="flex items-center">
-                      <span className={`w-2 h-2 bg-${themeColors.primary}-400 rounded-full mr-1`}></span>
+                      <span className={`w-2 h-2 rounded-full mr-1`} style={{ background: 'var(--color-primary)' }}></span>
                       {inputText.length} Characters
                     </span>
                     <span className="flex items-center">
-                      <span className={`w-2 h-2 bg-${themeColors.primary}-400 rounded-full mr-1`}></span>
+                      <span className={`w-2 h-2 rounded-full mr-1`} style={{ background: 'var(--color-primary)' }}></span>
                       ~{Math.ceil(inputText.length / 5)} Words
                     </span>
                   </div>
@@ -269,10 +274,10 @@ export default function Summarize() {
             )}
 
             {/* Enhanced File Upload Tab */}
-            {activeTab === "file" && (
+      {activeTab === "file" && (
               <div className="space-y-4">
-                {!selectedFile ? (
-                  <div className={`border-2 border-dashed border-${themeColors.primary}-300 rounded-xl p-8 text-center hover:border-${themeColors.primary}-400 hover:${themeColors.light} transition-all duration-300 ${darkMode ? 'bg-gray-700' : `bg-gradient-to-br from-${themeColors.primary}-25 to-${themeColors.primary}-25`}`}>
+                  {!selectedFile ? (
+                  <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300`} style={{ borderColor: 'var(--glass-border)', background: 'var(--surface)' }}>
                     <div className="space-y-4">
                       <div className={`mx-auto w-16 h-16 bg-gradient-to-r ${themeColors.gradient} rounded-2xl flex items-center justify-center transform hover:scale-110 transition-transform duration-200`}>
                         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,8 +285,8 @@ export default function Summarize() {
                         </svg>
                       </div>
                       <div>
-                        <p className={`text-lg font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}>Upload Any Document</p>
-                        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>Drag & drop or click to browse</p>
+                        <p className={`text-lg font-semibold mb-1`} style={{ color: 'var(--text)' }}>Upload Any Document</p>
+                        <p className={`text-sm mb-2`} style={{ color: 'var(--muted)' }}>Drag & drop or click to browse</p>
                         <div className="flex flex-wrap justify-center gap-1 text-xs text-gray-500 mb-3">
                           <span className={`${darkMode ? 'bg-gray-600' : 'bg-gray-100'} px-2 py-1 rounded`}>PDF</span>
                           <span className={`${darkMode ? 'bg-gray-600' : 'bg-gray-100'} px-2 py-1 rounded`}>DOC</span>
@@ -293,14 +298,14 @@ export default function Summarize() {
                         </div>
                         <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>Maximum file size: 20MB</p>
                       </div>
-                      <label className="inline-block">
+                        <label className="inline-block">
                         <input
                           type="file"
                           accept=".pdf,.txt,.doc,.docx,.csv,.json,.md,.html,.htm"
                           onChange={handleFileUpload}
                           className="hidden"
                         />
-                        <span className={`cursor-pointer inline-flex items-center px-6 py-3 bg-gradient-to-r ${themeColors.gradient} text-white font-semibold rounded-xl hover:${themeColors.gradientHover} transition-all duration-200 transform hover:scale-105 shadow-lg`}>
+                        <span className={`cursor-pointer inline-flex items-center px-6 py-3 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg`} style={{ background: 'var(--gradient)', color: 'white' }}>
                           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
@@ -309,8 +314,8 @@ export default function Summarize() {
                       </label>
                     </div>
                   </div>
-                ) : (
-                  <div className={`flex items-center justify-between p-6 bg-gradient-to-r ${themeColors.light} ${themeColors.light} border-2 border-${themeColors.primary}-200 rounded-xl shadow-sm`}>
+                  ) : (
+                  <div className={`flex items-center justify-between p-6 rounded-xl shadow-sm`} style={{ background: 'var(--surface)', border: '1px solid var(--glass-border)' }}>
                     <div className="flex items-center space-x-4">
                       <div className={`w-12 h-12 bg-gradient-to-r ${themeColors.gradientMid} rounded-xl flex items-center justify-center`}>
                         <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -318,10 +323,10 @@ export default function Summarize() {
                         </svg>
                       </div>
                       <div>
-                        <p className={`text-lg font-semibold ${themeColors.textDark}`}>
+                        <p className={`text-lg font-semibold`} style={{ color: 'var(--text)' }}>
                           {selectedFile.name}
                         </p>
-                        <p className={`text-sm ${themeColors.text}`}>
+                        <p className={`text-sm`} style={{ color: 'var(--muted)' }}>
                           ✅ Ready to summarize • {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB • {selectedFile.type || 'Unknown type'}
                         </p>
                       </div>
@@ -382,7 +387,7 @@ export default function Summarize() {
 
           {/* Enhanced Summary Results Section */}
           <div className="xl:col-span-1 space-y-6">
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`}>
+            <div className={`shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} flex items-center`}>
                   <span className="mr-2">🎯</span>
@@ -397,7 +402,7 @@ export default function Summarize() {
               </div>
 
               {summary ? (
-                <div className="space-y-4">
+                  <div className="space-y-4">
                   {/* Summary Title Input */}
                   <div className="mb-4">
                     <input
@@ -405,11 +410,12 @@ export default function Summarize() {
                       placeholder="💾 Enter title to save summary..."
                       value={summaryTitle}
                       onChange={(e) => setSummaryTitle(e.target.value)}
-                      className={`w-full p-2 text-sm border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-200 bg-white'} rounded-lg focus:ring-2 focus:ring-${themeColors.primary}-400 focus:border-${themeColors.primary}-400 outline-none`}
+                      className={`w-full p-2 text-sm border rounded-lg outline-none`}
+                      style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--glass-border)' }}
                     />
                   </div>
 
-                  <div className={`p-5 ${darkMode ? 'bg-gray-700' : 'bg-gradient-to-br from-gray-50 to-gray-100'} rounded-xl text-sm leading-relaxed whitespace-pre-line border-l-4 border-${themeColors.primary}-400 shadow-inner ${darkMode ? 'text-gray-200' : ''}`}>
+                  <div className={`p-5 rounded-xl text-sm leading-relaxed whitespace-pre-line shadow-inner`} style={{ background: 'var(--surface)', color: 'var(--text)', borderLeft: '4px solid var(--color-primary)' }}>
                     {summary}
                   </div>
 

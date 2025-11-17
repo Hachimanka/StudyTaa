@@ -1275,7 +1275,7 @@ export default function Library() {
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mt-6">Library</h1>
+          <h1 className="text-5xl font-bold page-title">Library</h1>
           <p className="mt-2 text-gray-600">Manage your documents and study materials</p>
         </div>
 

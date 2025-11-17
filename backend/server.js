@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 import userRoutes from './routes/userRoutes.js';
 import libraryRoutes from './routes/libraryRoutes.js';
 import sttRoutes from './routes/sttRoutes.js';
+import eventRoutes from './routes/eventRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +48,9 @@ app.use('/api/library', libraryRoutes);
 
 // Register server-side STT route (MediaRecorder -> /api/stt)
 app.use('/api', sttRoutes);
+
+// Register calendar event routes (protected)
+app.use('/api/events', eventRoutes);
 
 const PORT = process.env.PORT || 5000;
 const BACKEND_BASE = process.env.BACKEND_BASE || `http://localhost:${PORT}`;

@@ -722,6 +722,43 @@ export default function Calendar(){
   const [view, setView] = useState('month'); // month, week, day
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Helper: auth header for backend persistence
+  const getAuthHeaders = () => {
+    try {
+      const token = localStorage.getItem('token');
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch (_) { return {}; }
+  };
+
+  // Load events from backend if authenticated
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) return;
+        const res = await axios.get('/api/events', { headers });
+        const list = Array.isArray(res.data) ? res.data : [];
+        const mapped = list.map(doc => ({
+          id: doc._id,
+          title: doc.title || 'Event',
+          description: doc.description || '',
+          date: new Date(doc.date),
+          time: doc.time || '',
+          priority: doc.priority || 'medium',
+          category: doc.category || 'general',
+          reminder: !!doc.reminder
+        }));
+        setEvents(mapped);
+      } catch (err) {
+        console.warn('Failed to load events', err?.message || err);
+      }
+    };
+    load();
+    const onAuthChanged = () => load();
+    window.addEventListener('authChanged', onAuthChanged);
+    return () => window.removeEventListener('authChanged', onAuthChanged);
+  }, []);
+
   // Calendar navigation state
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(new Date().getMonth());
@@ -744,17 +781,69 @@ export default function Calendar(){
 
   // Event management functions
   const handleSaveEvent = (eventData) => {
-    if (eventData.id && events.find(e => e.id === eventData.id)) {
-      // Update existing event
-      setEvents(events.map(e => e.id === eventData.id ? eventData : e));
-    } else {
-      // Add new event
-      setEvents([...events, eventData]);
-    }
+    const persist = async () => {
+      const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+      const hasServerId = typeof eventData.id === 'string' && eventData.id.length === 24;
+      try {
+        if (hasServerId) {
+          const payload = { ...eventData, date: eventData.date.toISOString() };
+          const res = await axios.put(`/api/events/${eventData.id}`, payload, { headers });
+          const saved = res.data;
+          const mapped = {
+            id: saved._id,
+            title: saved.title,
+            description: saved.description,
+            date: new Date(saved.date),
+            time: saved.time,
+            priority: saved.priority,
+            category: saved.category,
+            reminder: !!saved.reminder
+          };
+          setEvents(events.map(e => e.id === eventData.id ? mapped : e));
+        } else {
+          const payload = { ...eventData, date: eventData.date.toISOString() };
+          const res = await axios.post('/api/events', payload, { headers });
+          const saved = res.data;
+          const mapped = {
+            id: saved._id,
+            title: saved.title,
+            description: saved.description,
+            date: new Date(saved.date),
+            time: saved.time,
+            priority: saved.priority,
+            category: saved.category,
+            reminder: !!saved.reminder
+          };
+          setEvents([...events, mapped]);
+        }
+      } catch (err) {
+        console.warn('Persist event failed, applying local update only:', err?.message || err);
+        // Local fallback
+        if (eventData.id && events.find(e => e.id === eventData.id)) {
+          setEvents(events.map(e => e.id === eventData.id ? eventData : e));
+        } else {
+          setEvents([...events, eventData]);
+        }
+      }
+    };
+    persist();
   };
 
   const handleDeleteEvent = (eventId) => {
-    setEvents(events.filter(e => e.id !== eventId));
+    const doDelete = async () => {
+      const headers = getAuthHeaders();
+      const isServerId = typeof eventId === 'string' && eventId.length === 24;
+      try {
+        if (isServerId && headers.Authorization) {
+          await axios.delete(`/api/events/${eventId}`, { headers });
+        }
+      } catch (err) {
+        console.warn('Delete event API failed, removing locally:', err?.message || err);
+      } finally {
+        setEvents(events.filter(e => e.id !== eventId));
+      }
+    };
+    doDelete();
   };
 
   const handleDateClick = (day) => {
@@ -1202,19 +1291,17 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           events.map(ev => `${toISO(ev.date)}|${normalizeTitleKey(ev.title || '')}`)
         );
 
-        // Dedup within new list as well
+        // Dedup within new list as well and persist to backend
         const newKeys = new Set();
-        const newEvents = [];
-        aiEvents.forEach((ev, index) => {
+        const createPayload = [];
+        aiEvents.forEach((ev) => {
           const key = `${ev.date}|${normalizeTitleKey(ev.title || '')}`;
           if (!newKeys.has(key) && !existingKeys.has(key)) {
             newKeys.add(key);
-            newEvents.push({
-              ...ev,
-              id: Date.now() + index,
-              date: parseISODateLocal(ev.date),
+            createPayload.push({
               title: cleanTitle(ev.title || 'Extracted Event'),
               description: cleanLabelTokens(ev.description || ''),
+              date: parseISODateLocal(ev.date).toISOString(),
               category: ev.category || 'study',
               priority: ev.priority || 'medium',
               time: ev.time || '',
@@ -1223,19 +1310,48 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           }
         });
 
-        if (DEBUG_EXTRACTION) {
-          console.log('[Calendar] Extraction summary', {
-            source: file.name,
-            totalExtracted: aiEvents.length,
-            added: newEvents.length
-          });
+        let savedDocs = [];
+        try {
+          const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+          if (createPayload.length > 0 && headers.Authorization) {
+            const res = await axios.post('/api/events', createPayload, { headers });
+            savedDocs = Array.isArray(res.data) ? res.data : [];
+          }
+        } catch (err) {
+          console.warn('Bulk save failed; falling back to local-only add:', err?.message || err);
         }
 
-        if (newEvents.length > 0) {
-          setEvents([...events, ...newEvents]);
-          alert(`✅ Added ${newEvents.length} date${newEvents.length !== 1 ? 's' : ''} from ${file.name}`);
+        if (savedDocs.length > 0) {
+          const mapped = savedDocs.map(d => ({
+            id: d._id,
+            title: d.title,
+            description: d.description,
+            date: new Date(d.date),
+            time: d.time,
+            priority: d.priority,
+            category: d.category,
+            reminder: !!d.reminder
+          }));
+          setEvents([...events, ...mapped]);
+          alert(`✅ Added ${mapped.length} event${mapped.length !== 1 ? 's' : ''} from ${file.name}`);
         } else {
-          alert(`No new events added — possible duplicates detected.`);
+          // Fallback: add locally if not saved (e.g., unauthenticated)
+          const localEvents = createPayload.map((p, i) => ({
+            id: Date.now() + i,
+            title: p.title,
+            description: p.description,
+            date: new Date(p.date),
+            time: p.time,
+            priority: p.priority,
+            category: p.category,
+            reminder: p.reminder
+          }));
+          if (localEvents.length > 0) {
+            setEvents([...events, ...localEvents]);
+            alert(`✅ Added ${localEvents.length} event${localEvents.length !== 1 ? 's' : ''} from ${file.name}`);
+          } else {
+            alert(`No new events added — possible duplicates detected.`);
+          }
         }
       } else {
         alert(`📄 File processed - no events found in ${file.name}`);

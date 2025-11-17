@@ -156,6 +156,19 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('stuyta_auth');
       localStorage.removeItem('user');
       localStorage.removeItem('token');
+      // Force default appearance settings so UI reverts immediately and after reload.
+      try {
+        const defaults = { darkMode: false, fontSize: 'medium', colorTheme: 'teal' };
+        const saved = localStorage.getItem('studyTaSettings');
+        let settings = saved ? JSON.parse(saved) : {};
+        settings.darkMode = defaults.darkMode;
+        settings.fontSize = defaults.fontSize;
+        settings.colorTheme = defaults.colorTheme;
+        localStorage.setItem('studyTaSettings', JSON.stringify(settings));
+        localStorage.setItem('theme', 'light'); // keep standalone key consistent
+      } catch (e) {
+        console.warn('Failed to persist default appearance on logout', e);
+      }
       // Dispatch custom event to notify other components
       window.dispatchEvent(new Event('authChanged'));
     } catch (e) {

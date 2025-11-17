@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import FlashCardMode from '../components/studyModes/FlashCardMode';
 import QuizMode from '../components/studyModes/QuizMode';
 import TrueFalseMode from '../components/studyModes/TrueFalseMode';
@@ -34,37 +34,50 @@ const processUploadedFile = async (file) => {
 // AI content generation using backend Gemini API
 const generateContentFromFile = async (mode, fileContent) => {
   try {
-    let prompt = '';
-    if (mode === 'flashcards') {
-      prompt = `Create flashcards from the following material. Generate clear questions with short, concise answers.
+    // Map internal mode ids to human-friendly descriptions and JSON schemas
+    const modeMap = {
+      flashcards: {
+        label: 'Flashcards',
+        instructions: `Return ONLY a JSON array of objects with {"front": "Question or term", "back": "Short concise answer"}. Answers should be short (1-8 words).`
+      },
+      quiz: {
+        label: 'Multiple-choice quiz questions',
+        instructions: `Return ONLY a JSON array of objects with {"question": "...", "options": ["opt1","opt2","opt3","opt4"], "correct": <index_of_correct_option>}. Provide 3-4 options per question.`
+      },
+      trueFalse: {
+        label: 'True/False statements',
+        instructions: `Return ONLY a JSON array of objects with {"statement": "...", "answer": true|false, "explanation": "optional short explanation"}.`
+      },
+      wheel: {
+        label: 'Randomized wheel questions',
+        instructions: `Return ONLY a JSON array of objects with {"label": "Slice label", "front": "Question text", "back": "Short answer"}. Keep slices short.`
+      },
+      matching: {
+        label: 'Matching pairs',
+        instructions: `Return ONLY a JSON array of objects with {"left": "term", "right": "definition"}.`
+      },
+      fillBlanks: {
+        label: 'Fill-in-the-blank prompts',
+        instructions: `Return ONLY a JSON array of objects with {"sentence": "Text with a blank indicated by _____", "answer": "correct text"}.`
+      }
+    };
 
-REQUIREMENTS:
-- Front: Clear question or key term
-- Back: Short answer (1-8 words maximum, or brief phrase)
-- Make answers concise but complete
-- Focus on key facts, definitions, dates, names
-- Avoid long explanations
+    const modeInfo = modeMap[mode] || { label: mode, instructions: `Return a JSON array appropriate for ${mode}.` };
+    const prompt = `You are an assistant that produces structured study material.
+Produce ${modeInfo.label} from the following source material. ${modeInfo.instructions}
+Material:\n${fileContent}`;
 
-Return ONLY a JSON array in this format:
-[
-  {
-    "front": "Question or term",
-    "back": "Short concise answer"
-  }
-]
-
-Material to study:
-${fileContent}`;
-    } else {
-      prompt = `Generate ${mode} study content from the following material. Return JSON for React use.\nMaterial:\n${fileContent}`;
-    }
+    console.log('Requesting AI generation for mode:', mode, 'label:', modeInfo.label);
     const response = await axios.post('/api/ai', { prompt });
     // Debug: log the raw AI reply
-    console.log('AI raw reply:', response.data.reply);
+    console.log('AI raw reply:', response.data.reply || response.data);
     let aiData = [];
+    // Ensure we handle replies that include markdown/code fences
+    const rawReply = typeof response.data.reply === 'string' ? response.data.reply : (typeof response.data === 'string' ? response.data : JSON.stringify(response.data));
+    const cleaned = rawReply.replace(/```json|```/g, '').trim();
     try {
-      // Try to parse as array
-      aiData = JSON.parse(response.data.reply);
+      // Try to parse cleaned reply
+      aiData = JSON.parse(cleaned);
       // Debug: log parsed AI data
       console.log('AI parsed data:', aiData);
       // If it's an object with a 'questions', 'flashcards', etc. property, use that
@@ -109,8 +122,8 @@ ${fileContent}`;
       if (!Array.isArray(aiData)) aiData = [];
     } catch (e) {
       // If parsing fails, show error and fallback to empty array
-      console.error('AI JSON parse error:', e);
-      alert('AI did not return valid JSON. Raw reply: ' + response.data.reply);
+      console.error('AI JSON parse error:', e, 'raw reply:', rawReply);
+      alert('AI did not return valid JSON. Raw reply logged to console.');
       aiData = [];
     }
     return aiData;
@@ -133,6 +146,9 @@ export default function FileBasedStudyApp() {
   } = useSettings();
   
   const themeColors = getThemeColors();
+  const cardBg = darkMode ? 'bg-gray-800' : 'bg-white';
+  const cardText = darkMode ? 'text-gray-200' : 'text-gray-800';
+  const subtleBg = darkMode ? 'bg-gray-700' : 'bg-gray-100';
   
   // All state declarations first
   const [activeMode, setActiveMode] = useState(defaultStudyMode);
@@ -161,22 +177,46 @@ export default function FileBasedStudyApp() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [viewedQuestions, setViewedQuestions] = useState(new Set());
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
+  const [showSavePrompt, setShowSavePrompt] = useState(false);
+  const [pendingMode, setPendingMode] = useState(null);
   
   // Matching game state
   const [selectedTerm, setSelectedTerm] = useState(null);
   const [selectedDef, setSelectedDef] = useState(null);
   const [matchedPairs, setMatchedPairs] = useState([]);
   const [matchingScore, setMatchingScore] = useState(0);
+  // Session statistics
+  const [sessionStats, setSessionStats] = useState({
+    reviewedCount: 0,
+    correctCount: 0,
+    incorrectCount: 0,
+    accuracy: 0,
+    timeStarted: null,
+    timeElapsed: 0,
+    avgTimePerCard: 0,
+    currentStreak: 0,
+    longestStreak: 0
+  });
+  const [lastActionTime, setLastActionTime] = useState(null);
+  // AI improvement suggestions state
+  const [aiSuggestions, setAiSuggestions] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  const aiRequestTimer = useRef(null);
 
   // Auto match when both selected
   useEffect(() => {
     if (selectedTerm !== null && selectedDef !== null) {
       // Check if correct match
-      if (selectedTerm === selectedDef) {
-        setMatchingScore(matchingScore + 1);
+      const wasCorrect = selectedTerm === selectedDef;
+      if (wasCorrect) {
+        setMatchingScore(ms => ms + 1);
       }
       const newMatchedPairs = [...matchedPairs, { termIdx: selectedTerm, defIdx: selectedDef }];
       setMatchedPairs(newMatchedPairs);
+      // Update session stats for the attempted match
+      startStatsIfNeeded();
+      updateStatsOnAnswer(wasCorrect);
       setSelectedTerm(null);
       setSelectedDef(null);
       
@@ -243,6 +283,54 @@ export default function FileBasedStudyApp() {
     }
   ];
 
+  // Sample/demo content for quick preview (client-side only)
+  const sampleSets = {
+    flashcards: [
+      { front: 'What is the powerhouse of the cell?', back: 'Mitochondria' },
+      { front: 'Capital of France?', back: 'Paris' },
+      { front: '2 + 2 = ?', back: '4' }
+    ],
+    quiz: [
+      { question: 'Which language runs in a web browser?', options: ['Python','Java','C++','JavaScript'], correct: 3 },
+      { question: 'What does HTML stand for?', options: ['Hyperlinks and Text Markup','HyperText Markup Language','Home Tool Markup Language','Hyperlinking Text Markup Language'], correct: 1 }
+    ],
+    trueFalse: [
+      { statement: 'The earth revolves around the sun.', answer: true, explanation: 'Heliocentric model.' },
+      { statement: 'Water boils at 50°C at sea level.', answer: false, explanation: 'Boiling point is 100°C at 1 atm.' }
+    ],
+    wheel: [
+      { label: 'Easy Question', front: 'What color is the sky?', back: 'Blue' },
+      { label: 'Math', front: '5 * 6 = ?', back: '30' },
+      { label: 'Geography', front: 'Which continent is Brazil in?', back: 'South America' }
+    ],
+    matching: [
+      { left: 'Dog', right: 'Animal' },
+      { left: 'Apple', right: 'Fruit' },
+      { left: 'Blue', right: 'Color' }
+    ],
+    fillBlanks: [
+      { sentence: 'The capital of Japan is _____.', answer: 'Tokyo' },
+      { sentence: 'Water freezes at _____ °C.', answer: '0' }
+    ]
+  };
+
+  const triggerFileInput = () => {
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) fileInput.click();
+  };
+
+  const applySample = (modeId) => {
+    // Apply an in-memory sample set and switch to the chosen mode for preview
+    const set = sampleSets[modeId] || [];
+    setUploadedFile(null);
+    setFileContent('Sample content');
+    setContent(set);
+    setActiveMode(modeId);
+    setCurrentIndex(0);
+    setProgress(0);
+    setIsCompleted(false);
+  };
+
   // Handle file upload
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -268,6 +356,13 @@ export default function FileBasedStudyApp() {
       setFileContent(content);
       // Do NOT auto-load content for any mode
       // User must select a study mode after upload
+      // Ensure the UI reflects that we have an uploaded file but
+      // no generated study content yet. Reset active mode/content
+      // so users must explicitly choose a mode to generate.
+      setActiveMode(null);
+      setContent([]);
+      setCurrentIndex(0);
+      setProgress(0);
     } catch (error) {
       console.error('Error processing file:', error);
       alert('Error processing file. Please try again.');
@@ -303,6 +398,12 @@ export default function FileBasedStudyApp() {
   };
 
   const loadContentFromFile = async (mode, content = fileContent) => {
+    // Prevent starting another generation while one is already running
+    if (loading) {
+      console.warn('Generation already in progress — ignoring duplicate request.');
+      return;
+    }
+
     if (!content) return;
 
     setLoading(true);
@@ -326,6 +427,153 @@ export default function FileBasedStudyApp() {
     
     setLoading(false);
   };
+
+  // --- Session stats helpers ---
+  const startStatsIfNeeded = () => {
+    // Do not track stats for Flashcards mode
+    if (activeMode === 'flashcards') return;
+    if (!sessionStats.timeStarted) {
+      const now = Date.now();
+      setSessionStats(s => ({ ...s, timeStarted: now }));
+      setLastActionTime(now);
+    }
+  };
+
+  const updateStatsOnAnswer = (correct) => {
+    // Do not record stats for Flashcards
+    if (activeMode === 'flashcards') return;
+    const now = Date.now();
+    setSessionStats(prev => {
+      const reviewed = prev.reviewedCount + 1;
+      const correctCount = prev.correctCount + (correct ? 1 : 0);
+      const incorrectCount = prev.incorrectCount + (correct ? 0 : 1);
+      const timeElapsed = prev.timeStarted ? now - prev.timeStarted : prev.timeElapsed;
+      const avgTimePerCard = reviewed > 0 ? Math.round(timeElapsed / reviewed) : 0;
+      const currentStreak = correct ? prev.currentStreak + 1 : 0;
+      const longestStreak = Math.max(prev.longestStreak, currentStreak);
+      const accuracy = reviewed > 0 ? Math.round((correctCount / reviewed) * 100) : 0;
+      return {
+        ...prev,
+        reviewedCount: reviewed,
+        correctCount,
+        incorrectCount,
+        accuracy,
+        timeElapsed,
+        avgTimePerCard,
+        currentStreak,
+        longestStreak
+      };
+    });
+    setLastActionTime(now);
+    // Schedule AI tips update after answer (debounced)
+    scheduleAiTips(activeMode);
+  };
+
+  const updateStatsOnView = () => {
+    // Do not record stats for Flashcards
+    if (activeMode === 'flashcards') return;
+    const now = Date.now();
+    setSessionStats(prev => {
+      const reviewed = prev.reviewedCount + 1;
+      const timeElapsed = prev.timeStarted ? now - prev.timeStarted : prev.timeElapsed;
+      const avgTimePerCard = reviewed > 0 ? Math.round(timeElapsed / reviewed) : 0;
+      const accuracy = reviewed > 0 ? Math.round((prev.correctCount / reviewed) * 100) : prev.accuracy;
+      return { ...prev, reviewedCount: reviewed, timeElapsed, avgTimePerCard, accuracy };
+    });
+    setLastActionTime(now);
+    // Schedule AI tips update after view (debounced)
+    scheduleAiTips(activeMode);
+  };
+
+  const resetStats = () => {
+    setSessionStats({
+      reviewedCount: 0,
+      correctCount: 0,
+      incorrectCount: 0,
+      accuracy: 0,
+      timeStarted: null,
+      timeElapsed: 0,
+      avgTimePerCard: 0,
+      currentStreak: 0,
+      longestStreak: 0
+    });
+    setLastActionTime(null);
+  };
+
+  const scheduleAiTips = (mode) => {
+    if (!mode || mode === 'flashcards') return;
+    // debounce requests to avoid rate limits
+    if (aiRequestTimer.current) {
+      clearTimeout(aiRequestTimer.current);
+    }
+    aiRequestTimer.current = setTimeout(() => {
+      requestImprovementSuggestions(mode);
+      aiRequestTimer.current = null;
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (aiRequestTimer.current) clearTimeout(aiRequestTimer.current);
+    };
+  }, []);
+
+  const formatTime = (ms) => {
+    if (!ms || ms <= 0) return '00:00';
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  };
+
+  // --- AI-driven improvement suggestions ---
+  const buildImprovementPrompt = (mode) => {
+    const modeNames = {
+      flashcards: 'Flashcards',
+      quiz: 'Quiz',
+      trueFalse: 'True/False',
+      wheel: 'Spin the Wheel',
+      matching: 'Matching Pairs',
+      fillBlanks: 'Fill in the Blanks'
+    };
+
+    const sampleItems = (content || []).slice(0, 6).map((it, i) => {
+      // create a friendly one-line representation
+      if (it.front || it.back) return `${i+1}. ${it.front || ''} -> ${it.back || ''}`;
+      if (it.question || it.options) return `${i+1}. ${it.question || ''}`;
+      if (it.statement) return `${i+1}. ${it.statement} [${String(it.answer)}]`;
+      if (it.sentence) return `${i+1}. ${it.sentence}`;
+      return `${i+1}. ${JSON.stringify(it).slice(0,80)}`;
+    }).join('\n');
+
+    return `You are an expert study coach. A user just completed a study session with the following summary:\n\nMode: ${modeNames[mode] || mode}\nItems reviewed: ${sessionStats.reviewedCount}\nCorrect: ${sessionStats.correctCount}\nIncorrect: ${sessionStats.incorrectCount}\nAccuracy: ${sessionStats.accuracy}%\nTime elapsed: ${formatTime(sessionStats.timeElapsed)}\nAverage time per item: ${Math.round(sessionStats.avgTimePerCard/1000)}s\nCurrent streak: ${sessionStats.currentStreak}\nBest streak: ${sessionStats.longestStreak}\n\nSample items (first up to 6):\n${sampleItems}\n\nBased on this information, provide a short, actionable improvement plan for the user: 5 concise recommendations the user should do next to improve retention and understanding (e.g., what to review, what mode to practice next, suggested spacing and number of repetitions, how to break down difficult items). Keep the advice practical and prioritized. Use plain text, short bullets.`;
+  };
+
+  const requestImprovementSuggestions = async (mode = activeMode) => {
+    // Avoid duplicate concurrent calls
+    if (aiLoading) return;
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const prompt = buildImprovementPrompt(mode);
+      const res = await axios.post('/api/ai', { prompt });
+      const reply = res?.data?.reply || res?.data || '';
+      // store raw reply
+      setAiSuggestions(typeof reply === 'string' ? reply : JSON.stringify(reply));
+    } catch (e) {
+      console.error('AI suggestions error:', e);
+      setAiError('Failed to generate improvement suggestions. Try again.');
+      setAiSuggestions('');
+    }
+    setAiLoading(false);
+  };
+
+  // Auto-request AI tips when session completes (once)
+  useEffect(() => {
+    if (isCompleted && content && content.length > 0 && !aiSuggestions && !aiLoading) {
+      requestImprovementSuggestions(activeMode);
+    }
+  }, [isCompleted]);
 
   // Save current study content to history
   const saveCurrentStudySet = () => {
@@ -394,6 +642,54 @@ export default function FileBasedStudyApp() {
     localStorage.setItem('savedStudySets', JSON.stringify(updatedSaved));
   };
 
+  // Request a mode change, prompting to save current generated content if present
+  const performModeSwitch = (modeId) => {
+    setActiveMode(modeId);
+    setIsCompleted(false);
+    setCurrentIndex(0);
+    // Reset wheel mode state when switching modes
+    setViewedQuestions(new Set());
+    // Reset fill-in-the-blanks state when switching modes
+    setAnsweredQuestions([]);
+  };
+
+  const requestModeChange = (modeId) => {
+    // If no uploaded file, don't allow switching
+    if (!fileContent) return;
+    // If switching to the same mode, do nothing
+    if (modeId === activeMode) return;
+    // If there is generated content, prompt user to save/discard/cancel
+    if (content && content.length > 0) {
+      setPendingMode(modeId);
+      setShowSavePrompt(true);
+      return;
+    }
+    // Otherwise just switch
+    performModeSwitch(modeId);
+  };
+
+  const handleSaveAndSwitch = () => {
+    try {
+      saveCurrentStudySet();
+    } catch (e) {
+      console.error('Save before switch failed:', e);
+    }
+    setShowSavePrompt(false);
+    if (pendingMode) performModeSwitch(pendingMode);
+    setPendingMode(null);
+  };
+
+  const handleDiscardAndSwitch = () => {
+    setShowSavePrompt(false);
+    if (pendingMode) performModeSwitch(pendingMode);
+    setPendingMode(null);
+  };
+
+  const handleCancelSwitch = () => {
+    setShowSavePrompt(false);
+    setPendingMode(null);
+  };
+
   useEffect(() => {
     // Only load content if file is uploaded AND user selects a mode (not on upload)
     if (fileContent && activeMode && uploadedFile) {
@@ -449,9 +745,12 @@ export default function FileBasedStudyApp() {
   };
 
   const handleAnswerSelect = (answerIndex, correct = false) => {
+    // Start stats and record this answer
+    startStatsIfNeeded();
+    updateStatsOnAnswer(!!correct);
     setSelectedAnswer(answerIndex);
     if (correct) {
-      setScore(score + 1);
+      setScore(s => s + 1);
     }
     setTimeout(() => {
       handleNext();
@@ -466,8 +765,11 @@ export default function FileBasedStudyApp() {
     let newScore = score;
     if (isCorrect) {
       newScore = score + 1;
-      setScore(newScore);
+      setScore(s => s + 1);
     }
+    // Stats: record this checked answer
+    startStatsIfNeeded();
+    updateStatsOnAnswer(isCorrect);
     
     // Check if this is the last question (completion)
     if (currentIndex === content.length - 1) {
@@ -493,8 +795,14 @@ export default function FileBasedStudyApp() {
       
       // Add this question to viewed questions
       const newViewedQuestions = new Set(viewedQuestions);
+      const alreadyViewed = newViewedQuestions.has(targetIndex);
       newViewedQuestions.add(targetIndex);
       setViewedQuestions(newViewedQuestions);
+      // Update stats only if this was not viewed before
+      if (!alreadyViewed) {
+        startStatsIfNeeded();
+        updateStatsOnView();
+      }
       
       // Check if all questions have been viewed (completion)
       if (newViewedQuestions.size === content.length && content.length > 0) {
@@ -505,9 +813,26 @@ export default function FileBasedStudyApp() {
 
   const renderFlashCards = () => {
     if (content.length === 0) {
+      // If there's file content available, offer generate/preview actions
+      if (fileContent) {
+        return (
+          <div className="space-y-6">
+            <div className={`${cardBg} rounded-xl p-6 shadow min-h-[12rem]`}>
+              <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Generate Flashcards</h3>
+              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create concise question/answer flashcards from your uploaded file.</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button onClick={() => loadContentFromFile('flashcards')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => { setContent(sampleSets.flashcards); setActiveMode('flashcards'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="space-y-6">
-          <div className="relative h-64">
+          <div className="relative min-h-[16rem] h-auto overflow-auto">
             <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl shadow-lg flex items-center justify-center p-6">
               <div className="text-center">
                 <h3 className="text-xl font-semibold text-white">Flashcard Template</h3>
@@ -528,7 +853,7 @@ export default function FileBasedStudyApp() {
     return (
       <div className="space-y-6">
         <div 
-          className="relative h-64 cursor-pointer"
+          className="relative min-h-[16rem] h-auto overflow-auto cursor-pointer"
           onClick={() => setShowAnswer(!showAnswer)}
         >
           <div className={`absolute inset-0 w-full h-full transition-all duration-500 transform ${showAnswer ? 'scale-95' : ''}`}>
@@ -550,18 +875,34 @@ export default function FileBasedStudyApp() {
 
   const renderQuiz = () => {
     if (content.length === 0 || !content[currentIndex]) {
+      if (fileContent) {
+        return (
+          <div className="space-y-6">
+            <div className={`${cardBg} rounded-xl p-6 shadow min-h-[12rem]`}>
+              <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Generate Quiz Questions</h3>
+              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create multiple-choice questions from your file content.</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button onClick={() => loadContentFromFile('quiz')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => { setContent(sampleSets.quiz); setActiveMode('quiz'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center">
-            <h3 className="text-xl font-semibold mb-4">Quiz Template</h3>
-            <p className="text-gray-700">Question: [Multiple choice question]</p>
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto flex flex-col justify-center items-center`}>
+            <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Quiz Template</h3>
+            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Question: [Multiple choice question]</p>
             <div className="mt-2 w-full">
-              <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">A. [Option 1]</div>
-              <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">B. [Option 2]</div>
-              <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">C. [Option 3]</div>
-              <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">D. [Option 4]</div>
+              <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>A. [Option 1]</div>
+              <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>B. [Option 2]</div>
+              <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>C. [Option 3]</div>
+              <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>D. [Option 4]</div>
             </div>
-            <p className="text-gray-500 mt-2">Upload a file to generate quiz questions</p>
+            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Upload a file to generate quiz questions</p>
           </div>
         </div>
       );
@@ -585,24 +926,24 @@ export default function FileBasedStudyApp() {
       console.log('Quiz fallback: missing qText or options');
       return (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center">
-            <h3 className="text-xl font-semibold mb-4">Quiz Template</h3>
-            <p className="text-gray-700">Question: [Multiple choice question]</p>
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto flex flex-col justify-center items-center`}>
+            <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Quiz Template</h3>
+            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Question: [Multiple choice question]</p>
             <div className="mt-2 w-full">
-              <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">A. [Option 1]</div>
-              <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">B. [Option 2]</div>
-              <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">C. [Option 3]</div>
-              <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">D. [Option 4]</div>
+              <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>A. [Option 1]</div>
+              <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>B. [Option 2]</div>
+              <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>C. [Option 3]</div>
+              <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>D. [Option 4]</div>
             </div>
-            <p className="text-gray-500 mt-2">Upload a file to generate quiz questions</p>
+            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Upload a file to generate quiz questions</p>
           </div>
         </div>
       );
     }
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-xl p-6 shadow">
-          <h3 className="text-xl font-semibold mb-4">{qText}</h3>
+        <div className={`${cardBg} rounded-xl p-6 shadow`}>
+          <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>{qText}</h3>
           <div className="space-y-3">
             {options.map((option, index) => {
               let buttonClass = 'border-gray-200 hover:border-teal-300 hover:bg-teal-50';
@@ -644,16 +985,32 @@ export default function FileBasedStudyApp() {
 
   const renderTrueFalse = () => {
     if (content.length === 0) {
+      if (fileContent) {
+        return (
+          <div className="space-y-6">
+            <div className={`${cardBg} rounded-xl p-6 shadow min-h-[12rem]`}>
+              <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Generate True/False Questions</h3>
+              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create true/false statements from your file.</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button onClick={() => loadContentFromFile('trueFalse')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => { setContent(sampleSets.trueFalse); setActiveMode('trueFalse'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center">
-            <h3 className="text-xl font-semibold mb-4">True/False Template</h3>
-            <p className="text-gray-700">Statement: [Fact or claim]</p>
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto flex flex-col justify-center items-center`}>
+            <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>True/False Template</h3>
+            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Statement: [Fact or claim]</p>
             <div className="flex gap-4 mt-4">
-              <button className="flex-1 p-4 rounded-lg border-2 border-gray-300 bg-gray-100 text-gray-600">True</button>
-              <button className="flex-1 p-4 rounded-lg border-2 border-gray-300 bg-gray-100 text-gray-600">False</button>
+              <button className={`flex-1 p-4 rounded-lg border-2 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>True</button>
+              <button className={`flex-1 p-4 rounded-lg border-2 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>False</button>
             </div>
-            <p className="text-gray-500 mt-2">Upload a file to generate true/false questions</p>
+            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Upload a file to generate true/false questions</p>
           </div>
         </div>
       );
@@ -668,8 +1025,8 @@ export default function FileBasedStudyApp() {
     const isLastQuestion = currentIndex === content.length - 1 && selectedAnswer !== null;
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-xl p-6 shadow">
-          <h3 className="text-xl font-semibold mb-6">{statement}</h3>
+        <div className={`${cardBg} rounded-xl p-6 shadow`}>
+          <h3 className={`text-xl font-semibold mb-6 ${cardText}`}>{statement}</h3>
           <div className="flex gap-4">
             <button
               className={`flex-1 p-4 rounded-lg border-2 transition-all ${
@@ -721,6 +1078,22 @@ export default function FileBasedStudyApp() {
 
   const renderSpinWheel = () => {
     if (content.length === 0) {
+      if (fileContent) {
+        return (
+          <div className="space-y-6 text-center">
+            <div className={`${cardBg} rounded-xl p-6 shadow min-h-[12rem]`}>
+              <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Generate Wheel Questions</h3>
+              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create randomized wheel slices from your content.</p>
+              <div className="mt-4 flex flex-wrap gap-3 justify-center">
+                <button onClick={() => loadContentFromFile('wheel')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => { setContent(sampleSets.wheel); setActiveMode('wheel'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="space-y-6 text-center">
           <div className="relative inline-block">
@@ -728,8 +1101,8 @@ export default function FileBasedStudyApp() {
               <div className="text-white text-xl font-semibold">Spin the Wheel Template</div>
             </div>
           </div>
-          <button className="px-8 py-3 rounded-lg font-semibold bg-gray-400 text-white cursor-not-allowed mt-4">Spin the Wheel</button>
-          <p className="text-gray-500 mt-2">Upload a file to generate wheel questions</p>
+          <button className={`px-8 py-3 rounded-lg font-semibold ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-white'} cursor-not-allowed mt-4`}>Spin the Wheel</button>
+          <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Upload a file to generate wheel questions</p>
         </div>
       );
     }
@@ -741,7 +1114,7 @@ export default function FileBasedStudyApp() {
             className={`w-64 h-64 rounded-full bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 to-purple-400 shadow-lg flex items-center justify-center`}
             style={{ transform: `rotate(${wheelRotation}deg)` }}
           >
-            <div className="absolute inset-2 bg-white rounded-full flex items-center justify-center">
+            <div className={`absolute inset-2 ${darkMode ? 'bg-gray-900' : 'bg-white'} rounded-full flex items-center justify-center`}>
               <svg className="w-16 h-16 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="8" />
                 <path d="M12 8v4l2 2" />
@@ -766,9 +1139,9 @@ export default function FileBasedStudyApp() {
         </button>
 
         {content.length > 0 && currentIndex < content.length && (
-          <div className="bg-white rounded-xl p-6 shadow">
-            <h3 className="text-xl font-semibold mb-4">Random Question:</h3>
-            <p className="text-lg">{content[currentIndex]?.front || content[currentIndex]?.question || content[currentIndex]?.statement}</p>
+          <div className={`${cardBg} rounded-xl p-6 shadow`}>
+            <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Random Question:</h3>
+            <p className={`${darkMode ? 'text-gray-200' : 'text-lg'}`}>{content[currentIndex]?.front || content[currentIndex]?.question || content[currentIndex]?.statement}</p>
             {showAnswer && (
               <div className="mt-4 p-4 bg-teal-50 border border-teal-200 rounded-lg">
                 <p className="text-teal-800">{content[currentIndex]?.back || 'Answer revealed!'}</p>
@@ -788,17 +1161,33 @@ export default function FileBasedStudyApp() {
 
   const renderMatching = () => {
     if (content.length === 0) {
+      if (fileContent) {
+        return (
+          <div className="space-y-6">
+            <div className={`${cardBg} rounded-xl p-6 shadow min-h-[12rem]`}>
+              <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Generate Matching Pairs</h3>
+              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create term-definition pairs from your file for matching practice.</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button onClick={() => loadContentFromFile('matching')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => { setContent(sampleSets.matching); setActiveMode('matching'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center">
-            <h3 className="text-xl font-semibold mb-4">Matching Template</h3>
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto flex flex-col justify-center items-center`}>
+            <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Matching Template</h3>
             <div className="grid grid-cols-2 gap-4 w-full mt-2">
-              <div className="p-3 bg-teal-50 rounded-lg border-2 border-teal-200 text-gray-600">Term 1</div>
-              <div className="p-3 bg-gray-50 rounded-lg border-2 border-gray-200 text-gray-600">Definition 1</div>
-              <div className="p-3 bg-teal-50 rounded-lg border-2 border-teal-200 text-gray-600">Term 2</div>
-              <div className="p-3 bg-gray-50 rounded-lg border-2 border-gray-200 text-gray-600">Definition 2</div>
+              <div className={`p-3 rounded-lg border-2 ${darkMode ? 'bg-teal-900 border-teal-700 text-gray-200' : 'bg-teal-50 border-teal-200 text-gray-600'}`}>Term 1</div>
+              <div className={`p-3 rounded-lg border-2 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Definition 1</div>
+              <div className={`p-3 rounded-lg border-2 ${darkMode ? 'bg-teal-900 border-teal-700 text-gray-200' : 'bg-teal-50 border-teal-200 text-gray-600'}`}>Term 2</div>
+              <div className={`p-3 rounded-lg border-2 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Definition 2</div>
             </div>
-            <p className="text-gray-500 mt-2">Upload a file to generate matching pairs</p>
+            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Upload a file to generate matching pairs</p>
           </div>
         </div>
       );
@@ -822,15 +1211,15 @@ export default function FileBasedStudyApp() {
 
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-xl p-6 shadow">
-          <h3 className="text-xl font-semibold mb-4">Match the pairs:</h3>
+        <div className={`${cardBg} rounded-xl p-6 shadow`}>
+          <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Match the pairs:</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
-              <h4 className="font-medium text-gray-700">Terms</h4>
+              <h4 className={`font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Terms</h4>
               {unmatchedTerms.map((term) => (
                 <button
                   key={term.idx}
-                  className={`w-full p-3 rounded-lg border-2 ${selectedTerm === term.idx ? 'border-teal-600 bg-teal-100' : 'border-teal-200 bg-teal-50'} transition-all`}
+                  className={`w-full p-3 rounded-lg border-2 ${selectedTerm === term.idx ? (darkMode ? 'border-teal-500 bg-teal-800 text-gray-200' : 'border-teal-600 bg-teal-100') : (darkMode ? 'border-gray-600 bg-gray-700 text-gray-300' : 'border-teal-200 bg-teal-50')} transition-all`}
                   onClick={() => setSelectedTerm(term.idx)}
                   disabled={selectedTerm === term.idx}
                 >
@@ -839,11 +1228,11 @@ export default function FileBasedStudyApp() {
               ))}
             </div>
             <div className="space-y-3">
-              <h4 className="font-medium text-gray-700">Definitions</h4>
+              <h4 className={`font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Definitions</h4>
               {unmatchedDefs.map((def) => (
                 <button
                   key={def.idx}
-                  className={`w-full p-3 rounded-lg border-2 ${selectedDef === def.idx ? 'border-gray-600 bg-gray-100' : 'border-gray-200 bg-gray-50'} transition-all`}
+                  className={`w-full p-3 rounded-lg border-2 ${selectedDef === def.idx ? (darkMode ? 'border-gray-500 bg-gray-700 text-gray-200' : 'border-gray-600 bg-gray-100') : (darkMode ? 'border-gray-600 bg-gray-700 text-gray-300' : 'border-gray-200 bg-gray-50')} transition-all`}
                   onClick={() => setSelectedDef(def.idx)}
                   disabled={selectedDef === def.idx}
                 >
@@ -853,7 +1242,7 @@ export default function FileBasedStudyApp() {
             </div>
           </div>
           <div className="mt-6">
-            <span className="font-medium text-teal-700">Score: {matchingScore} / {content.length}</span>
+            <span className={`font-medium ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>Score: {matchingScore} / {content.length}</span>
           </div>
           {matchedPairs.length === content.length && (
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 font-semibold text-center">
@@ -867,25 +1256,41 @@ export default function FileBasedStudyApp() {
 
   const renderFillBlanks = () => {
     if (content.length === 0) {
+      if (fileContent) {
+        return (
+          <div className="space-y-6">
+            <div className={`${cardBg} rounded-xl p-6 shadow min-h-[12rem]`}>
+              <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Generate Fill-in-the-Blanks</h3>
+              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create fill-in-the-blank prompts from your text.</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button onClick={() => loadContentFromFile('fillBlanks')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => { setContent(sampleSets.fillBlanks); setActiveMode('fillBlanks'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center">
-            <h3 className="text-xl font-semibold mb-4">Fill in the Blank</h3>
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto flex flex-col justify-center items-center`}>
+            <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Fill in the Blank</h3>
             {fileContent ? (
               <>
-                <p className="text-gray-700">No fill-in-the-blank questions were generated from your file.</p>
-                <p className="text-gray-500 mt-2">Try uploading a different file or check the file content.</p>
+                <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>No fill-in-the-blank questions were generated from your file.</p>
+                <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Try uploading a different file or check the file content.</p>
               </>
             ) : (
               <>
-                <p className="text-gray-700">Sentence: The mitochondria is the _____ of the cell.</p>
+                <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Sentence: The mitochondria is the _____ of the cell.</p>
                 <input
                   type="text"
-                  className="w-full p-3 border-2 border-gray-300 rounded-lg mt-4 bg-gray-100 text-gray-600"
+                  className={`w-full p-3 border-2 border-gray-300 rounded-lg mt-4 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
                   placeholder="Type your answer here..."
                   disabled
                 />
-                <p className="text-gray-500 mt-2">Upload a file to generate fill-in-the-blank questions</p>
+                <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Upload a file to generate fill-in-the-blank questions</p>
               </>
             )}
           </div>
@@ -900,17 +1305,17 @@ export default function FileBasedStudyApp() {
   console.log('FillBlanks question:', blankText);
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-xl p-6 shadow">
-          <h3 className="text-xl font-semibold mb-4">Fill in the blank:</h3>
-          <div className="text-lg mb-2">
-            <span className="font-semibold text-gray-700">Question:</span> {blankText ? blankText : <span className="text-gray-400">No question text found in AI response.</span>}
+        <div className={`${cardBg} rounded-xl p-6 shadow`}>
+          <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Fill in the blank:</h3>
+          <div className={`text-lg mb-2 ${cardText}`}>
+            <span className="font-semibold">Question:</span> {blankText ? blankText : <span className="text-gray-400">No question text found in AI response.</span>}
           </div>
           <div className="space-y-4 mb-2">
             <input
               type="text"
               value={userAnswer}
               onChange={(e) => setUserAnswer(e.target.value)}
-              className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-teal-400 focus:ring-2 focus:ring-teal-400 focus:outline-none"
+              className={`w-full p-3 border-2 border-gray-300 rounded-lg focus:border-teal-400 focus:ring-2 focus:ring-teal-400 focus:outline-none ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-gray-800'}`}
               placeholder="Type your answer here..."
               disabled={showAnswer}
             />
@@ -927,7 +1332,7 @@ export default function FileBasedStudyApp() {
             </button>
           </div>
           <div className="text-lg mb-2">
-            <span className="font-semibold text-gray-700">Answer:</span> {answerText ? answerText : <span className="text-gray-400">No answer found in AI response.</span>}
+            <span className="font-semibold">Answer:</span> {answerText ? answerText : <span className="text-gray-400">No answer found in AI response.</span>}
           </div>
           {showAnswer && (
             <div className={`mt-4 p-3 rounded-lg ${
@@ -990,7 +1395,7 @@ export default function FileBasedStudyApp() {
     }
 
     return (
-      <div className="bg-white rounded-xl p-8 shadow-lg border-2 border-teal-200">
+      <div className={`${cardBg} rounded-xl p-8 shadow-lg border-2 border-teal-200`}>
         <div className="text-center">
           <div className="mb-6">
             <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -998,10 +1403,10 @@ export default function FileBasedStudyApp() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            <h2 className={`${cardText} text-2xl font-bold mb-2`}>
               {modeName} Completed!
             </h2>
-            <p className="text-gray-600">
+            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               You have answered all {content.length} questions
             </p>
           </div>
@@ -1073,6 +1478,82 @@ export default function FileBasedStudyApp() {
               📚 Choose New Mode
             </button>
           </div>
+
+          {/* AI improvement suggestions */}
+          <div className="mt-6">
+            {aiLoading ? (
+              <div className={`${cardBg} rounded-xl p-4`}>Generating improvement tips...</div>
+            ) : aiSuggestions ? (
+              <div className={`${cardBg} rounded-xl p-4 text-left`}> 
+                <div className="flex justify-between items-start mb-2">
+                  <div className="font-semibold">AI Improvement Suggestions</div>
+                  <div className="flex items-center space-x-2">
+                    <button onClick={() => requestImprovementSuggestions(activeMode)} className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200">Regenerate</button>
+                    <button onClick={() => { navigator.clipboard?.writeText(aiSuggestions); }} className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200">Copy</button>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-700 whitespace-pre-wrap">{aiSuggestions}</div>
+              </div>
+            ) : (
+              <div className={`${cardBg} rounded-xl p-4`}> 
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">Want tips to improve retention?</div>
+                  <button onClick={() => requestImprovementSuggestions(activeMode)} className="px-3 py-1 text-sm bg-teal-600 text-white rounded hover:bg-teal-700">Get AI Tips</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderStatsPanel = () => {
+    return (
+      <div className={`${cardBg} rounded-xl p-4 shadow-sm`}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium">Session Statistics</div>
+          <div className="text-xs text-gray-500">{sessionStats.reviewedCount} items</div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="p-2 bg-gray-50 rounded">
+            <div className="text-xs text-gray-500">Reviewed</div>
+            <div className="font-semibold">{sessionStats.reviewedCount}</div>
+          </div>
+          <div className="p-2 bg-gray-50 rounded">
+            <div className="text-xs text-gray-500">Correct</div>
+            <div className="font-semibold text-green-600">{sessionStats.correctCount}</div>
+          </div>
+          <div className="p-2 bg-gray-50 rounded">
+            <div className="text-xs text-gray-500">Incorrect</div>
+            <div className="font-semibold text-red-600">{sessionStats.incorrectCount}</div>
+          </div>
+          <div className="p-2 bg-gray-50 rounded">
+            <div className="text-xs text-gray-500">Accuracy</div>
+            <div className="font-semibold">{sessionStats.accuracy}%</div>
+          </div>
+          <div className="p-2 bg-gray-50 rounded">
+            <div className="text-xs text-gray-500">Time Elapsed</div>
+            <div className="font-semibold">{formatTime(sessionStats.timeElapsed)}</div>
+          </div>
+          <div className="p-2 bg-gray-50 rounded">
+            <div className="text-xs text-gray-500">Avg / Item</div>
+            <div className="font-semibold">{Math.round(sessionStats.avgTimePerCard / 1000)}s</div>
+          </div>
+          <div className="p-2 bg-gray-50 rounded">
+            <div className="text-xs text-gray-500">Streak</div>
+            <div className="font-semibold">{sessionStats.currentStreak}</div>
+          </div>
+          <div className="p-2 bg-gray-50 rounded">
+            <div className="text-xs text-gray-500">Best Streak</div>
+            <div className="font-semibold">{sessionStats.longestStreak}</div>
+          </div>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <div className="flex items-center space-x-2">
+            <button onClick={resetStats} className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200">Reset Stats</button>
+            <button onClick={() => requestImprovementSuggestions(activeMode)} className="px-3 py-1 text-sm bg-teal-600 text-white rounded hover:bg-teal-700">Get AI Tips</button>
+          </div>
         </div>
       </div>
     );
@@ -1081,12 +1562,12 @@ export default function FileBasedStudyApp() {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex flex-col items-center justify-center h-64 bg-white rounded-xl shadow-lg">
+        <div className={`flex flex-col items-center justify-center min-h-[16rem] h-auto ${cardBg} rounded-xl shadow-lg overflow-auto`}>
           <div className="relative">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-200"></div>
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-600 border-t-transparent absolute top-0"></div>
           </div>
-          <span className="mt-4 text-lg text-gray-700 animate-pulse">Processing your file and generating AI content...</span>
+          <span className={`mt-4 text-lg ${darkMode ? 'text-gray-200' : 'text-gray-700'} animate-pulse`}>Processing your file and generating AI content...</span>
           <div className="flex space-x-1 mt-2">
             <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
             <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
@@ -1097,10 +1578,103 @@ export default function FileBasedStudyApp() {
     }
 
     // Only show content if a mode is selected
+    // If there's no uploaded file and no fileContent AND there is no loaded content,
+    // show the initial empty state regardless of any default `activeMode` (so users see the "Ready to Study?" UI).
+    // This allows loading saved study sets (which populate `content`) to display immediately
+    // even when no file is present.
+    if (!fileContent && !uploadedFile && content.length === 0) {
+      return (
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch ${darkMode ? '' : ''}`}>
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto flex flex-col justify-between overflow-auto`}>
+            <div>
+              <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Ready to Study?</h3>
+              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>Upload your file to generate AI-powered study materials, or try a sample to preview study modes.</p>
+
+              <div className="space-y-3">
+                <button
+                  onClick={triggerFileInput}
+                  className={`w-full px-4 py-3 rounded-lg font-semibold ${themeColors.light} ${themeColors.text} hover:${themeColors.hover} transition-colors`}
+                >
+                  📤 Upload File
+                </button>
+
+                <div className="mt-2">
+                  <div className={`text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Or try a sample:</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {studyModes.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => applySample(m.id)}
+                        className={`px-3 py-2 rounded-lg text-sm border ${darkMode ? 'border-gray-700' : 'border-gray-200'} hover:scale-105 transition-transform ${darkMode ? 'bg-gray-700 text-gray-200' : ''}`}
+                        title={`Preview ${m.name}`}
+                      >
+                        {m.icon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Tip: Use the sample to quickly preview how a study mode looks before uploading your own material.</div>
+          </div>
+
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto`}> 
+            <h3 className={`text-lg font-semibold mb-3 ${cardText}`}>Study Modes</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {studyModes.map((m) => (
+                <div key={m.id} className={`p-3 rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-200'} ${darkMode ? 'bg-gray-700' : ''}`}>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 flex items-center justify-center">{m.icon}</div>
+                    <div>
+                      <div className={`font-medium ${cardText}`}>{m.name}</div>
+                      <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Requires a file or sample</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // If we have file content (or an uploaded file) but no activeMode selected, show the quick mode chooser
     if (!activeMode) {
       return (
-        <div className="flex items-center justify-center h-64">
-          <span className="text-lg text-gray-400">Select a study mode to begin.</span>
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-6`}> 
+          <div className={`${cardBg} rounded-xl p-6 shadow col-span-2`}> 
+            <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Your file is ready</h3>
+            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
+            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-6`}>Choose a study mode to generate AI content and start practicing. Click any card to begin.</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {studyModes.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => requestModeChange(m.id)}
+                  className={`w-full p-4 rounded-lg text-left border ${activeMode === m.id ? 'scale-105 shadow-lg' : ''} ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-white'} transition-all`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8">{m.icon}</div>
+                    <div>
+                      <div className={`font-medium ${cardText}`}>{m.name}</div>
+                      <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Preview or generate {m.name.toLowerCase()}</div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={`${cardBg} rounded-xl p-6 shadow`}> 
+            <h3 className={`text-lg font-semibold mb-3 ${cardText}`}>Quick Actions</h3>
+              <div className="space-y-3">
+              <button onClick={() => { setContent([]); setActiveMode(null); setFileContent(''); setUploadedFile(null); resetStats(); }} className={`w-full px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-800'}`}>Reset</button>
+              <button onClick={() => applySample('flashcards')} className={`w-full px-4 py-2 rounded-lg ${themeColors.light} ${themeColors.text}`}>Try Flashcards Sample</button>
+              <button onClick={() => applySample('quiz')} className={`w-full px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-800'}`}>Try Quiz Sample</button>
+            </div>
+          </div>
         </div>
       );
     }
@@ -1121,7 +1695,7 @@ export default function FileBasedStudyApp() {
               setShowAnswer={setShowAnswer}
             />
             {content.length > 0 && (
-              <div className="bg-white shadow rounded-xl p-4">
+              <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1145,7 +1719,7 @@ export default function FileBasedStudyApp() {
               handleAnswerSelect={handleAnswerSelect}
             />
             {content.length > 0 && (
-              <div className="bg-white shadow rounded-xl p-4">
+              <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1169,7 +1743,7 @@ export default function FileBasedStudyApp() {
               handleAnswerSelect={handleAnswerSelect}
             />
             {content.length > 0 && (
-              <div className="bg-white shadow rounded-xl p-4">
+              <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1200,7 +1774,7 @@ export default function FileBasedStudyApp() {
               setScore={setScore}
             />
             {content.length > 0 && (
-              <div className="bg-white shadow rounded-xl p-4">
+              <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1228,7 +1802,7 @@ export default function FileBasedStudyApp() {
               onComplete={(completed) => setIsCompleted(completed)}
             />
             {content.length > 0 && (
-              <div className="bg-white shadow rounded-xl p-4">
+              <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1258,7 +1832,7 @@ export default function FileBasedStudyApp() {
               answeredQuestions={answeredQuestions}
             />
             {content.length > 0 && (
-              <div className="bg-white shadow rounded-xl p-4">
+              <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1290,7 +1864,7 @@ export default function FileBasedStudyApp() {
         </div>
 
         {/* File Upload */}
-        <div className={`mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}>
+        <div className={`mb-6 ${cardBg} rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}>
           <label className={`block text-sm font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-3`}>
             📄 Upload Study Material
           </label>
@@ -1325,25 +1899,29 @@ export default function FileBasedStudyApp() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-4 lg:grid-cols-3 gap-6">
+            {/* Save prompt modal */}
+            {showSavePrompt && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+                <div className={`w-full max-w-lg p-6 rounded-xl ${cardBg} ${cardText} shadow-lg`}>
+                  <h3 className="text-lg font-semibold mb-2">Save current study set?</h3>
+                  <p className="text-sm mb-4">You have generated content for the current study mode. Would you like to save it before switching to a different mode?</p>
+                  <div className="flex justify-end gap-3">
+                    <button onClick={handleCancelSwitch} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
+                    <button onClick={handleDiscardAndSwitch} className="px-4 py-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200">Don't Save</button>
+                    <button onClick={handleSaveAndSwitch} className={`px-4 py-2 rounded-lg ${themeColors.light} ${themeColors.text} hover:${themeColors.hover}`}>Save & Switch</button>
+                  </div>
+                </div>
+              </div>
+            )}
           {/* Mode Selection */}
           <div className="xl:col-span-1 lg:col-span-1">
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+            <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
               <h2 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>🎯 Study Methods</h2>
               <div className="space-y-3">
                 {studyModes.map((mode) => (
                   <button
                     key={mode.id}
-                    onClick={() => {
-                      if (fileContent) {
-                        setActiveMode(mode.id);
-                        setIsCompleted(false);
-                        setCurrentIndex(0);
-                        // Reset wheel mode state when switching modes
-                        setViewedQuestions(new Set());
-                        // Reset fill-in-the-blanks state when switching modes
-                        setAnsweredQuestions([]);
-                      }
-                    }}
+                    onClick={() => requestModeChange(mode.id)}
                     disabled={!fileContent}
                     className={`w-full flex items-center p-3 rounded-lg border-2 transition-all duration-300 text-left transform ${
                       !fileContent
@@ -1369,7 +1947,7 @@ export default function FileBasedStudyApp() {
           <div className="xl:col-span-2 lg:col-span-2">
             {/* Progress Bar */}
             {content.length > 0 && activeMode !== 'wheel' && activeMode !== 'matching' && (
-              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+              <div className={`${cardBg} shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
                 <div className="flex justify-between items-center mb-2">
                   <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Progress</span>
                   <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-semibold`}>
@@ -1390,7 +1968,7 @@ export default function FileBasedStudyApp() {
               <div className={`bg-gradient-to-r ${themeColors.light} ${themeColors.light} shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border border-${themeColors.primary}-100`}>
                 <div className="flex items-center justify-between">
                   <span className={`${themeColors.textDark} font-semibold`}>Current Score</span>
-                  <span className={`${themeColors.textDark} text-2xl font-bold ${darkMode ? 'bg-gray-700' : 'bg-white'} px-3 py-1 rounded-lg shadow-sm`}>
+                  <span className={`${themeColors.textDark} text-2xl font-bold ${darkMode ? 'bg-gray-700' : ''} px-3 py-1 rounded-lg shadow-sm`}>
                     {score} / {Math.max(currentIndex + (showAnswer && activeMode !== 'fillBlanks' ? 1 : 0), 1)}
                   </span>
                 </div>
@@ -1402,9 +1980,16 @@ export default function FileBasedStudyApp() {
               {renderContent()}
             </div>
 
+            {/* Stats Panel */}
+            {content.length > 0 && (
+              <div className="mb-6">
+                {renderStatsPanel()}
+              </div>
+            )}
+
             {/* Navigation Buttons */}
             {content.length > 0 && activeMode !== 'wheel' && activeMode !== 'matching' && (
-              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300`}>
+              <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300`}>
                 <div className="flex justify-between items-center">
                   <button
                     onClick={handlePrevious}
@@ -1450,7 +2035,7 @@ export default function FileBasedStudyApp() {
 
           {/* Saved Study Sets History */}
           <div className="xl:col-span-1 lg:col-span-3 xl:col-start-4">
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+            <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>💾 Saved Study Sets</h2>
                 <button

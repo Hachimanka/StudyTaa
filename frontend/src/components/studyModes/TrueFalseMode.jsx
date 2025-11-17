@@ -1,18 +1,23 @@
 import React from 'react';
+import { useSettings } from '../../context/SettingsContext';
 
 export default function TrueFalseMode({ content, currentIndex, selectedAnswer, handleAnswerSelect }) {
+  const { darkMode } = useSettings();
+  const cardBg = darkMode ? 'bg-gray-800' : 'bg-white';
+  const cardText = darkMode ? 'text-gray-200' : 'text-gray-800';
+  const subtleBg = darkMode ? 'bg-gray-700' : 'bg-gray-100';
   if (content.length === 0) {
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center">
+        <div className={`${cardBg} rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center`}>
           <>
-            <h3 className="text-xl font-semibold mb-4">True/False Template</h3>
-            <p className="text-gray-700">Statement: [Fact or claim]</p>
+            <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>True/False Template</h3>
+            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Statement: [Fact or claim]</p>
             <div className="flex gap-4 mt-4">
-              <button className="flex-1 p-4 rounded-lg border-2 border-gray-300 bg-gray-100 text-gray-600">True</button>
-              <button className="flex-1 p-4 rounded-lg border-2 border-gray-300 bg-gray-100 text-gray-600">False</button>
+              <button className={`flex-1 p-4 rounded-lg border-2 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>True</button>
+              <button className={`flex-1 p-4 rounded-lg border-2 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>False</button>
             </div>
-            <p className="text-gray-500 mt-2">Upload a file to generate true/false questions</p>
+            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Upload a file to generate true/false questions</p>
           </>
         </div>
       </div>
@@ -24,8 +29,8 @@ export default function TrueFalseMode({ content, currentIndex, selectedAnswer, h
   const explanation = item.explanation || '';
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl p-6 shadow">
-        <h3 className="text-xl font-semibold mb-6">{statement}</h3>
+      <div className={`${cardBg} rounded-xl p-6 shadow`}>
+        <h3 className={`text-xl font-semibold mb-6 ${cardText}`}>{statement}</h3>
         <div className="flex gap-4">
           <button
             className={`flex-1 p-4 rounded-lg border-2 transition-all ${
@@ -55,8 +60,8 @@ export default function TrueFalseMode({ content, currentIndex, selectedAnswer, h
           </button>
         </div>
         {selectedAnswer !== null && (
-          <div className="mt-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
-            <p className="text-teal-800">{explanation}</p>
+          <div className={`mt-4 p-3 rounded-lg ${darkMode ? 'bg-teal-900 border-teal-800 text-teal-200' : 'bg-teal-50 border border-teal-200'}`}>
+            <p className={`${darkMode ? 'text-teal-200' : 'text-teal-800'}`}>{explanation}</p>
           </div>
         )}
       </div>

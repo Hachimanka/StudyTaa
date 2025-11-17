@@ -9,8 +9,8 @@ export default function Quote(){
       <Sidebar />
       <main className="flex-1 p-12 ml-20 md:ml-30">
         <ChatWidget />
-        <h1 className="text-4xl font-bold mt-6">Quote</h1>
-        <p className="mt-2 text-muted">Daily motivational quotes</p>
+  <h1 className="text-5xl font-bold page-title">Quote</h1>
+  <p className="mt-1 text-xl page-subtitle">Daily motivational quotes</p>
       </main>
     </div>
   )

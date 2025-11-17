@@ -1,19 +1,24 @@
 import React from 'react';
+import { useSettings } from '../../context/SettingsContext';
 
 export default function FillBlanksMode({ content, currentIndex, userAnswer, setUserAnswer, showAnswer, setShowAnswer, score, setScore, onComplete, answeredQuestions = [] }) {
+  const { darkMode } = useSettings();
+  const cardBg = darkMode ? 'bg-gray-800' : 'bg-white';
+  const cardText = darkMode ? 'text-gray-200' : 'text-gray-800';
+  const subtleBg = darkMode ? 'bg-gray-700' : 'bg-gray-100';
   if (content.length === 0) {
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center">
-          <h3 className="text-xl font-semibold mb-4">Fill in the Blank Template</h3>
-          <p className="text-gray-700">Sentence: The mitochondria is the _____ of the cell.</p>
+        <div className={`${cardBg} rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center`}>
+          <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Fill in the Blank Template</h3>
+          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Sentence: The mitochondria is the _____ of the cell.</p>
           <input
             type="text"
-            className="w-full p-3 border-2 border-gray-300 rounded-lg mt-4 bg-gray-100 text-gray-600"
+            className={`w-full p-3 border-2 rounded-lg mt-4 ${subtleBg} ${darkMode ? 'text-gray-200' : 'text-gray-600'}`}
             placeholder="Type your answer here..."
             disabled
           />
-          <p className="text-gray-500 mt-2">Upload a file to generate fill-in-the-blank questions</p>
+          <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Upload a file to generate fill-in-the-blank questions</p>
         </div>
       </div>
     );
@@ -47,22 +52,22 @@ export default function FillBlanksMode({ content, currentIndex, userAnswer, setU
 
     return (
       <div className="space-y-6">
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 shadow-lg border border-emerald-200">
+        <div className={`${cardBg} rounded-xl p-6 shadow-lg border ${darkMode ? 'border-gray-700' : 'border-emerald-200'}`}>
           <div className="text-center mb-6">
             <div className="text-4xl mb-2">🎉</div>
-            <h2 className="text-2xl font-bold text-emerald-800 mb-2">
+            <h2 className={`text-2xl font-bold mb-2 ${cardText}`}>
               Fill-in-the-Blanks Completed!
             </h2>
-            <p className="text-emerald-700">
+            <p className={`${darkMode ? 'text-gray-300' : 'text-emerald-700'}`}>
               You have answered all {content.length} questions!
             </p>
           </div>
 
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 mb-6">
-            <div className="text-4xl font-bold text-emerald-700 mb-2">
+          <div className={`${cardBg} rounded-xl p-6 mb-6`}>
+            <div className={`text-4xl font-bold mb-2 ${cardText}`}>
               {score} / {content.length}
             </div>
-            <div className="text-xl font-semibold text-emerald-600 mb-1">
+            <div className={`text-xl font-semibold ${darkMode ? 'text-gray-300' : 'text-emerald-600'} mb-1`}>
               {percentage}% Correct
             </div>
             <div className={`text-lg font-medium ${performanceColor}`}>
@@ -70,8 +75,8 @@ export default function FillBlanksMode({ content, currentIndex, userAnswer, setU
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 mb-6">
-            <h3 className="text-lg font-semibold mb-4 text-gray-800">📝 Review Your Answers</h3>
+          <div className={`${cardBg} rounded-xl p-6 mb-6`}>
+            <h3 className={`text-lg font-semibold mb-4 ${cardText}`}>📝 Review Your Answers</h3>
             <div className="space-y-4">
               {answeredQuestions.map((answered, index) => {
                 const questionItem = content[answered.questionIndex];
@@ -81,20 +86,18 @@ export default function FillBlanksMode({ content, currentIndex, userAnswer, setU
                 const isCorrect = answered.userAnswer.toLowerCase().trim() === correctAnswerText.toLowerCase().trim();
                 
                 return (
-                  <div key={index} className={`p-4 rounded-lg border-2 ${
-                    isCorrect ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'
-                  }`}>
+                  <div key={index} className={`p-4 rounded-lg border-2 ${isCorrect ? (darkMode ? 'border-emerald-700 bg-emerald-900' : 'border-emerald-200 bg-emerald-50') : (darkMode ? 'border-red-700 bg-red-900' : 'border-red-200 bg-red-50')}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="font-medium text-gray-800 mb-2">
+                        <div className={`font-medium mb-2 ${cardText}`}>
                           <strong>Q{answered.questionIndex + 1}:</strong> {questionText}
                         </div>
                         <div className="text-sm space-y-1">
-                          <div className={`${isCorrect ? 'text-emerald-700' : 'text-red-700'}`}>
+                          <div className={`${isCorrect ? (darkMode ? 'text-emerald-300' : 'text-emerald-700') : (darkMode ? 'text-red-300' : 'text-red-700')}`}>
                             <strong>Your answer:</strong> {answered.userAnswer}
                           </div>
                           {!isCorrect && (
-                            <div className="text-emerald-700">
+                            <div className={`${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
                               <strong>Correct answer:</strong> {correctAnswerText}
                             </div>
                           )}
@@ -116,17 +119,17 @@ export default function FillBlanksMode({ content, currentIndex, userAnswer, setU
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl p-6 shadow">
-        <h3 className="text-xl font-semibold mb-4">Fill in the blank:</h3>
+      <div className={`${cardBg} rounded-xl p-6 shadow`}>
+        <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Fill in the blank:</h3>
         <div className="text-lg mb-2">
-          <span className="font-semibold text-gray-700">Question:</span> {blankText ? blankText : <span className="text-gray-400">No question text found in AI response.</span>}
+          <span className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Question:</span> {blankText ? blankText : <span className="text-gray-400">No question text found in AI response.</span>}
         </div>
         <div className="space-y-4 mb-2">
           <input
             type="text"
             value={userAnswer}
             onChange={(e) => setUserAnswer(e.target.value)}
-            className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-teal-400 focus:ring-2 focus:ring-teal-400 focus:outline-none"
+            className={`w-full p-3 border-2 rounded-lg focus:border-teal-400 focus:ring-2 focus:ring-teal-400 focus:outline-none ${darkMode ? 'bg-gray-700 text-gray-200 border-gray-600' : 'border-gray-300'}`}
             placeholder="Type your answer here..."
             disabled={showAnswer}
           />
@@ -154,17 +157,17 @@ export default function FillBlanksMode({ content, currentIndex, userAnswer, setU
         {showAnswer && (
           <>
             <div className="text-lg mb-2">
-              <span className="font-semibold text-gray-700">Answer:</span> {answerText ? answerText : <span className="text-gray-400">No answer found in AI response.</span>}
+              <span className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Answer:</span> {answerText ? answerText : <span className="text-gray-400">No answer found in AI response.</span>}
             </div>
             <div className={`mt-4 p-3 rounded-lg ${
               userAnswer.toLowerCase().trim() === answerText.toLowerCase().trim()
-                ? 'bg-green-50 border border-green-200'
-                : 'bg-red-50 border border-red-200'
+                ? (darkMode ? 'bg-green-900 border-green-800 text-green-200' : 'bg-green-50 border border-green-200')
+                : (darkMode ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-50 border border-red-200')
             }`}>
               <p className={`font-medium ${
                 userAnswer.toLowerCase().trim() === answerText.toLowerCase().trim()
-                  ? 'text-green-800'
-                  : 'text-red-800'
+                  ? (darkMode ? 'text-green-200' : 'text-green-800')
+                  : (darkMode ? 'text-red-200' : 'text-red-800')
               }`}>
                 {userAnswer.toLowerCase().trim() === answerText.toLowerCase().trim() 
                   ? 'Correct!' 

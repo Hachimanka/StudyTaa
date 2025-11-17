@@ -6,6 +6,10 @@ import { useAuth } from '../context/AuthContext';
 // File Modal Component
 const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload }) {
   if (!isOpen || !file) return null;
+  const [showFileInput, setShowFileInput] = useState(false);
+  const [showFolderInput, setShowFolderInput] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const getFileIcon = (fileName) => {
     const extension = fileName.split('.').pop()?.toLowerCase();
@@ -74,7 +78,7 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
@@ -285,74 +289,96 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
   );
 });
 
-const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFile, onDeleteFolder, onViewFile, level = 0 }) {
+const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFile, onDeleteFolder, onViewFile, onRename, onDownload, onOpenFolder, level = 0, hideHeader = false }) {
   const [expanded, setExpanded] = useState(folder.expanded !== undefined ? folder.expanded : level === 0);
   const [showFileInput, setShowFileInput] = useState(false);
   const [showFolderInput, setShowFolderInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
 
-  const indentPx = level * 20;
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, type: null, payload: null });
+
+  useEffect(() => {
+    if (!contextMenu.visible) return;
+    const onAnyClick = () => setContextMenu({ visible: false, x: 0, y: 0, type: null, payload: null });
+    window.addEventListener('click', onAnyClick);
+    return () => window.removeEventListener('click', onAnyClick);
+  }, [contextMenu.visible]);
+
+  // Keep folder rows aligned with file rows (no extra indent)
+  const indentPx = 0;
 
   return (
-    <div className="mb-3" style={{ marginLeft: indentPx }}>
-      <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+    <div className={hideHeader ? "mb-3" : ""} style={{ marginLeft: indentPx }}>
+      <div className={hideHeader
+        ? "bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
+        : "bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 hover:bg-gray-100 transition-colors"}>
+        {!hideHeader && (
         <div className="flex items-center justify-between">
           <button 
             className="flex items-center gap-2 text-gray-700 hover:text-gray-900"
-            onClick={() => setExpanded(e => !e)}
+            onClick={(e) => { e.preventDefault(); if (onOpenFolder) onOpenFolder(folder.id); }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({ visible: true, x: e.clientX, y: e.clientY, type: 'folder', payload: folder });
+            }}
           >
             <div className="p-1 text-blue-600">
-              {expanded ? (
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
-                  <path fillRule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
-                </svg>
-              ) : (
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M1.5 0A1.5 1.5 0 0 0 0 1.5v9A1.5 1.5 0 0 0 1.5 12h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 0h-13zm1 2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5z"/>
-                </svg>
-              )}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
             </div>
             <span className="font-medium">{folder.name}</span>
-            {expanded ? (
-              <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-              </svg>
-            ) : (
-              <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
-              </svg>
-            )}
           </button>
           
-          <div className="flex gap-2">
-            <button 
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          <div className="flex items-center gap-2">
+            <button
+              title="Upload File"
               onClick={() => setShowFileInput(true)}
+              className="p-1.5 text-slate-600 hover:text-slate-900 rounded bg-white border border-transparent hover:border-slate-100"
             >
-              Upload File
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 5 17 10"></polyline>
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+              </svg>
             </button>
-            <button 
-              className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+
+            <button
+              title="New Folder"
               onClick={() => setShowFolderInput(true)}
+              className="p-1.5 text-slate-600 hover:text-slate-900 rounded bg-white border border-transparent hover:border-slate-100"
             >
-              New Folder
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <path d="M10 4H4a2 2 0 0 0-2 2v2"></path>
+                <path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"></path>
+                <path d="M16 11v6"></path>
+                <path d="M13 14h6"></path>
+              </svg>
             </button>
+
             {level > 0 && (
-              <button 
-                className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              <button
+                title="Delete Folder"
                 onClick={() => {
                   if (window.confirm(`Are you sure you want to delete the folder "${folder.name}" and all its contents? This action cannot be undone.`)) {
                     onDeleteFolder(folder.id);
                   }
                 }}
+                className="p-1.5 text-red-500 hover:text-red-700 rounded bg-white border border-transparent hover:border-red-100"
               >
-                Delete
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                  <path d="M10 11v6"></path>
+                  <path d="M14 11v6"></path>
+                </svg>
               </button>
             )}
           </div>
         </div>
+        )}
 
         {showFileInput && (
           <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
@@ -434,15 +460,16 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
           </div>
         )}
 
-        {expanded && (
+        {(hideHeader || expanded) && (
           <div className="mt-4">
             {(folder.files.length > 0 || folder.folders.length > 0) ? (
               <div className="space-y-2">
                 {folder.files.map((file, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group cursor-pointer"
+                    className="flex items-center justify-between py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group cursor-pointer"
                     onClick={() => onViewFile(file)}
+                    onContextMenu={(e) => { e.preventDefault(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY, type: 'file', payload: { file, folderId: folder.id, fileIndex: idx } }); }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-1 text-gray-600">
@@ -462,26 +489,41 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                         {file.name.split('.').pop()?.toUpperCase() || 'FILE'}
                       </span>
                     </div>
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                      <button 
-                        className="px-2 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onViewFile(file);
-                        }}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onViewFile(file); }}
+                        title="View"
+                        className="p-1.5 text-slate-500 hover:text-slate-700 rounded"
                       >
-                        View
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
                       </button>
-                      <button 
-                        className="px-2 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm(`Are you sure you want to delete "${file.name}"? This action cannot be undone.`)) {
-                            onDeleteFile(folder.id, idx);
-                          }
-                        }}
+
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (onRename) onRename(file); }}
+                        title="Rename"
+                        className="p-1.5 text-slate-500 hover:text-slate-700 rounded"
                       >
-                        Delete
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                          <path d="M11 4H4a1 1 0 0 0-1 1v7"></path>
+                          <path d="M21 7a2.8 2.8 0 0 0-3.95 0L7 17l-4 1 1-4 10.05-10.05A2.8 2.8 0 0 1 18.05 2L21 4.95z"></path>
+                        </svg>
+                      </button>
+
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (window.confirm(`Are you sure you want to delete "${file.name}"? This action cannot be undone.`)) { onDeleteFile(folder.id, idx); } }}
+                        title="Delete"
+                        className="p-1.5 text-red-500 hover:text-red-700 rounded"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                          <path d="M10 11v6"></path>
+                          <path d="M14 11v6"></path>
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                        </svg>
                       </button>
                     </div>
                   </div>
@@ -495,6 +537,9 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                     onDeleteFile={onDeleteFile}
                     onDeleteFolder={onDeleteFolder}
                     onViewFile={onViewFile}
+                    onRename={onRename}
+                    onDownload={onDownload}
+                    onOpenFolder={onOpenFolder}
                     level={level + 1} 
                   />
                 ))}
@@ -508,6 +553,31 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
           </div>
         )}
       </div>
+      {contextMenu.visible && (
+        <div
+          className="z-50 bg-white border rounded shadow-lg text-sm"
+          style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y, minWidth: 160 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.type === 'file' && (
+            <div>
+              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { onViewFile(contextMenu.payload.file); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>View</button>
+              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { if (onRename) onRename(contextMenu.payload.file); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Rename</button>
+              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { if (onDownload) onDownload(contextMenu.payload.file); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Download</button>
+              <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={() => { if (window.confirm(`Delete "${contextMenu.payload.file.name}"? This cannot be undone.`)) { onDeleteFile(contextMenu.payload.folderId, contextMenu.payload.fileIndex); } setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Delete</button>
+            </div>
+          )}
+          {contextMenu.type === 'folder' && (
+            <div>
+              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setShowFileInput(true); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Upload File</button>
+              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setShowFolderInput(true); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>New Folder</button>
+              {level > 0 && (
+                <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={() => { if (window.confirm(`Delete folder "${folder.name}" and all contents?`)) { onDeleteFolder(folder.id); } setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Delete Folder</button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 });
@@ -529,6 +599,8 @@ export default function Library() {
   const [quickUploadFile, setQuickUploadFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Breadcrumb / navigation state
+  const [currentFolderId, setCurrentFolderId] = useState('root');
 
   // Fetch user's files and folders from backend
   useEffect(() => {
@@ -554,10 +626,23 @@ export default function Library() {
       ]);
 
       if (filesResponse.ok && foldersResponse.ok) {
+        console.time('fetchUserLibrary.jsonParse');
         const files = await filesResponse.json();
         const folders = await foldersResponse.json();
+        console.timeEnd('fetchUserLibrary.jsonParse');
 
-        console.log('Successfully fetched library data:', { files: files.length, folders: folders.length });
+        // Log approximate payload sizes to help diagnose slow loads
+        try {
+          const filesStr = JSON.stringify(files);
+          const foldersStr = JSON.stringify(folders);
+          const filesBytes = filesStr.length;
+          const foldersBytes = foldersStr.length;
+          const totalKb = ((filesBytes + foldersBytes) / 1024).toFixed(1);
+          const inlineDataCount = files.filter(f => f.fileData || f.textContent).length;
+          console.log('Successfully fetched library data:', { files: files.length, folders: folders.length, approxPayloadKB: totalKb, inlineDataCount });
+        } catch (e) {
+          console.log('Successfully fetched library data:', { files: files.length, folders: folders.length });
+        }
         
         // Build folder structure with files
         const folderMap = new Map();
@@ -841,6 +926,80 @@ export default function Library() {
     setSelectedFile(null);
   }, []);
 
+  // Rename modal state
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const openRenameModal = (file) => {
+    setRenameTarget(file);
+    setRenameValue(file?.name || '');
+    setRenameModalOpen(true);
+  };
+
+  const closeRenameModal = () => {
+    setRenameModalOpen(false);
+    setRenameTarget(null);
+    setRenameValue('');
+  };
+
+  const submitRename = async () => {
+    if (!renameTarget) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/library/files/${renameTarget.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ newName: renameValue })
+      });
+      if (response.ok) {
+        await fetchUserLibrary();
+        closeRenameModal();
+      } else {
+        // Try to parse JSON error, otherwise show text
+        let bodyText = null;
+        try {
+          const json = await response.json();
+          bodyText = json?.error || JSON.stringify(json);
+        } catch (e) {
+          try { bodyText = await response.text(); } catch (e2) { bodyText = String(e2); }
+        }
+        console.error('Rename failed', { status: response.status, body: bodyText });
+        throw new Error(bodyText || `Rename request failed with status ${response.status}`);
+      }
+    } catch (err) {
+      console.error('Rename error:', err);
+      setError(err.message || 'Failed to rename file. Please try again.');
+    }
+  };
+
+  // Breadcrumb helpers
+  const findPath = (folder, targetId, acc = []) => {
+    if (!folder) return null;
+    if (folder.id === targetId) return [...acc, folder];
+    for (const sub of folder.folders) {
+      const res = findPath(sub, targetId, [...acc, folder]);
+      if (res) return res;
+    }
+    return null;
+  };
+
+  const findFolderById = (folder, targetId) => {
+    if (!folder) return null;
+    if (folder.id === targetId) return folder;
+    for (const sub of folder.folders) {
+      const res = findFolderById(sub, targetId);
+      if (res) return res;
+    }
+    return null;
+  };
+
+  const navigateToFolder = (folderId) => {
+    setCurrentFolderId(folderId || 'root');
+  };
+
   // Search functionality
   const searchInFolder = useCallback((folder, term) => {
     if (!term.trim()) return folder;
@@ -941,44 +1100,50 @@ export default function Library() {
 
         {/* Stats */}
         <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-blue-600">
-                  <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
-                </svg>
+          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <div className="p-3 bg-blue-50 rounded-full">
+                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-blue-600 w-5 h-5">
+                    <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
+                  </svg>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Files</p>
-                <p className="text-2xl font-bold text-gray-900">{totalFiles}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-green-600">
-                  <path d="M1.5 0A1.5 1.5 0 0 0 0 1.5v9A1.5 1.5 0 0 0 1.5 12h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 0h-13zm1 2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5z"/>
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Folders</p>
-                <p className="text-2xl font-bold text-gray-900">{totalFolders}</p>
+              <div className="flex-1">
+                <p className="text-sm text-slate-500 uppercase tracking-wide">Total Files</p>
+                <p className="text-2xl font-semibold text-gray-900">{totalFiles}</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-purple-600">
-                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                  <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                </svg>
+          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <div className="p-3 bg-emerald-50 rounded-full">
+                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-emerald-600 w-5 h-5">
+                    <path d="M1.5 0A1.5 1.5 0 0 0 0 1.5v9A1.5 1.5 0 0 0 1.5 12h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 0h-13zm1 2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5z"/>
+                  </svg>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Status</p>
+              <div className="flex-1">
+                <p className="text-sm text-slate-500 uppercase tracking-wide">Folders</p>
+                <p className="text-2xl font-semibold text-gray-900">{totalFolders}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <div className="p-3 bg-purple-50 rounded-full">
+                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-purple-600 w-5 h-5">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                  </svg>
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-slate-500 uppercase tracking-wide">Status</p>
                 <p className="text-lg font-semibold text-gray-900">
                   {totalFiles === 0 ? 'Empty' : 'Active'}
                 </p>
@@ -1018,25 +1183,7 @@ export default function Library() {
             )}
           </div>
           <div className="flex gap-2">
-            <button 
-              onClick={handleQuickUpload}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-              </svg>
-              Quick Upload
-            </button>
-            <button 
-              onClick={handleImportFromDrive}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2"
-            >
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2.134 5.453 4.906.48-.3 1.072-.19 1.538.278.217.217.377.51.394.824.016.312-.086.614-.274.83l-7.73 8.856c-.214.245-.52.379-.84.379-.317 0-.616-.134-.83-.379L.711 10.394c-.188-.216-.29-.518-.274-.83.017-.315.177-.607.394-.824.466-.468 1.058-.578 1.538-.278z"/>
-              </svg>
-              Import from Drive
-            </button>
+            {/* Quick Upload and Import buttons removed per request */}
           </div>
         </div>
 
@@ -1061,20 +1208,53 @@ export default function Library() {
 
         {/* Library Content */}
         <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <Folder 
-            folder={searchInFolder(root, searchTerm)} 
-            onAddFile={handleAddFile} 
-            onAddFolder={handleAddFolder}
-            onDeleteFile={handleDeleteFile}
-            onDeleteFolder={handleDeleteFolder}
-            onViewFile={handleViewFile}
-            level={0} 
-          />
+          {/* Breadcrumbs */}
+          <div className="mb-4 text-sm text-gray-600">
+            {(() => {
+              const filteredRoot = searchInFolder(root, searchTerm);
+              const path = findPath(filteredRoot, currentFolderId) || [filteredRoot];
+              return (
+                <nav className="flex items-center gap-2">
+                  {path.map((seg, idx) => (
+                    <span key={seg.id} className="flex items-center">
+                      <button
+                        onClick={() => navigateToFolder(seg.id)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {idx === 0 ? 'My Library' : seg.name}
+                      </button>
+                      {idx < path.length - 1 && <span className="mx-2 text-gray-400">/</span>}
+                    </span>
+                  ))}
+                </nav>
+              );
+            })()}
+          </div>
+
+          {(() => {
+            const filteredRoot = searchInFolder(root, searchTerm);
+            const displayedFolder = findFolderById(filteredRoot, currentFolderId) || filteredRoot;
+            return (
+              <Folder 
+                folder={displayedFolder} 
+                onAddFile={handleAddFile} 
+                onAddFolder={handleAddFolder}
+                onDeleteFile={handleDeleteFile}
+                onDeleteFolder={handleDeleteFolder}
+                onViewFile={handleViewFile}
+                onRename={openRenameModal}
+                onDownload={handleDownloadFile}
+                onOpenFolder={navigateToFolder}
+                hideHeader={displayedFolder.id === 'root'}
+                level={0} 
+              />
+            );
+          })()}
         </div>
 
         {/* Quick Upload Modal */}
         {showQuickUpload && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1130,6 +1310,46 @@ export default function Library() {
                     disabled={!quickUploadFile}
                   >
                     Upload to Library
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rename Modal */}
+        {renameModalOpen && (
+          <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Rename File</h2>
+                <button
+                  onClick={closeRenameModal}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="p-6">
+                <label className="text-sm text-gray-600">New file name (include extension)</label>
+                <input
+                  type="text"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  className="w-full mt-2 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="flex gap-3 justify-end mt-4">
+                  <button
+                    onClick={closeRenameModal}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitRename}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Rename
                   </button>
                 </div>
               </div>

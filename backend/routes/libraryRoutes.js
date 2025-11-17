@@ -526,4 +526,37 @@ router.delete('/folders/:folderId', verifyToken, async (req, res) => {
   }
 });
 
+// Rename file (frontend expects PATCH /files/:fileId)
+router.patch('/files/:fileId', verifyToken, async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const { newName } = req.body;
+    const userId = req.userId;
+
+    console.log(`Rename request: userId=${userId}, fileId=${fileId}, newName=${newName}`);
+
+    if (!newName || typeof newName !== 'string' || !newName.trim()) {
+      return res.status(400).json({ error: 'New file name is required' });
+    }
+
+    const file = await UploadedFile.findById(fileId);
+    if (!file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Verify ownership
+    if (file.userId.toString() !== userId) {
+      return res.status(403).json({ error: 'Unauthorized: This file does not belong to you' });
+    }
+
+    file.originalName = newName.trim();
+    await file.save();
+
+    res.json({ message: 'File renamed successfully', file: { id: file._id, name: file.originalName } });
+  } catch (error) {
+    console.error('Error renaming file:', error);
+    res.status(500).json({ error: 'Failed to rename file' });
+  }
+});
+
 export default router;

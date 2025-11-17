@@ -10,6 +10,15 @@ import express from "express";
 const router = express.Router();
 // Temporary store for pending verifications (use DB for production)
 const pendingVerifications = {};
+// Helper to send a simple 2FA code via email
+async function sendTwoFactorEmail(email, code) {
+  try {
+    // Reuse sendVerificationEmail util to deliver the code, or a simple mail
+    await sendVerificationEmail(email, `2fa:${code}`);
+  } catch (err) {
+    console.error('Failed to send 2FA email:', err);
+  }
+}
 
 // Get user info by userId
 router.get("/userinfo/:userId", async (req, res) => {
@@ -38,10 +47,78 @@ router.post("/login", async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
-  res.status(200).json({ message: "Login successful", user: { _id: user._id, name: user.name, email: user.email } });
+
+    // Note: Two-Factor Authentication enforcement removed — login will succeed
+    // even if `user.twoFactorEnabled` is true. This prevents the app from
+    // asking for verification codes when existing users log in.
+
+    res.status(200).json({ message: "Login successful", user: { _id: user._id, name: user.name, email: user.email } });
   } catch (error) {
     console.error("Error logging in:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Verify 2FA code
+router.post('/verify-2fa', async (req, res) => {
+  const { userId, code } = req.body;
+  if (!userId || !code) return res.status(400).json({ message: 'Missing params' });
+  try {
+    const user = await Users.findById(userId);
+    if (!user) return res.status(400).json({ message: 'Invalid user' });
+    if (!user.twoFactorCode || !user.twoFactorCodeExpires) return res.status(400).json({ message: 'No 2FA pending' });
+    if (new Date() > user.twoFactorCodeExpires) return res.status(400).json({ message: 'Code expired' });
+    if (user.twoFactorCode !== code) return res.status(400).json({ message: 'Invalid code' });
+    // Clear 2FA code and confirm
+    user.twoFactorCode = undefined;
+    user.twoFactorCodeExpires = undefined;
+    await user.save();
+    return res.status(200).json({ message: '2FA verified', user: { _id: user._id, name: user.name, email: user.email } });
+  } catch (err) {
+    console.error('2FA verify error', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Toggle 2FA for current user (authenticated endpoint expected)
+router.post('/toggle-2fa', async (req, res) => {
+  const { userId, enable } = req.body;
+  if (!userId) return res.status(400).json({ message: 'Missing user' });
+  try {
+    const user = await Users.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.twoFactorEnabled = !!enable;
+    await user.save();
+    res.status(200).json({ message: '2FA updated', twoFactorEnabled: user.twoFactorEnabled });
+  } catch (err) {
+    console.error('Error toggling 2FA', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update user display name (and mirror into UserInfo)
+router.put('/update-name', async (req, res) => {
+  const { userId, name } = req.body;
+  if (!userId || !name) return res.status(400).json({ message: 'Missing params' });
+  try {
+    const user = await Users.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.name = name;
+    await user.save();
+
+    // Update or create UserInfo fullName to keep display consistent
+    const UserInfo = (await import('../models/UserInfo.js')).default;
+    await UserInfo.findOneAndUpdate(
+      { userId: user._id },
+      { fullName: name },
+      { upsert: true }
+    );
+
+    res.status(200).json({ message: 'Name updated', user: { _id: user._id, name: user.name, email: user.email } });
+  } catch (err) {
+    console.error('Error updating name', err);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
@@ -61,6 +138,31 @@ router.post("/forgot-password", async (req, res) => {
   } catch (error) {
     console.error("Error in forgot password:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Change password for a user: verify current password and update to new one
+router.post('/change-password', async (req, res) => {
+  const { userId, currentPassword, newPassword } = req.body;
+  if (!userId || !currentPassword || !newPassword) return res.status(400).json({ message: 'Missing params' });
+  try {
+    const user = await Users.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ message: 'Current password is incorrect' });
+
+    // Validate new password (basic server-side checks)
+    if (newPassword.length < 8) return res.status(400).json({ message: 'New password must be at least 8 characters' });
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.status(200).json({ message: 'Password updated' });
+  } catch (err) {
+    console.error('Error changing password', err);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 

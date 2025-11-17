@@ -9,8 +9,8 @@ export default function Progress(){
       <Sidebar />
       <main className="flex-1 p-12 ml-20 md:ml-30">
     <ChatWidget />
-    <h1 className="text-4xl font-bold mt-6">Progress</h1>
-    <p className="mt-2 text-muted">Track your learning metrics</p>
+  <h1 className="text-5xl font-bold page-title">Progress</h1>
+  <p className="mt-1 text-xl page-subtitle">Track your learning metrics</p>
       </main>
     </div>
   )

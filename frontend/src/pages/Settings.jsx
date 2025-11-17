@@ -5,6 +5,7 @@ import ChatWidget from '../components/ChatWidget'
 import { useSettings } from '../context/SettingsContext'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate, useLocation } from 'react-router-dom'
+import Modal from '../components/Modal'
 
 export default function Settings() {
   const {
@@ -70,6 +71,8 @@ export default function Settings() {
   
   // Active settings tab
   const [activeTab, setActiveTab] = useState('appearance')
+  // About modals
+  const [aboutModal, setAboutModal] = useState(null) // 'privacy' | 'terms' | 'help' | null
   
   // Save settings with feedback
   const saveSettings = () => {
@@ -264,40 +267,34 @@ export default function Settings() {
           <div className="space-y-6">
             <div className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg text-center`}>
               <div className="mb-6">
-                <img src="/StudyTaLogo.png" alt="StudyTa" className="w-16 h-16 mx-auto mb-4" />
+                <img src="/Lemivon.ico" alt="StudyTa" className="w-16 h-16 mx-auto mb-4" />
                 <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  StudyTa
+                  Lemivon
                 </h3>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Version 2.1.0
+                  Version 1.0.0
                 </p>
               </div>
 
               <div className={`text-left space-y-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 <div>
-                  <h4 className="font-semibold mb-2">📝 What's New</h4>
-                  <ul className="text-sm space-y-1 ml-4">
-                    <li>• Enhanced study modes with completion tracking</li>
-                    <li>• New focus music with Pomodoro timer</li>
-                    <li>• Improved dark mode support</li>
-                    <li>• Better file summarization</li>
+                  <h4 className="font-semibold mb-2 text-center">What's New</h4>
+                  <ul className="text-sm space-y-1 text-center mb-5">
+                    <li>Enhanced study modes with completion tracking</li>
+                    <li>New focus music with Pomodoro timer</li>
+                    <li>Improved dark mode support</li>
+                    <li>Better file summarization</li>
                   </ul>
                 </div>
 
                 <div>
-                  <h4 className="font-semibold mb-2">🔗 Links</h4>
-                  <div className="space-y-2 text-sm">
-                    <a href="#" className="block text-teal-500 hover:text-teal-600">Privacy Policy</a>
-                    <a href="#" className="block text-teal-500 hover:text-teal-600">Terms of Service</a>
-                    <a href="#" className="block text-teal-500 hover:text-teal-600">Help & Support</a>
-                    <a href="#" className="block text-teal-500 hover:text-teal-600">GitHub Repository</a>
+                  <h4 className="font-semibold mb-2 text-center">Links</h4>
+                  <div className="space-y-2 text-sm text-center">
+                    <button onClick={() => setAboutModal('privacy')} className="block w-full text-teal-500 hover:text-teal-600">Privacy Policy</button>
+                    <button onClick={() => setAboutModal('terms')} className="block w-full text-teal-500 hover:text-teal-600">Terms of Service</button>
+                    <button onClick={() => setAboutModal('help')} className="block w-full text-teal-500 hover:text-teal-600">Help & Support</button>
+                    <a href="https://github.com/Hachimanka/StudyTaa.git" target="_blank" rel="noopener noreferrer" className="block text-teal-500 hover:text-teal-600">GitHub Repository</a>
                   </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-200">
-                  <p className="text-center text-sm">
-                    Made with ❤️ for students everywhere
-                  </p>
                 </div>
               </div>
             </div>
@@ -353,6 +350,173 @@ export default function Settings() {
           {/* Settings Content */}
           <div className="lg:col-span-3">
             {renderTabContent()}
+            {/* About Modals */}
+            <Modal
+              isOpen={aboutModal === 'privacy'}
+              onClose={() => setAboutModal(null)}
+              title="Privacy Policy"
+              darkMode={darkMode}
+            >
+              <div className="space-y-4 text-sm leading-6">
+                <p className='italic text-sm'>Last Updated: November 25, 2025</p>
+                <p>Lemivon is a personalized study tool designed to help students learn better. This Privacy Policy explains how we collect, use, and protect your information.</p>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">1. Information We Collect</h4>
+                  <p>We may collect:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Files you upload (documents, images, notes)</li>
+                    <li>Your study activities (flashcards, quizzes, events)</li>
+                    <li>Basic account information (name, email, password)</li>
+                    <li>Your saved notes, tasks, and preferences</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">2. How We Use Your Information</h4>
+                  <p>We use your information to:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Summarize files and generate study materials</li>
+                    <li>Create calendar events from images</li>
+                    <li>Save and organize your notes</li>
+                    <li>Improve your studying experience</li>
+                    <li>Provide customer support</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">3. How We Protect Your Data</h4>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>We use secure storage to protect your files and notes.</li>
+                    <li>Your password is encrypted.</li>
+                    <li>Only you can access your personal study materials.</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">4. Sharing Your Information</h4>
+                  <p>We do not sell or share your information with third-party companies. We may only share data:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>If required by law</li>
+                    <li>If you give permission</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">5. Your Rights</h4>
+                  <p>You may:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Delete your account</li>
+                    <li>Remove your files or notes</li>
+                    <li>Request a copy of your stored data</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">6. Contact Us</h4>
+                  <p>If you have concerns about privacy, message us at: Lemivon</p>
+                </div>
+              </div>
+            </Modal>
+            <Modal
+              isOpen={aboutModal === 'terms'}
+              onClose={() => setAboutModal(null)}
+              title="Terms of Service"
+              darkMode={darkMode}
+            >
+              <div className="space-y-4 text-sm leading-6">
+                <p className='italic text-sm'>Last Updated: November 25, 2025</p>
+                <p>These Terms explain how you may use Lemivon.</p>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">1. Using Lemivon</h4>
+                  <p>By creating an account, you agree to:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Use Lemivon for personal study only</li>
+                    <li>Upload files that you have permission to use</li>
+                    <li>Not misuse the app (no hacking, flooding, illegal activity)</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">2. Your Content</h4>
+                  <p>You own the files, notes, and materials you upload. Lemivon only processes them to:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Summarize</li>
+                    <li>Generate study tools</li>
+                    <li>Save them in your personal library</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">3. AI-Generated Content</h4>
+                  <p>The AI may sometimes make mistakes. Always double-check important information.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">4. Account Responsibilities</h4>
+                  <p>You are responsible for:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Keeping your password safe</li>
+                    <li>Using your account properly</li>
+                    <li>Reporting suspicious activity</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">5. Service Changes</h4>
+                  <p>We may update or improve features at any time. We will inform users if there are major changes.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">6. Ending Your Account</h4>
+                  <p>You may delete your account anytime. We may suspend accounts that violate the rules.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">7. Disclaimer</h4>
+                  <p>Lemivon is a study aid and not a replacement for official lessons, teachers, or school materials.</p>
+                </div>
+              </div>
+            </Modal>
+            <Modal
+              isOpen={aboutModal === 'help'}
+              onClose={() => setAboutModal(null)}
+              title="Help & Support"
+              darkMode={darkMode}
+            >
+              <div className="space-y-4 text-sm leading-6">
+                <p>Need help? Lemivon is here for you!</p>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">1. Common Questions</h4>
+                  <p><span className="font-medium">How do I upload a file?</span><br />
+                  Go to “Add File,” select your document or image, and Lemivon will scan it.</p>
+                  <p><span className="font-medium">How do I create flashcards or quizzes?</span><br />
+                  Upload your file → choose “Generate Study Tools” → pick flashcards, true/false, quiz, or summary.</p>
+                  <p><span className="font-medium">Where are my notes saved?</span><br />
+                  All notes appear in your Personal Library.</p>
+                  <p><span className="font-medium">Can I listen to music while studying?</span><br />
+                  Yes! Open Study Mode → tap Music Player.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">2. Troubleshooting</h4>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><span className="font-medium">AI not generating?</span> Try re-uploading the file or checking your internet connection.</li>
+                    <li><span className="font-medium">Calendar event not appearing?</span> Make sure calendar access is enabled in your device settings.</li>
+                    <li><span className="font-medium">App is lagging?</span> Restart Lemivon or clear temporary files.</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">3. Contact Support</h4>
+                  <p>Need more help?<br />
+                  📧 Email: Lemivon<br />
+                  📱 Facebook: Lemivon</p>
+                </div>
+              </div>
+            </Modal>
             
             {/* Action buttons: Reset only on Appearance; Save on Appearance and Account */}
             {(activeTab === 'appearance' || activeTab === 'account') && (

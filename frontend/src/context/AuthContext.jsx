@@ -25,7 +25,25 @@ export function AuthProvider({ children }) {
   }, [isAuthenticated])
 
   // Login with backend
-  const [user, setUser] = useState(null);
+  // Restore user from localStorage if present so refresh doesn't lose identity
+  const [user, setUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      if (raw) return JSON.parse(raw);
+    } catch (e) {
+      // ignore parse errors
+    }
+    return null;
+  });
+  // Persist user to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (user) localStorage.setItem('user', JSON.stringify(user));
+      else localStorage.removeItem('user');
+    } catch (e) {
+      // ignore
+    }
+  }, [user]);
   const login = async (email, password, cb) => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || ''
@@ -36,8 +54,17 @@ export function AuthProvider({ children }) {
       });
       const data = await res.json();
       if (res.ok) {
+        if (data.message === '2FA_REQUIRED') {
+          // Notify caller that 2FA is required. We store the partial user info so UI can prompt for code
+          setUser({ _id: data.user._id, email: data.user.email, twoFactorPending: true });
+          // Persist partial user so refresh doesn't lose the pending state
+          try { localStorage.setItem('user', JSON.stringify({ _id: data.user._id, email: data.user.email, twoFactorPending: true })) } catch(e) {}
+          if (cb) cb({ twoFactorRequired: true, userId: data.user._id });
+          return;
+        }
         setIsAuthenticated(true);
         setUser(data.user);
+        try { localStorage.setItem('user', JSON.stringify(data.user)) } catch(e) {}
         // Store user ID as token for authenticated API calls
         localStorage.setItem('token', data.user._id);
         // Dispatch custom event to notify other components
@@ -47,7 +74,34 @@ export function AuthProvider({ children }) {
         alert(data.message || 'Login failed');
       }
     } catch (err) {
-      alert('Login error');
+      console.error('Login error', err);
+      // Show a bit more info so users (and devs) can troubleshoot network/CORS issues
+      alert('Login error: ' + (err?.message || 'Network or server error'));
+    }
+  };
+
+  // Verify 2FA code
+  const verify2FA = async (userId, code, cb) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/verify-2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, code })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsAuthenticated(true);
+        setUser(data.user);
+        try { localStorage.setItem('user', JSON.stringify(data.user)) } catch(e) {}
+        window.dispatchEvent(new Event('authChanged'));
+        if (cb) cb(true);
+      } else {
+        alert(data.message || '2FA verification failed');
+        if (cb) cb(false);
+      }
+    } catch (err) {
+      alert('Error verifying 2FA');
+      if (cb) cb(false);
     }
   };
 
@@ -63,6 +117,8 @@ export function AuthProvider({ children }) {
       const data = await res.json();
       if (res.ok) {
         setIsAuthenticated(true);
+        // If backend returns created user info later, prefer storing it; registration here triggers email verification flow
+        // Keep user null until verification completes or login occurs
         if (cb) cb();
       } else {
         alert(data.message || 'Registration failed');
@@ -98,6 +154,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     try {
       localStorage.removeItem('stuyta_auth');
+      localStorage.removeItem('user');
       localStorage.removeItem('token');
       // Dispatch custom event to notify other components
       window.dispatchEvent(new Event('authChanged'));
@@ -107,8 +164,50 @@ export function AuthProvider({ children }) {
     if (cb) cb();
   }
 
+  // Update user profile locally and persist to localStorage.
+  // Returns true on success. If a backend exists it may be extended
+  // to call an API; for now we perform a local optimistic update.
+  const updateProfile = async ({ name, email: newEmail }) => {
+    try {
+      // If we have an authenticated user with an id, attempt to persist to backend
+      if (user && user._id) {
+        try {
+          const res = await fetch('http://localhost:5000/api/update-name', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user._id, name })
+          })
+          const data = await res.json()
+          if (res.ok) {
+            const updatedUser = data.user || { _id: user._id, name, email: user.email }
+            setUser(updatedUser)
+            try { localStorage.setItem('user', JSON.stringify(updatedUser)) } catch (e) {}
+            try { window.dispatchEvent(new Event('authChanged')) } catch (e) {}
+            return true
+          }
+        } catch (err) {
+          console.warn('Backend update failed, falling back to local update', err)
+          // fallthrough to local update
+        }
+      }
+
+      // Local optimistic update
+      setUser(prev => {
+        if (!prev) return prev
+        const updated = { ...prev, name: name ?? prev.name, email: newEmail ?? prev.email }
+        try { localStorage.setItem('user', JSON.stringify(updated)) } catch (e) {}
+        return updated
+      })
+      try { window.dispatchEvent(new Event('authChanged')) } catch (e) {}
+      return true
+    } catch (err) {
+      console.error('Failed to update profile:', err)
+      return false
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, signup, forgotPassword, user }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, signup, forgotPassword, user, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )

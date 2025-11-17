@@ -289,6 +289,63 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
   );
 });
 
+// Reusable confirmation modal with a tiny open animation
+const ConfirmModal = memo(function ConfirmModal({
+  isOpen,
+  title = 'Confirm',
+  message,
+  confirmText = 'OK',
+  cancelText = 'Cancel',
+  onConfirm,
+  onCancel,
+}) {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      const t = requestAnimationFrame(() => setShow(true));
+      return () => cancelAnimationFrame(t);
+    } else {
+      setShow(false);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${show ? 'opacity-100' : 'opacity-0'}`}
+        onClick={onCancel}
+      />
+      <div
+        className={`relative bg-white w-full max-w-md rounded-lg shadow-xl border border-gray-200 transition-all duration-200 ${
+          show ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'
+        }`}
+      >
+        <div className="p-5 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        </div>
+        <div className="p-5 text-sm text-gray-700 whitespace-pre-line">{message}</div>
+        <div className="p-4 border-t border-gray-200 flex items-center justify-end gap-3">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFile, onDeleteFolder, onViewFile, onRename, onDownload, onOpenFolder, level = 0, hideHeader = false }) {
   const [expanded, setExpanded] = useState(folder.expanded !== undefined ? folder.expanded : level === 0);
   const [showFileInput, setShowFileInput] = useState(false);
@@ -299,12 +356,24 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
   // Context menu state
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, type: null, payload: null });
 
+  // Local delete confirmation modal state
+  const [confirmState, setConfirmState] = useState({ open: false, message: '', action: null });
+  const openConfirm = (message, action) => setConfirmState({ open: true, message, action });
+  const closeConfirm = () => setConfirmState({ open: false, message: '', action: null });
+
   useEffect(() => {
     if (!contextMenu.visible) return;
     const onAnyClick = () => setContextMenu({ visible: false, x: 0, y: 0, type: null, payload: null });
     window.addEventListener('click', onAnyClick);
     return () => window.removeEventListener('click', onAnyClick);
   }, [contextMenu.visible]);
+
+  // Listen for global close event to ensure only one context menu open
+  useEffect(() => {
+    const handler = () => setContextMenu({ visible: false, x: 0, y: 0, type: null, payload: null });
+    window.addEventListener('closeAllContextMenus', handler);
+    return () => window.removeEventListener('closeAllContextMenus', handler);
+  }, []);
 
   // Keep folder rows aligned with file rows (no extra indent)
   const indentPx = 0;
@@ -315,12 +384,22 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
         ? "bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
         : "bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 hover:bg-gray-100 transition-colors"}>
         {!hideHeader && (
-        <div className="flex items-center justify-between">
+        <div
+          className="flex items-center justify-between"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.dispatchEvent(new Event('closeAllContextMenus'));
+            setContextMenu({ visible: true, x: e.clientX, y: e.clientY, type: 'folder', payload: folder });
+          }}
+        >
           <button 
             className="flex items-center gap-2 text-gray-700 hover:text-gray-900"
             onClick={(e) => { e.preventDefault(); if (onOpenFolder) onOpenFolder(folder.id); }}
             onContextMenu={(e) => {
               e.preventDefault();
+              e.stopPropagation();
+              window.dispatchEvent(new Event('closeAllContextMenus'));
               setContextMenu({ visible: true, x: e.clientX, y: e.clientY, type: 'folder', payload: folder });
             }}
           >
@@ -362,9 +441,10 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
               <button
                 title="Delete Folder"
                 onClick={() => {
-                  if (window.confirm(`Are you sure you want to delete the folder "${folder.name}" and all its contents? This action cannot be undone.`)) {
-                    onDeleteFolder(folder.id);
-                  }
+                  openConfirm(
+                    `Are you sure you want to delete the folder "${folder.name}" and all its contents? This action cannot be undone.`,
+                    () => onDeleteFolder(folder.id)
+                  );
                 }}
                 className="p-1.5 text-red-500 hover:text-red-700 rounded bg-white border border-transparent hover:border-red-100"
               >
@@ -469,7 +549,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                     key={idx}
                     className="flex items-center justify-between py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group cursor-pointer"
                     onClick={() => onViewFile(file)}
-                    onContextMenu={(e) => { e.preventDefault(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY, type: 'file', payload: { file, folderId: folder.id, fileIndex: idx } }); }}
+                    onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY, type: 'file', payload: { file, folderId: folder.id, fileIndex: idx } }); }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-1 text-gray-600">
@@ -502,7 +582,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                       </button>
 
                       <button
-                        onClick={(e) => { e.stopPropagation(); if (onRename) onRename(file); }}
+                        onClick={(e) => { e.stopPropagation(); if (onRename) onRename(file, 'file'); }}
                         title="Rename"
                         className="p-1.5 text-slate-500 hover:text-slate-700 rounded"
                       >
@@ -513,7 +593,13 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                       </button>
 
                       <button
-                        onClick={(e) => { e.stopPropagation(); if (window.confirm(`Are you sure you want to delete "${file.name}"? This action cannot be undone.`)) { onDeleteFile(folder.id, idx); } }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openConfirm(
+                            `Are you sure you want to delete "${file.name}"? This action cannot be undone.`,
+                            () => onDeleteFile(folder.id, idx)
+                          );
+                        }}
                         title="Delete"
                         className="p-1.5 text-red-500 hover:text-red-700 rounded"
                       >
@@ -562,22 +648,32 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
           {contextMenu.type === 'file' && (
             <div>
               <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { onViewFile(contextMenu.payload.file); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>View</button>
-              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { if (onRename) onRename(contextMenu.payload.file); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Rename</button>
+              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { if (onRename) onRename(contextMenu.payload.file, 'file'); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Rename</button>
               <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { if (onDownload) onDownload(contextMenu.payload.file); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Download</button>
-              <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={() => { if (window.confirm(`Delete "${contextMenu.payload.file.name}"? This cannot be undone.`)) { onDeleteFile(contextMenu.payload.folderId, contextMenu.payload.fileIndex); } setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Delete</button>
+              <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={() => { setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); openConfirm(`Delete "${contextMenu.payload.file.name}"? This cannot be undone.`, () => onDeleteFile(contextMenu.payload.folderId, contextMenu.payload.fileIndex)); }}>Delete</button>
             </div>
           )}
           {contextMenu.type === 'folder' && (
             <div>
               <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setShowFileInput(true); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Upload File</button>
               <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setShowFolderInput(true); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>New Folder</button>
+              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { if (onRename) onRename(contextMenu.payload, 'folder'); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Rename Folder</button>
               {level > 0 && (
-                <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={() => { if (window.confirm(`Delete folder "${folder.name}" and all contents?`)) { onDeleteFolder(folder.id); } setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Delete Folder</button>
+                <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={() => { setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); openConfirm(`Delete folder "${folder.name}" and all contents?`, () => onDeleteFolder(folder.id)); }}>Delete Folder</button>
               )}
             </div>
           )}
         </div>
       )}
+      <ConfirmModal
+        isOpen={confirmState.open}
+        title="Confirm Delete"
+        message={confirmState.message}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onCancel={closeConfirm}
+        onConfirm={() => { const fn = confirmState.action; closeConfirm(); if (typeof fn === 'function') fn(); }}
+      />
     </div>
   );
 });
@@ -601,17 +697,28 @@ export default function Library() {
   const [error, setError] = useState(null);
   // Breadcrumb / navigation state
   const [currentFolderId, setCurrentFolderId] = useState('root');
+  // New folder modal state (library-level)
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [createFolderName, setCreateFolderName] = useState('');
+  // Root/library context menu for quick actions
+  const [libraryMenu, setLibraryMenu] = useState({ visible: false, x: 0, y: 0 });
+
+  // Listen for global context menu close to hide library menu
+  useEffect(() => {
+    const handler = () => setLibraryMenu({ visible: false, x: 0, y: 0 });
+    window.addEventListener('closeAllContextMenus', handler);
+    return () => window.removeEventListener('closeAllContextMenus', handler);
+  }, []);
 
   // Fetch user's files and folders from backend
   useEffect(() => {
     if (user) {
-      fetchUserLibrary();
+      fetchUserLibrary(true);
     }
   }, [user]);
-
-  const fetchUserLibrary = async () => {
+  const fetchUserLibrary = async (showSpinner = true) => {
     try {
-      setLoading(true);
+      if (showSpinner) setLoading(true);
       const [filesResponse, foldersResponse] = await Promise.all([
         fetch(`${API_BASE}/api/library/files`, {
           headers: {
@@ -724,7 +831,7 @@ export default function Library() {
         setError(`Failed to load your library: ${error.message}`);
       }
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
@@ -767,7 +874,8 @@ export default function Library() {
 
       if (response.ok) {
         // Refresh the library to show the new file
-        await fetchUserLibrary();
+        await fetchUserLibrary(false);
+        navigateToFolder(currentFolderId);
       } else {
         throw new Error('Failed to upload file');
       }
@@ -796,7 +904,8 @@ export default function Library() {
 
       if (response.ok) {
         // Refresh the library to show the new folder
-        await fetchUserLibrary();
+        await fetchUserLibrary(false);
+        navigateToFolder(currentFolderId);
       } else {
         throw new Error('Failed to create folder');
       }
@@ -825,8 +934,6 @@ export default function Library() {
     const fileToDelete = findFile(root);
     if (!fileToDelete) return;
     
-    if (!window.confirm('Are you sure you want to delete this file?')) return;
-    
     try {
       const response = await fetch(`${API_BASE}/api/library/files/${fileToDelete.id}`, {
         method: 'DELETE',
@@ -837,7 +944,8 @@ export default function Library() {
 
       if (response.ok) {
         // Refresh the library to remove the deleted file
-        await fetchUserLibrary();
+        await fetchUserLibrary(false);
+        navigateToFolder(currentFolderId);
       } else {
         throw new Error('Failed to delete file');
       }
@@ -851,7 +959,6 @@ export default function Library() {
   const handleDeleteFolder = useCallback(async (folderId) => {
     if (!user || folderId === 'root') return;
     
-    if (!window.confirm('Are you sure you want to delete this folder and all its contents?')) return;
     
     try {
       const response = await fetch(`${API_BASE}/api/library/folders/${folderId}`, {
@@ -863,7 +970,8 @@ export default function Library() {
 
       if (response.ok) {
         // Refresh the library to remove the deleted folder
-        await fetchUserLibrary();
+        await fetchUserLibrary(false);
+        navigateToFolder('root');
       } else {
         throw new Error('Failed to delete folder');
       }
@@ -930,10 +1038,12 @@ export default function Library() {
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  const [renameTargetType, setRenameTargetType] = useState('file'); // 'file' | 'folder'
 
-  const openRenameModal = (file) => {
-    setRenameTarget(file);
-    setRenameValue(file?.name || '');
+  const openRenameModal = (target, type = 'file') => {
+    setRenameTarget(target);
+    setRenameTargetType(type);
+    setRenameValue(target?.name || '');
     setRenameModalOpen(true);
   };
 
@@ -941,24 +1051,30 @@ export default function Library() {
     setRenameModalOpen(false);
     setRenameTarget(null);
     setRenameValue('');
+    setRenameTargetType('file');
   };
 
   const submitRename = async () => {
-    if (!renameTarget) return;
+    if (!renameTarget || !renameValue.trim()) return;
+    const endpoint = renameTargetType === 'file'
+      ? `${API_BASE}/api/library/files/${renameTarget.id}`
+      : `${API_BASE}/api/library/folders/${renameTarget.id}`;
+
     try {
-      const response = await fetch(`${API_BASE}/api/library/files/${renameTarget.id}`, {
+      const response = await fetch(endpoint, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ newName: renameValue })
+        body: JSON.stringify({ newName: renameValue.trim() })
       });
       if (response.ok) {
-        await fetchUserLibrary();
+        await fetchUserLibrary(false);
+        // If renaming a folder that is currently open, stay there
+        navigateToFolder(currentFolderId);
         closeRenameModal();
       } else {
-        // Try to parse JSON error, otherwise show text
         let bodyText = null;
         try {
           const json = await response.json();
@@ -971,7 +1087,7 @@ export default function Library() {
       }
     } catch (err) {
       console.error('Rename error:', err);
-      setError(err.message || 'Failed to rename file. Please try again.');
+      setError(err.message || 'Failed to rename item. Please try again.');
     }
   };
 
@@ -1031,11 +1147,19 @@ export default function Library() {
 
   const handleQuickUploadSubmit = useCallback(async () => {
     if (quickUploadFile) {
-      await handleAddFile('root', quickUploadFile);
+      await handleAddFile(currentFolderId || 'root', quickUploadFile);
       setQuickUploadFile(null);
       setShowQuickUpload(false);
     }
-  }, [quickUploadFile, handleAddFile]);
+  }, [quickUploadFile, handleAddFile, currentFolderId]);
+
+  const handleCreateFolderSubmit = useCallback(async () => {
+    const name = createFolderName.trim();
+    if (!name) return;
+    await handleAddFolder(currentFolderId || 'root', name);
+    setCreateFolderName('');
+    setCreateFolderOpen(false);
+  }, [createFolderName, handleAddFolder, currentFolderId]);
 
   // Import from Drive functionality (placeholder)
   const handleImportFromDrive = useCallback(() => {
@@ -1056,15 +1180,73 @@ export default function Library() {
   console.log('Total folders:', totalFolders);
 
   if (loading) {
+    // Skeleton loading state: show cards, toolbar, and list placeholders
     return (
       <div className="flex min-h-screen">
         <Sidebar />
         <main className="flex-1 p-12 ml-20 md:ml-30">
           <ChatWidget />
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading your library...</p>
+
+          {/* Header */}
+          <div className="mb-8">
+            <div className="h-8 w-40 bg-gray-200 rounded mb-2 animate-pulse"></div>
+            <div className="h-4 w-80 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+
+          {/* Stats skeleton */}
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1,2,3].map((i) => (
+              <div key={i} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="flex-shrink-0">
+                    <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="h-3 w-24 bg-gray-200 rounded mb-2 animate-pulse"></div>
+                    <div className="h-6 w-16 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Toolbar skeleton (search + actions) */}
+          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="h-10 bg-gray-200 rounded w-full md:w-80 animate-pulse"></div>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-28 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-10 w-36 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+          </div>
+
+          {/* Library Content skeleton */}
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
+            {/* Breadcrumbs skeleton */}
+            <div className="mb-4 flex items-center gap-2">
+              <div className="h-4 w-20 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 w-3 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+
+            {/* List skeleton: mix of file/folder rows */}
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div key={idx} className="flex items-center justify-between py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="flex-1">
+                      <div className="h-4 w-64 bg-gray-200 rounded mb-1 animate-pulse"></div>
+                      <div className="h-3 w-24 bg-gray-200 rounded animate-pulse"></div>
+                    </div>
+                    <div className="h-5 w-14 bg-gray-200 rounded border animate-pulse"></div>
+                  </div>
+                  <div className="flex items-center gap-2 pl-3">
+                    <div className="h-6 w-6 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-6 w-6 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-6 w-6 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </main>
@@ -1183,7 +1365,31 @@ export default function Library() {
             )}
           </div>
           <div className="flex gap-2">
-            {/* Quick Upload and Import buttons removed per request */}
+            <button
+              onClick={() => setShowQuickUpload(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              title="Upload file to current folder"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 5 17 10" />
+                <line x1="12" y1="5" x2="12" y2="19" />
+              </svg>
+              Upload
+            </button>
+            <button
+              onClick={() => setCreateFolderOpen(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
+              title="Create folder in current folder"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <path d="M10 4H4a2 2 0 0 0-2 2v2" />
+                <path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+                <path d="M16 11v6" />
+                <path d="M13 14h6" />
+              </svg>
+              New Folder
+            </button>
           </div>
         </div>
 
@@ -1207,7 +1413,14 @@ export default function Library() {
         )}
 
         {/* Library Content */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div
+          className="bg-white border border-gray-200 rounded-lg p-6"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            window.dispatchEvent(new Event('closeAllContextMenus'));
+            setLibraryMenu({ visible: true, x: e.clientX, y: e.clientY });
+          }}
+        >
           {/* Breadcrumbs */}
           <div className="mb-4 text-sm text-gray-600">
             {(() => {
@@ -1252,13 +1465,26 @@ export default function Library() {
           })()}
         </div>
 
+        {/* Library panel context menu */}
+        {libraryMenu.visible && (
+          <div
+            className="z-50 bg-white border rounded shadow-lg text-sm"
+            style={{ position: 'fixed', left: libraryMenu.x, top: libraryMenu.y, minWidth: 180 }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseLeave={() => setLibraryMenu({ visible: false, x: 0, y: 0 })}
+          >
+            <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setLibraryMenu({ visible: false, x:0,y:0 }); setShowQuickUpload(true); }}>Upload File</button>
+            <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setLibraryMenu({ visible: false, x:0,y:0 }); setCreateFolderOpen(true); }}>New Folder</button>
+          </div>
+        )}
+
         {/* Quick Upload Modal */}
         {showQuickUpload && (
           <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-gray-900">Quick Upload</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Upload File</h2>
                   <button
                     onClick={() => {
                       setShowQuickUpload(false);
@@ -1274,7 +1500,7 @@ export default function Library() {
               </div>
               
               <div className="p-6">
-                <p className="text-gray-600 mb-4">Upload a file directly to your main library</p>
+                <p className="text-gray-600 mb-4">Upload to: <span className="font-medium">{(findPath(root, currentFolderId) || [{ name: 'My Library'}]).slice(-1)[0].name}</span></p>
                 <div className="mb-4">
                   <input
                     type="file"
@@ -1309,7 +1535,50 @@ export default function Library() {
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={!quickUploadFile}
                   >
-                    Upload to Library
+                    Upload
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Folder Modal */}
+        {createFolderOpen && (
+          <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">New Folder</h2>
+                <button
+                  onClick={() => { setCreateFolderOpen(false); setCreateFolderName(''); }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="p-6">
+                <label className="text-sm text-gray-600">Folder name</label>
+                <input
+                  type="text"
+                  value={createFolderName}
+                  onChange={(e) => setCreateFolderName(e.target.value)}
+                  className="w-full mt-2 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter folder name"
+                  autoFocus
+                />
+                <div className="flex gap-3 justify-end mt-4">
+                  <button
+                    onClick={() => { setCreateFolderOpen(false); setCreateFolderName(''); }}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateFolderSubmit}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!createFolderName.trim()}
+                  >
+                    Create
                   </button>
                 </div>
               </div>

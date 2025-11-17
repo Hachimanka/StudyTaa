@@ -559,4 +559,63 @@ router.patch('/files/:fileId', verifyToken, async (req, res) => {
   }
 });
 
+// Rename folder (frontend expects PATCH /folders/:folderId)
+router.patch('/folders/:folderId', verifyToken, async (req, res) => {
+  try {
+    const { folderId } = req.params;
+    const { newName } = req.body;
+    const userId = req.userId;
+
+    console.log(`Folder rename request: userId=${userId}, folderId=${folderId}, newName=${newName}`);
+
+    if (!newName || typeof newName !== 'string' || !newName.trim()) {
+      return res.status(400).json({ error: 'New folder name is required' });
+    }
+
+    const folder = await Folder.findById(folderId);
+    if (!folder) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    // Verify ownership
+    if (folder.userId.toString() !== userId) {
+      return res.status(403).json({ error: 'Unauthorized: This folder does not belong to you' });
+    }
+
+    const oldPath = folder.path;
+    const trimmedName = newName.trim();
+
+    // Compute new path
+    if (folder.parentFolderId) {
+      const parent = await Folder.findById(folder.parentFolderId);
+      if (parent) {
+        folder.path = `${parent.path}/${trimmedName}`;
+      } else {
+        folder.path = trimmedName; // parent missing fallback
+      }
+    } else {
+      // Top-level (direct child of root)
+      folder.path = trimmedName;
+    }
+    folder.name = trimmedName;
+    await folder.save();
+
+    const newPath = folder.path;
+
+    // Update descendant folder paths (prefix replace)
+    if (oldPath && newPath && oldPath !== newPath) {
+      const descendants = await Folder.find({ path: { $regex: `^${oldPath}/` }, userId });
+      for (const desc of descendants) {
+        desc.path = desc.path.replace(oldPath + '/', newPath + '/');
+        await desc.save();
+      }
+    }
+
+    res.json({ message: 'Folder renamed successfully', folder: { id: folder._id, name: folder.name } });
+  } catch (error) {
+    console.error('Error renaming folder:', error);
+    res.status(500).json({ error: 'Failed to rename folder' });
+  }
+});
+
 export default router;

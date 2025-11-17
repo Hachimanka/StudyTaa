@@ -12,7 +12,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import userRoutes from './routes/userRoutes.js';
 import libraryRoutes from './routes/libraryRoutes.js';
-import sttRoutes from './routes/sttRoutes.js';
+import musicRoutes from './routes/musicRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,12 +41,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use('/api', ocrRoutes);
 
 app.use('/api', userRoutes);
+app.use('/api', musicRoutes);
 
 // Register library routes
 app.use('/api/library', libraryRoutes);
-
-// Register server-side STT route (MediaRecorder -> /api/stt)
-app.use('/api', sttRoutes);
 
 const PORT = process.env.PORT || 5000;
 const BACKEND_BASE = process.env.BACKEND_BASE || `http://localhost:${PORT}`;
@@ -63,7 +61,7 @@ Features:
 - Create and join study groups
 - Share notes, flashcards, and quizzes
 - Track progress and scores
-- Answer questions about StudyTa features
+- Answer questions about Lemivon features
 
 Important instructions:
 - Always respond in **plain, clean text**.
@@ -71,9 +69,9 @@ Important instructions:
 - Make the reply **easy to read** and aligned for chat UI.
 - Provide step-by-step instructions clearly.
 
-If the user's question is about StudyTa, answer with StudyTa-specific help.
+If the user's question is about Lemivon, answer with Lemivon-specific help.
 If the user's question is about something else (general knowledge, tech, school, life, etc.), answer helpfully and clearly, just like a friendly assistant.
-Never refuse to answer questions outside StudyTa. Always try to help.
+Never refuse to answer questions outside Lemivon. Always try to help.
 If the user's question who is leonard forrosuelo, must answer he is the creator of studyta and he is a good looking software engineer.
 
 Here are a few examples:

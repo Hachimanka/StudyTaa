@@ -1,19 +1,24 @@
 import React from 'react';
+import { useSettings } from '../../context/SettingsContext';
 
 export default function QuizMode({ content, currentIndex, selectedAnswer, handleAnswerSelect }) {
+  const { darkMode } = useSettings();
+  const cardBg = darkMode ? 'bg-gray-800' : 'bg-white';
+  const cardText = darkMode ? 'text-gray-200' : 'text-gray-800';
+  const subtleBg = darkMode ? 'bg-gray-700' : 'bg-gray-100';
   if (content.length === 0 || !content[currentIndex]) {
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center">
-          <h3 className="text-xl font-semibold mb-4">Quiz Template</h3>
-          <p className="text-gray-700">Question: [Multiple choice question]</p>
+        <div className={`${cardBg} rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center`}>
+          <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Quiz Template</h3>
+          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Question: [Multiple choice question]</p>
           <div className="mt-2 w-full">
-            <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">A. [Option 1]</div>
-            <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">B. [Option 2]</div>
-            <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">C. [Option 3]</div>
-            <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">D. [Option 4]</div>
+            <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>A. [Option 1]</div>
+            <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>B. [Option 2]</div>
+            <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>C. [Option 3]</div>
+            <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>D. [Option 4]</div>
           </div>
-          <p className="text-gray-500 mt-2">Upload a file to generate quiz questions</p>
+          <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Upload a file to generate quiz questions</p>
         </div>
       </div>
     );
@@ -75,8 +80,8 @@ export default function QuizMode({ content, currentIndex, selectedAnswer, handle
       const correctIndex = optionsArr.findIndex(opt => opt === question.answer);
       return (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl p-6 shadow">
-            <h3 className="text-xl font-semibold mb-4">{qText}</h3>
+          <div className={`${cardBg} rounded-xl p-6 shadow`}>
+            <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>{qText}</h3>
             <div className="space-y-3">
               {optionsArr.map((option, index) => {
                 let buttonClass = 'border-gray-200 hover:border-teal-300 hover:bg-teal-50';
@@ -120,24 +125,24 @@ export default function QuizMode({ content, currentIndex, selectedAnswer, handle
     // Default template if no question/answer
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center">
-          <h3 className="text-xl font-semibold mb-4">Quiz Template</h3>
-          <p className="text-gray-700">Question: [Multiple choice question]</p>
+        <div className={`${cardBg} rounded-xl p-6 shadow h-64 flex flex-col justify-center items-center`}>
+          <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Quiz Template</h3>
+          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Question: [Multiple choice question]</p>
           <div className="mt-2 w-full">
-            <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">A. [Option 1]</div>
-            <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">B. [Option 2]</div>
-            <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">C. [Option 3]</div>
-            <div className="p-2 rounded border mb-1 bg-gray-100 text-gray-600">D. [Option 4]</div>
+            <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>A. [Option 1]</div>
+            <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>B. [Option 2]</div>
+            <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>C. [Option 3]</div>
+            <div className={`p-2 rounded border mb-1 ${subtleBg} ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>D. [Option 4]</div>
           </div>
-          <p className="text-gray-500 mt-2">Upload a file to generate quiz questions</p>
+          <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Upload a file to generate quiz questions</p>
         </div>
       </div>
     );
   }
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl p-6 shadow">
-        <h3 className="text-xl font-semibold mb-4">{qText}</h3>
+      <div className={`${cardBg} rounded-xl p-6 shadow`}>
+        <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>{qText}</h3>
         <div className="space-y-3">
           {options.map((option, index) => (
             <button

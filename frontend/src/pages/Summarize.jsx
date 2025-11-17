@@ -25,6 +25,12 @@ export default function Summarize() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const countWords = (text) => {
+    const trimmed = (text || "").trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).length;
+  };
+
   const handleSummarize = async () => {
     if (!inputText.trim() && !selectedFile) return;
 
@@ -115,7 +121,7 @@ export default function Summarize() {
       originalText: inputText || selectedFile?.name || "File upload",
       date: new Date().toLocaleDateString(),
       time: new Date().toLocaleTimeString(),
-      wordCount: summary.split(' ').length,
+      wordCount: countWords(summary),
       source: selectedFile ? 'file' : 'text'
     };
     
@@ -171,7 +177,7 @@ export default function Summarize() {
         {/* Page Title */}
         <div className="mb-8 transform transition-all duration-500 hover:scale-105">
           <h1 className={`text-5xl font-bold page-title`}>
-            🤖 AI Content Summarizer
+            AI Content Summarizer
           </h1>
           <p className={`mt-2 text-lg`} style={{ color: 'var(--muted)' }}>
             Transform any content into intelligent, concise summaries with advanced AI
@@ -260,7 +266,7 @@ export default function Summarize() {
                     </span>
                     <span className="flex items-center">
                       <span className={`w-2 h-2 rounded-full mr-1`} style={{ background: 'var(--color-primary)' }}></span>
-                      ~{Math.ceil(inputText.length / 5)} Words
+                      {countWords(inputText)} Words
                     </span>
                   </div>
                   <button
@@ -396,7 +402,7 @@ export default function Summarize() {
                 {summary && (
                   <div className={`flex items-center space-x-1 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     <span className={`w-2 h-2 bg-${themeColors.primary}-400 rounded-full`}></span>
-                    <span>{summary.split(' ').length} words</span>
+                    <span>{countWords(summary)} words</span>
                   </div>
                 )}
               </div>

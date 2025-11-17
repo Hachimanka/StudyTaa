@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
+import { useSettings } from '../../context/SettingsContext';
 
 export default function WheelMode({ content, currentIndex, showAnswer, setShowAnswer, wheelSpinning, spinWheel, wheelRotation, onComplete, viewedQuestions, score, setScore }) {
+  const { darkMode } = useSettings();
+  const cardBg = darkMode ? 'bg-gray-800' : 'bg-white';
+  const cardText = darkMode ? 'text-gray-200' : 'text-gray-800';
+  const subtleBg = darkMode ? 'bg-gray-700' : 'bg-gray-100';
   console.log('WheelMode content:', content);
   
   // State for user interaction
@@ -33,18 +38,18 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
 
     return (
       <div className="space-y-6">
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 shadow-lg border border-emerald-200">
+        <div className={`${cardBg} rounded-xl p-6 shadow-lg border ${darkMode ? 'border-gray-700' : 'border-emerald-200'}`}>
           <div className="text-center mb-6">
             <div className="text-4xl mb-2">🎡</div>
-            <h2 className="text-2xl font-bold text-emerald-800 mb-2">
+            <h2 className={`text-2xl font-bold mb-2 ${cardText}`}>
               Wheel Challenge Completed!
             </h2>
-            <p className="text-emerald-700">
+            <p className={`${darkMode ? 'text-gray-300' : 'text-emerald-700'}`}>
               You have answered all {content.length} wheel questions!
             </p>
           </div>
 
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 mb-6">
+          <div className={`${cardBg} rounded-xl p-6 mb-6`}>
             <div className="text-4xl font-bold text-emerald-700 mb-2">
               {score} / {content.length}
             </div>
@@ -56,8 +61,8 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 mb-6">
-            <h3 className="text-lg font-semibold mb-4 text-gray-800">📝 Review Your Answers</h3>
+          <div className={`${cardBg} rounded-xl p-6 mb-6`}>
+            <h3 className={`text-lg font-semibold mb-4 ${cardText}`}>📝 Review Your Answers</h3>
             <div className="space-y-3">
               {Array.from(answeredQuestions).map((questionIndex) => {
                 const question = content[questionIndex];
@@ -65,13 +70,13 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
                 const correctAnswer = question?.value || question?.answer || 'Answer not available';
                 
                 return (
-                  <div key={questionIndex} className="p-4 rounded-lg border-2 border-gray-200 bg-gray-50">
+                  <div key={questionIndex} className={`p-4 rounded-lg border-2 ${darkMode ? 'border-gray-700' : 'border-gray-200'} ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="font-medium text-gray-800 mb-2">
+                        <div className={`font-medium mb-2 ${cardText}`}>
                           <strong>Q{questionIndex + 1}:</strong> {questionText}
                         </div>
-                        <div className="text-sm text-emerald-700">
+                        <div className={`${darkMode ? 'text-emerald-300' : 'text-sm text-emerald-700'}`}>
                           <strong>Answer:</strong> {correctAnswer}
                         </div>
                       </div>
@@ -148,7 +153,7 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
     }
   };
 
-  return (
+    return (
     <div className="space-y-6 text-center">
   <div className="relative inline-block" style={{ width: radius * 2, height: radius * 2 + 40 }}>
         <svg
@@ -226,12 +231,12 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
         {wheelSpinning ? 'Spinning...' : 'Spin the Wheel'}
       </button>
       {content.length > 0 && selectedIndex < content.length && (
-        <div className="bg-white rounded-xl p-6 shadow">
-          <h3 className="text-xl font-semibold mb-4">🎡 Wheel Question:</h3>
+        <div className={`${cardBg} rounded-xl p-6 shadow`}>
+          <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>🎡 Wheel Question:</h3>
           
           {/* Question Display */}
           <div className="mb-6">
-            <p className="text-lg font-medium text-gray-800 mb-4">
+            <p className={`text-lg font-medium mb-4 ${cardText}`}>
               {content[selectedIndex]?.label || content[selectedIndex]?.question || content[selectedIndex]?.content || content[selectedIndex]?.title || content[selectedIndex]?.topic || content[selectedIndex]?.front || content[selectedIndex]?.statement || 'Question not found'}
             </p>
           </div>
@@ -242,7 +247,7 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
               {/* Check if it's a multiple choice question */}
               {content[selectedIndex]?.options && Array.isArray(content[selectedIndex].options) ? (
                 <div className="space-y-3">
-                  <p className="font-medium text-gray-700">Choose your answer:</p>
+                  <p className={`${darkMode ? 'text-gray-300' : 'font-medium text-gray-700'}`}>Choose your answer:</p>
                   {content[selectedIndex].options.map((option, index) => (
                     <button
                       key={index}
@@ -260,12 +265,12 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
               ) : (
                 /* Text input for open-ended questions */
                 <div className="space-y-3">
-                  <p className="font-medium text-gray-700">Type your answer:</p>
+                  <p className={`${darkMode ? 'text-gray-300' : 'font-medium text-gray-700'}`}>Type your answer:</p>
                   <input
                     type="text"
                     value={userAnswer}
                     onChange={(e) => setUserAnswer(e.target.value)}
-                    className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-teal-500 focus:ring-2 focus:ring-teal-200 focus:outline-none"
+                    className={`w-full p-3 border-2 rounded-lg focus:border-teal-500 focus:ring-2 focus:ring-teal-200 focus:outline-none ${darkMode ? 'bg-gray-700 text-gray-200 border-gray-600' : 'border-gray-300'}`}
                     placeholder="Enter your answer here..."
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' && (userAnswer.trim() || selectedAnswer !== null)) {
@@ -293,7 +298,7 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
             <div className="space-y-4">
               {content[selectedIndex]?.options ? (
                 <div className="space-y-3">
-                  <p className="font-medium text-gray-700">Your answer vs. Correct answer:</p>
+                  <p className={`${darkMode ? 'text-gray-300' : 'font-medium text-gray-700'}`}>Your answer vs. Correct answer:</p>
                   {content[selectedIndex].options.map((option, index) => (
                     <div
                       key={index}
@@ -321,11 +326,11 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-blue-800"><strong>Your Answer:</strong> {userAnswer}</p>
+                  <div className={`${darkMode ? 'bg-blue-900 border-blue-800 text-blue-200 p-4' : 'p-4 bg-blue-50 border border-blue-200'} rounded-lg`}>
+                    <p className={`${darkMode ? 'text-blue-200' : 'text-blue-800'}`}><strong>Your Answer:</strong> {userAnswer}</p>
                   </div>
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-800"><strong>Correct Answer:</strong> {content[selectedIndex]?.value || content[selectedIndex]?.answer || content[selectedIndex]?.correctAnswer || content[selectedIndex]?.back || 'Answer not available'}</p>
+                  <div className={`${darkMode ? 'bg-green-900 border-green-800 text-green-200 p-4' : 'p-4 bg-green-50 border border-green-200'} rounded-lg`}>
+                    <p className={`${darkMode ? 'text-green-200' : 'text-green-800'}`}><strong>Correct Answer:</strong> {content[selectedIndex]?.value || content[selectedIndex]?.answer || content[selectedIndex]?.correctAnswer || content[selectedIndex]?.back || 'Answer not available'}</p>
                   </div>
                 </div>
               )}

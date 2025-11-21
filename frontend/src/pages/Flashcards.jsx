@@ -654,6 +654,11 @@ export default function FileBasedStudyApp() {
   };
 
   const requestModeChange = (modeId) => {
+    // Prevent switching while AI is generating content
+    if (loading) {
+      alert('AI generation in progress — please wait.');
+      return;
+    }
     // If no uploaded file, don't allow switching
     if (!fileContent) return;
     // If switching to the same mode, do nothing
@@ -1653,7 +1658,8 @@ export default function FileBasedStudyApp() {
                 <button
                   key={m.id}
                   onClick={() => requestModeChange(m.id)}
-                  className={`w-full p-4 rounded-lg text-left border ${activeMode === m.id ? 'scale-105 shadow-lg' : ''} ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-white'} transition-all`}
+                  disabled={loading || !fileContent}
+                  className={`w-full p-4 rounded-lg text-left border ${activeMode === m.id ? 'scale-105 shadow-lg' : ''} ${(loading || !fileContent) ? (darkMode ? 'border-gray-700 bg-gray-700 text-gray-500 cursor-not-allowed' : 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed') : (darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-white')} transition-all`}
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8">{m.icon}</div>
@@ -1922,9 +1928,9 @@ export default function FileBasedStudyApp() {
                   <button
                     key={mode.id}
                     onClick={() => requestModeChange(mode.id)}
-                    disabled={!fileContent}
+                    disabled={loading || !fileContent}
                     className={`w-full flex items-center p-3 rounded-lg border-2 transition-all duration-300 text-left transform ${
-                      !fileContent
+                      (loading || !fileContent)
                         ? `${darkMode ? 'border-gray-700 bg-gray-700 text-gray-500' : 'border-gray-100 bg-gray-50 text-gray-400'} cursor-not-allowed`
                         : activeMode === mode.id
                         ? `border-${themeColors.primary}-400 ${themeColors.light} ${themeColors.text} scale-105 shadow-lg`
@@ -1932,7 +1938,7 @@ export default function FileBasedStudyApp() {
                     }`}
                   >
                     <div className={`transition-transform duration-300 ${
-                      !fileContent ? '' : 'group-hover:scale-110'
+                      (loading || !fileContent) ? '' : 'group-hover:scale-110'
                     }`}>
                       {mode.icon}
                     </div>

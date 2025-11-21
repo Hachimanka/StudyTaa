@@ -22,11 +22,12 @@ export default function Home() {
   // Fetch library statistics
   const fetchLibraryStats = async () => {
     try {
+      const API_BASE = import.meta.env.VITE_API_BASE || ''
       const [filesRes, foldersRes] = await Promise.all([
-        fetch('http://localhost:5000/api/library/files', {
+        fetch(`${API_BASE}/api/library/files`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         }),
-        fetch('http://localhost:5000/api/library/folders', {
+        fetch(`${API_BASE}/api/library/folders`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         })
       ]);
@@ -121,27 +122,18 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchUserInfo() {
-      // Prefer the client-side authenticated user's name when available
-      if (user) {
-        if (user.name) {
-          setFullName(user.name)
-          return
-        }
-
-        if (user._id) {
-          try {
+      if (user?._id) {
+        try {
           const API_BASE = import.meta.env.VITE_API_BASE || ''
-            const res = await fetch(`${API_BASE}/api/userinfo/${user._id}`);
-            const info = await res.json();
-            setFullName(info.fullName || profileName);
-          } catch {
-            setFullName(profileName);
-          }
-          return
+          const res = await fetch(`${API_BASE}/api/userinfo/${user._id}`);
+          const info = await res.json();
+          setFullName(info.fullName || profileName);
+        } catch {
+          setFullName(profileName);
         }
+      } else {
+        setFullName(profileName);
       }
-
-      setFullName(profileName);
     }
 
     const loadDashboardData = async () => {
@@ -208,11 +200,11 @@ export default function Home() {
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-5xl font-bold page-title">
+          <h1 className="text-5xl font-bold">
             {fullName ? `Welcome back, ${fullName}!` : "Welcome back!"}
           </h1>
           <p
-            className={`mt-1 text-xl page-subtitle ${
+            className={`mt-1 text-xl ${
               darkMode ? "text-gray-400" : "text-gray-500"
             }`}
           >
@@ -230,32 +222,50 @@ export default function Home() {
         {/* Stats Section */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
           {[
-            { 
-              label: "Study Streak", 
+            {
+              label: "Study Streak",
               value: `${studyStats.streak} Days`,
-              icon: "🔥",
-              color: "bg-orange-500"
+              color: "bg-orange-500",
+              icon: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8.5 14.5C7 13 6 11 6 9.5c0-2.5 2-4.5 4.5-4.5 1.5 0 2.5 0.7 3 1.5.5.8 1.5 1.5 1.5 3 0 2-2 4-4 5-2 1-4 1-4 1" />
+                </svg>
+              )
             },
-            { 
-              label: "Library Files", 
+            {
+              label: "Library Files",
               value: libraryStats.totalFiles.toString(),
-              icon: "📁",
-              color: "bg-blue-500"
+              color: "bg-blue-500",
+              icon: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                </svg>
+              )
             },
-            { 
-              label: "Total Time", 
+            {
+              label: "Total Time",
               value: `${Math.floor(studyStats.totalTime / 60)}h ${studyStats.totalTime % 60}m`,
-              icon: "⏰",
-              color: "bg-green-500"
+              color: "bg-green-500",
+              icon: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+              )
             },
-            { 
-              label: "Storage Used", 
-              value: libraryStats.totalSize > 0 
+            {
+              label: "Storage Used",
+              value: libraryStats.totalSize > 0
                 ? `${(libraryStats.totalSize / (1024 * 1024)).toFixed(1)}MB`
                 : "0MB",
-              icon: "💾",
-              color: "bg-purple-500"
-            },
+              color: "bg-purple-500",
+              icon: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="7" width="18" height="12" rx="2" />
+                  <path d="M9 9h6" />
+                </svg>
+              )
+            }
           ].map((stat, i) => (
             loading ? (
               <div key={i} className={`p-6 flex items-center justify-between rounded-2xl shadow transition-transform hover:scale-105 ${darkMode ? "bg-gray-800" : "bg-white"}`}>
@@ -324,12 +334,28 @@ export default function Home() {
               <ul className="space-y-4">
                 {recentActivities.map((item, i) => (
                   <li key={i} className="flex items-start">
-                    <div className={`w-10 h-10 rounded-lg mr-3 flex items-center justify-center text-white ${
-                      item.type === 'upload' ? 'bg-blue-500' :
-                      item.type === 'study' ? 'bg-green-500' :
-                      item.type === 'summary' ? 'bg-purple-500' : 'bg-gray-500'
-                    }`}>
-                      {item.icon}
+                    <div className={`w-10 h-10 rounded-lg mr-3 flex items-center justify-center ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`} style={{ color: themeColors.primary }}>
+                      {/* Render a small SVG based on activity type */}
+                      {item.type === 'upload' && (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 5 17 10" />
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                        </svg>
+                      )}
+                      {item.type === 'study' && (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 10v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8" />
+                          <circle cx="12" cy="13" r="3" />
+                        </svg>
+                      )}
+                      {item.type === 'summary' && (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M7 21h10a2 2 0 0 0 2-2V7l-6-4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2z" />
+                          <line x1="9" y1="9" x2="15" y2="9" />
+                          <line x1="9" y1="13" x2="15" y2="13" />
+                        </svg>
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="font-medium">{item.text}</p>
@@ -362,34 +388,35 @@ export default function Home() {
             <div className="space-y-4">
               <Link to="/summarize">
                 <button
-                  className="flex items-center w-full rounded-xl p-4 transition-colors"
+                  className="flex items-center w-full rounded-xl p-4 transition-colors hover-bounce"
                   style={{
                     backgroundColor: darkMode 
                       ? `${themeColors.primary}20`
-                      : `${themeColors.primary}15`
+                      : `${themeColors.primary}15`,
+                    border: `1px solid ${themeColors.primary}33`
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = darkMode 
+                    e.currentTarget.style.backgroundColor = darkMode 
                       ? `${themeColors.primary}30`
                       : `${themeColors.primary}25`;
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = darkMode 
+                    e.currentTarget.style.backgroundColor = darkMode 
                       ? `${themeColors.primary}20`
                       : `${themeColors.primary}15`;
                   }}
                 >
-                  <div 
-                    className="w-8 h-8 rounded-lg mr-3"
-                    style={{ backgroundColor: themeColors.primary }}
-                  />
+                  <div className="quick-icon mr-1" style={{ color: themeColors.primary }}>
+                    {/* Document / summary icon (simple, aesthetic) */}
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <path d="M14 2v6h6"></path>
+                      <path d="M8 12h8M8 16h8" strokeOpacity="0.9"></path>
+                    </svg>
+                  </div>
                   <div>
                     <p className="font-semibold">Create Summary</p>
-                    <p
-                      className={`text-sm ${
-                        darkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
+                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                       Summarize a new content
                     </p>
                   </div>
@@ -398,20 +425,29 @@ export default function Home() {
 
               <Link to="/flashcards">
                 <button
-                  className={`flex items-center w-full rounded-xl p-4 border transition-colors ${
-                    darkMode
-                      ? "bg-blue-900/30 hover:bg-blue-900/50 border-blue-700"
-                      : "bg-blue-100 hover:bg-blue-200 border-blue-400"
-                  }`}
+                  className="flex items-center w-full rounded-xl p-4 transition-colors hover-bounce"
+                  style={{
+                    backgroundColor: darkMode ? `${themeColors.primary}20` : `${themeColors.primary}15`,
+                    border: `1px solid ${themeColors.primary}33`
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = darkMode ? `${themeColors.primary}30` : `${themeColors.primary}25`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = darkMode ? `${themeColors.primary}20` : `${themeColors.primary}15`;
+                  }}
                 >
-                  <div className={`w-8 h-8 bg-${themeColors.primary}-700 rounded-lg mr-3`} />
+                  <div className="quick-icon mr-1" style={{ color: themeColors.primary }}>
+                    {/* Stack of cards icon */}
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="7" width="14" height="12" rx="2"></rect>
+                      <path d="M7 7V5a2 2 0 0 1 2-2h8"></path>
+                      <rect x="7" y="3" width="14" height="12" rx="2" opacity="0.06"></rect>
+                    </svg>
+                  </div>
                   <div>
                     <p className="font-semibold">Make Flashcards</p>
-                    <p
-                      className={`text-sm ${
-                        darkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
+                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                       Generate study cards
                     </p>
                   </div>
@@ -420,34 +456,33 @@ export default function Home() {
 
               <Link to="/library">
                 <button
-                  className="flex items-center w-full rounded-xl p-4 transition-colors"
+                  className="flex items-center w-full rounded-xl p-4 transition-colors hover-bounce"
                   style={{
                     backgroundColor: darkMode 
                       ? `${themeColors.primary}20`
-                      : `${themeColors.primary}15`
+                      : `${themeColors.primary}15`,
+                    border: `1px solid ${themeColors.primary}33`
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = darkMode 
+                    e.currentTarget.style.backgroundColor = darkMode 
                       ? `${themeColors.primary}30`
                       : `${themeColors.primary}25`;
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = darkMode 
+                    e.currentTarget.style.backgroundColor = darkMode 
                       ? `${themeColors.primary}20`
                       : `${themeColors.primary}15`;
                   }}
                 >
-                  <div 
-                    className="w-8 h-8 rounded-lg mr-3"
-                    style={{ backgroundColor: themeColors.primary }}
-                  />
+                  <div className="quick-icon mr-1" style={{ color: themeColors.primary }}>
+                    {/* Folder icon */}
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    </svg>
+                  </div>
                   <div>
                     <p className="font-semibold">Browse Library</p>
-                    <p
-                      className={`text-sm ${
-                        darkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
+                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                       Access your files
                     </p>
                   </div>
@@ -539,14 +574,33 @@ export default function Home() {
                 {libraryStats.recentFiles.slice(0, 4).map((file, i) => (
                   <li key={i} className="flex items-center justify-between">
                     <div className="flex items-center flex-1">
-                      <div className={`w-8 h-8 rounded-lg mr-3 flex items-center justify-center text-white text-sm ${
-                        file.type?.includes('pdf') ? 'bg-red-500' :
-                        file.type?.includes('image') ? 'bg-green-500' :
-                        file.type?.includes('text') ? 'bg-blue-500' : 'bg-gray-500'
-                      }`}>
-                        {file.type?.includes('pdf') ? '📄' :
-                         file.type?.includes('image') ? '🖼️' :
-                         file.type?.includes('text') ? '📝' : '📁'}
+                      <div className={`w-8 h-8 rounded-lg mr-3 flex items-center justify-center text-sm ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`} style={{ color: themeColors.primary }}>
+                        {/* File type icons (SVG) */}
+                        {file.type?.includes('pdf') && (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <path d="M14 2v6h6" />
+                            <path d="M10 14h4M10 17h4" />
+                          </svg>
+                        )}
+                        {file.type?.includes('image') && (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="18" height="14" rx="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <path d="M21 21l-6-5-4 4-3-3-4 4" />
+                          </svg>
+                        )}
+                        {file.type?.includes('text') && (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
+                            <path d="M8 7h8M8 11h8" />
+                          </svg>
+                        )}
+                        {!file.type && (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                          </svg>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{file.name}</p>

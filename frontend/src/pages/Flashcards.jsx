@@ -7,6 +7,7 @@ import MatchingMode from '../components/studyModes/MatchingMode';
 import FillBlanksMode from '../components/studyModes/FillBlanksMode';
 import axios from 'axios';
 import Sidebar from '../components/Sidebar';
+import GameModal from '../components/GameModal';
 import { useSettings } from '../context/SettingsContext';
 
 // File processing function
@@ -179,6 +180,7 @@ export default function FileBasedStudyApp() {
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [pendingMode, setPendingMode] = useState(null);
+  const [isGameOpen, setIsGameOpen] = useState(false);
   
   // Matching game state
   const [selectedTerm, setSelectedTerm] = useState(null);
@@ -654,6 +656,11 @@ export default function FileBasedStudyApp() {
   };
 
   const requestModeChange = (modeId) => {
+    // Prevent switching while AI is generating content
+    if (loading) {
+      alert('AI generation in progress — please wait.');
+      return;
+    }
     // If no uploaded file, don't allow switching
     if (!fileContent) return;
     // If switching to the same mode, do nothing
@@ -1653,7 +1660,8 @@ export default function FileBasedStudyApp() {
                 <button
                   key={m.id}
                   onClick={() => requestModeChange(m.id)}
-                  className={`w-full p-4 rounded-lg text-left border ${activeMode === m.id ? 'scale-105 shadow-lg' : ''} ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-white'} transition-all`}
+                  disabled={loading || !fileContent}
+                  className={`w-full p-4 rounded-lg text-left border ${activeMode === m.id ? 'scale-105 shadow-lg' : ''} ${(loading || !fileContent) ? (darkMode ? 'border-gray-700 bg-gray-700 text-gray-500 cursor-not-allowed' : 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed') : (darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-white')} transition-all`}
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8">{m.icon}</div>
@@ -1913,6 +1921,8 @@ export default function FileBasedStudyApp() {
                 </div>
               </div>
             )}
+            {/* Mini-game modal */}
+            <GameModal isOpen={isGameOpen} onClose={() => setIsGameOpen(false)} content={content} fileContent={fileContent} />
           {/* Mode Selection */}
           <div className="xl:col-span-1 lg:col-span-1">
             <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
@@ -1922,9 +1932,9 @@ export default function FileBasedStudyApp() {
                   <button
                     key={mode.id}
                     onClick={() => requestModeChange(mode.id)}
-                    disabled={!fileContent}
+                    disabled={loading || !fileContent}
                     className={`w-full flex items-center p-3 rounded-lg border-2 transition-all duration-300 text-left transform ${
-                      !fileContent
+                      (loading || !fileContent)
                         ? `${darkMode ? 'border-gray-700 bg-gray-700 text-gray-500' : 'border-gray-100 bg-gray-50 text-gray-400'} cursor-not-allowed`
                         : activeMode === mode.id
                         ? `border-${themeColors.primary}-400 ${themeColors.light} ${themeColors.text} scale-105 shadow-lg`
@@ -1932,13 +1942,25 @@ export default function FileBasedStudyApp() {
                     }`}
                   >
                     <div className={`transition-transform duration-300 ${
-                      !fileContent ? '' : 'group-hover:scale-110'
+                      (loading || !fileContent) ? '' : 'group-hover:scale-110'
                     }`}>
                       {mode.icon}
                     </div>
                     <span className="ml-3 font-medium">{mode.name}</span>
                   </button>
                 ))}
+                <button
+                  onClick={() => setIsGameOpen(true)}
+                  disabled={loading || (!fileContent && content.length === 0)}
+                  className={`w-full flex items-center p-3 rounded-lg border-2 transition-all duration-300 text-left ${
+                    (loading || (!fileContent && content.length === 0))
+                      ? (darkMode ? 'border-gray-700 bg-gray-700 text-gray-500 cursor-not-allowed' : 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed')
+                      : (darkMode ? 'border-gray-600 hover:border-teal-400 hover:bg-gray-700 text-gray-300' : 'border-gray-200 hover:border-teal-300 hover:bg-white text-gray-600')
+                  }`}
+                >
+                  <div className="transition-transform duration-300 mr-2">🎮</div>
+                  <span className="ml-1 font-medium">Play Mini Game</span>
+                </button>
               </div>
             </div>
           </div>

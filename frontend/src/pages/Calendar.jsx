@@ -4,6 +4,7 @@ import TopNav from '../components/TopNav'
 import ChatWidget from '../components/ChatWidget'
 import { useSettings } from '../context/SettingsContext'
 import axios from 'axios'
+import { useReminders } from '../context/ReminderContext'
 
 // Debug toggle: set true to log extraction details
 const DEBUG_EXTRACTION = false;
@@ -16,7 +17,8 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
     time: '',
     priority: 'medium',
     category: 'general',
-    reminder: false
+    reminder: false,
+    reminderOffsetMinutes: 15
   });
   const [formDate, setFormDate] = useState('');
 
@@ -41,7 +43,8 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
         time: event.time || '',
         priority: event.priority || 'medium',
         category: event.category || 'general',
-        reminder: event.reminder || false
+        reminder: event.reminder || false,
+        reminderOffsetMinutes: event.reminderOffsetMinutes != null ? event.reminderOffsetMinutes : 15
       });
       setFormDate(toInputDate(event.date || date));
     } else {
@@ -51,7 +54,8 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
         time: '',
         priority: 'medium',
         category: 'general',
-        reminder: false
+        reminder: false,
+        reminderOffsetMinutes: 15
       });
       setFormDate(toInputDate(date));
     }
@@ -176,16 +180,41 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
               />
             </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="reminder"
-                checked={formData.reminder}
-                onChange={(e) => setFormData({...formData, reminder: e.target.checked})}
-                className={`mr-2 h-4 w-4 rounded`}
-                style={{ accentColor: 'var(--color-primary)' }}
-              />
-              <label htmlFor="reminder" className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Set reminder</label>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="reminder"
+                  checked={formData.reminder}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    reminder: e.target.checked,
+                    // reset offset if newly checked
+                    reminderOffsetMinutes: e.target.checked ? formData.reminderOffsetMinutes ?? 15 : formData.reminderOffsetMinutes
+                  })}
+                  className={`mr-2 h-4 w-4 rounded`}
+                  style={{ accentColor: 'var(--color-primary)' }}
+                />
+                <label htmlFor="reminder" className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Set reminder</label>
+              </div>
+              {formData.reminder && (
+                <div className="grid grid-cols-2 gap-2 items-end">
+                  <div>
+                    <label className={`block text-xs font-medium mb-1`} style={{ color: 'var(--text)' }}>Notify Minutes Before</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.reminderOffsetMinutes}
+                      onChange={(e) => setFormData({ ...formData, reminderOffsetMinutes: Math.max(0, Number(e.target.value)) })}
+                      className={`w-full p-2 border rounded-lg`}
+                      style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
+                    />
+                  </div>
+                  <div className="text-xs" style={{ color: 'var(--text)' }}>
+                    {formData.reminderOffsetMinutes > 0 ? `You will be notified ${formData.reminderOffsetMinutes} minute${formData.reminderOffsetMinutes===1?'':'s'} before.` : 'Notification at event time.'}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -838,6 +867,7 @@ export default function Calendar(){
   
   // Calendar state
   const [events, setEvents] = useState([]);
+  const { refresh: refreshGlobalReminders } = useReminders();
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false); // Add/Edit modal
@@ -900,7 +930,9 @@ export default function Calendar(){
           time: doc.time || '',
           priority: doc.priority || 'medium',
           category: doc.category || 'general',
-          reminder: !!doc.reminder
+          reminder: !!doc.reminder,
+          reminderOffsetMinutes: doc.reminderOffsetMinutes != null ? doc.reminderOffsetMinutes : null,
+          reminderAt: doc.reminderAt ? new Date(doc.reminderAt) : null
         }));
         setEvents(mapped);
       } catch (err) {
@@ -951,10 +983,14 @@ export default function Calendar(){
             time: saved.time,
             priority: saved.priority,
             category: saved.category,
-            reminder: !!saved.reminder
+            reminder: !!saved.reminder,
+            reminderOffsetMinutes: saved.reminderOffsetMinutes != null ? saved.reminderOffsetMinutes : null,
+            reminderAt: saved.reminderAt ? new Date(saved.reminderAt) : null
           };
           setEvents(events.map(e => e.id === eventData.id ? mapped : e));
           setNotification({ message: 'Event updated successfully.', type: 'eventsfound' });
+          window.dispatchEvent(new Event('eventsChanged'));
+          refreshGlobalReminders();
         } else {
           const payload = { ...eventData, date: eventData.date.toISOString() };
           const res = await axios.post('/api/events', payload, { headers });
@@ -967,10 +1003,14 @@ export default function Calendar(){
             time: saved.time,
             priority: saved.priority,
             category: saved.category,
-            reminder: !!saved.reminder
+            reminder: !!saved.reminder,
+            reminderOffsetMinutes: saved.reminderOffsetMinutes != null ? saved.reminderOffsetMinutes : null,
+            reminderAt: saved.reminderAt ? new Date(saved.reminderAt) : null
           };
           setEvents([...events, mapped]);
           setNotification({ message: 'Event added successfully.', type: 'eventsfound' });
+          window.dispatchEvent(new Event('eventsChanged'));
+          refreshGlobalReminders();
         }
       } catch (err) {
         console.warn('Persist event failed, applying local update only:', err?.message || err);
@@ -982,6 +1022,8 @@ export default function Calendar(){
           setEvents([...events, eventData]);
           setNotification({ message: 'Event added locally (save failed).', type: 'eventsfound' });
         }
+        window.dispatchEvent(new Event('eventsChanged'));
+        refreshGlobalReminders();
       }
     };
     persist();
@@ -999,6 +1041,8 @@ export default function Calendar(){
     } finally {
       setEvents(events.filter(e => e.id !== eventId));
       setNotification({ message: 'Event deleted.', type: 'info' });
+      window.dispatchEvent(new Event('eventsChanged'));
+      refreshGlobalReminders();
     }
   };
 
@@ -1503,10 +1547,14 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             time: d.time,
             priority: d.priority,
             category: d.category,
-            reminder: !!d.reminder
+            reminder: !!d.reminder,
+            reminderOffsetMinutes: d.reminderOffsetMinutes != null ? d.reminderOffsetMinutes : null,
+            reminderAt: d.reminderAt ? new Date(d.reminderAt) : null
           }));
           setEvents([...events, ...mapped]);
           setNotification({ message: `Added ${mapped.length} event${mapped.length !== 1 ? 's' : ''} from ${file.name}`, type: 'eventsfound' });
+          window.dispatchEvent(new Event('eventsChanged'));
+          refreshGlobalReminders();
         } else {
           // Fallback: add locally if not saved (e.g., unauthenticated)
           const localEvents = createPayload.map((p, i) => ({
@@ -1517,11 +1565,15 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             time: p.time,
             priority: p.priority,
             category: p.category,
-            reminder: p.reminder
+            reminder: p.reminder,
+            reminderOffsetMinutes: p.reminderOffsetMinutes != null ? p.reminderOffsetMinutes : null,
+            reminderAt: null
           }));
           if (localEvents.length > 0) {
             setEvents([...events, ...localEvents]);
             setNotification({ message: `Added ${localEvents.length} event${localEvents.length !== 1 ? 's' : ''} from ${file.name}`, type: 'eventsfound' });
+            window.dispatchEvent(new Event('eventsChanged'));
+            refreshGlobalReminders();
           } else {
             setNotification({ message: 'No new events added — possible duplicates detected.', type: 'nonevents' });
           }
@@ -1537,6 +1589,8 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
       setUploading(false);
       // Clear the file input
       e.target.value = '';
+      window.dispatchEvent(new Event('eventsChanged'));
+      refreshGlobalReminders();
     }
   };
 

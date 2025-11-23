@@ -20,11 +20,13 @@ import Settings from './pages/Settings'
 import ChatWidget from './components/ChatWidget'
 import AuthenticatedWidget from './components/AuthenticatedWidget'
 import GlobalMusicPlayer from './components/GlobalMusicPlayer'
+import { ReminderProvider } from './context/ReminderContext'
 
 export default function App() {
   return (
     <AuthProvider>
       <SettingsProvider>
+        <ReminderProvider>
         <MusicProvider>
           {/* ChatWidget will be rendered at the app level and will show only when authenticated */}
           <Routes>
@@ -49,6 +51,7 @@ export default function App() {
         {/* Global music player stays mounted across routes */}
         <GlobalMusicPlayer />
         </MusicProvider>
+        </ReminderProvider>
       </SettingsProvider>
     </AuthProvider>
   )

@@ -70,6 +70,65 @@ export default function Settings() {
   
   // Active settings tab
   const [activeTab, setActiveTab] = useState('appearance')
+  // Modal visibility state
+  const [showPrivacy, setShowPrivacy] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+
+  // Reusable themed modal component
+  const ThemedModal = ({ open, onClose, title, children }) => {
+    if (!open) return null
+    // Lock body scroll while modal open
+    useEffect(() => {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = prev }
+    }, [])
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center" aria-modal="true" role="dialog">
+        {/* Blurry backdrop */}
+        <div
+          className="absolute inset-0" 
+          onClick={onClose}
+          style={{
+            background: 'rgba(0,0,0,0.15)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)'
+          }}
+        />
+        <div
+          className="relative w-full max-w-xl mx-4 rounded-2xl shadow-2xl p-6 animate-fadeIn"
+          style={{
+            background: darkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255, 255, 255, 0.45)',
+            color: darkMode ? '#ffffff' : '#000000',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid var(--glass-border)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.4)'
+          }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-semibold tracking-tight">
+              {title}
+            </h2>
+            <button
+              onClick={onClose}
+              className="px-3 py-1 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-400"
+              style={{
+                background: 'linear-gradient(135deg, var(--primary-600), var(--primary-700))',
+                color: 'white'
+              }}
+            >
+              Close
+            </button>
+          </div>
+          <div className="space-y-4 text-sm leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+            {children}
+          </div>
+        </div>
+      </div>
+    )
+  }
   
   // Save settings with feedback
   const saveSettings = () => {
@@ -367,11 +426,18 @@ export default function Settings() {
                     </svg>
                     Links
                   </h4>
-                  <div className="space-y-2 text-sm">
-                    <a href="#" className="block text-teal-500 hover:text-teal-600">Privacy Policy</a>
-                    <a href="#" className="block text-teal-500 hover:text-teal-600">Terms of Service</a>
-                    <a href="#" className="block text-teal-500 hover:text-teal-600">Help & Support</a>
-                    <a href="#" className="block text-teal-500 hover:text-teal-600">GitHub Repository</a>
+                  <div className={`flex flex-col items-center space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <button onClick={() => setShowPrivacy(true)} className="block text-teal-500 hover:text-teal-600">Privacy Policy</button>
+                    <button onClick={() => setShowTerms(true)} className="block text-teal-500 hover:text-teal-600">Terms of Service</button>
+                    <button onClick={() => setShowHelp(true)} className="block text-teal-500 hover:text-teal-600">Help & Support</button>
+                    <a
+                      href="https://github.com/Hachimanka/StudyTaa.git"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-teal-500 hover:text-teal-600"
+                    >
+                      GitHub Repository
+                    </a>
                   </div>
                 </div>
               </div>
@@ -460,6 +526,111 @@ export default function Settings() {
           </div>
         </div>
       </main>
+      {/* Modals */}
+      <ThemedModal
+        open={showPrivacy}
+        onClose={() => setShowPrivacy(false)}
+        title="Privacy Policy"
+      >
+        <p><em>Last Updated: November 23, 2025</em></p>
+        <p>Lemivon is a personalized study tool designed to help students learn better. This Privacy Policy explains how we collect, use, and protect your information.</p>
+        <h3 className="text-lg font-semibold mt-4">1. Information We Collect</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Files you upload (documents, images, notes)</li>
+          <li>Your study activities (flashcards, quizzes, events)</li>
+          <li>Basic account information (name, email, password)</li>
+          <li>Your saved notes, tasks, and preferences</li>
+        </ul>
+        <h3 className="text-lg font-semibold mt-4">2. How We Use Your Information</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Summarize files and generate study materials</li>
+          <li>Create calendar events from images</li>
+          <li>Save and organize your notes</li>
+          <li>Improve your studying experience</li>
+          <li>Provide customer support</li>
+        </ul>
+        <h3 className="text-lg font-semibold mt-4">3. How We Protect Your Data</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>We use secure storage to protect your files and notes.</li>
+          <li>Your password is encrypted.</li>
+          <li>Only you can access your personal study materials.</li>
+        </ul>
+        <h3 className="text-lg font-semibold mt-4">4. Sharing Your Information</h3>
+        <p>We do not sell or share your information with third-party companies. We may only share data:</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>If required by law</li>
+          <li>If you give permission</li>
+        </ul>
+        <h3 className="text-lg font-semibold mt-4">5. Your Rights</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Delete your account</li>
+          <li>Remove your files or notes</li>
+          <li>Request a copy of your stored data</li>
+        </ul>
+        <h3 className="text-lg font-semibold mt-4">6. Contact Us</h3>
+        <p>If you have concerns about privacy, message us at: Lemivon.com</p>
+      </ThemedModal>
+      <ThemedModal
+        open={showTerms}
+        onClose={() => setShowTerms(false)}
+        title="Terms of Service"
+      >
+        <p><em>Last Updated: November 23, 2025</em></p>
+        <p>These Terms explain how you may use Lemivon.</p>
+        <h3 className="text-lg font-semibold mt-4">1. Using Lemivon</h3>
+        <p>By creating an account, you agree to:</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Use Lemivon for personal study only</li>
+          <li>Upload files that you have permission to use</li>
+          <li>Not misuse the app (no hacking, flooding, illegal activity)</li>
+        </ul>
+        <h3 className="text-lg font-semibold mt-4">2. Your Content</h3>
+        <p>You own the files, notes, and materials you upload. Lemivon only processes them to:</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Summarize</li>
+          <li>Generate study tools</li>
+          <li>Save them in your personal library</li>
+        </ul>
+        <h3 className="text-lg font-semibold mt-4">3. AI-Generated Content</h3>
+        <p>The AI may sometimes make mistakes. Always double-check important information.</p>
+        <h3 className="text-lg font-semibold mt-4">4. Account Responsibilities</h3>
+        <p>You are responsible for:</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Keeping your password safe</li>
+          <li>Using your account properly</li>
+          <li>Reporting suspicious activity</li>
+        </ul>
+        <h3 className="text-lg font-semibold mt-4">5. Service Changes</h3>
+        <p>We may update or improve features at any time. We will inform users if there are major changes.</p>
+        <h3 className="text-lg font-semibold mt-4">6. Ending Your Account</h3>
+        <p>You may delete your account anytime. We may suspend accounts that violate the rules.</p>
+        <h3 className="text-lg font-semibold mt-4">7. Disclaimer</h3>
+        <p>Lemivon is a study aid and not a replacement for official lessons, teachers, or school materials.</p>
+      </ThemedModal>
+      <ThemedModal
+        open={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Help & Support"
+      >
+        <p>Need help? Lemivon is here for you!</p>
+        <h3 className="text-lg font-semibold mt-4">1. Common Questions</h3>
+        <p><strong>How do I upload a file?</strong><br />Go to “Add File,” select your document or image, and Lemivon will scan it.</p>
+        <p><strong>How do I create flashcards or quizzes?</strong><br />Upload your file → choose “Generate Study Tools” → pick flashcards, true/false, quiz, or summary.</p>
+        <p><strong>Where are my notes saved?</strong><br />All notes appear in your Personal Library.</p>
+        <p><strong>Can I listen to music while studying?</strong><br />Yes! Open Study Mode → tap Music Player.</p>
+        <h3 className="text-lg font-semibold mt-4">2. Troubleshooting</h3>
+        <p><strong>AI not generating?</strong> Try re-uploading the file or checking your internet connection.</p>
+        <p><strong>Calendar event not appearing?</strong> Make sure calendar access is enabled in your device settings.</p>
+        <p><strong>App is lagging?</strong> Restart Lemivon or clear temporary files.</p>
+        <h3 className="text-lg font-semibold mt-4">3. Contact Support</h3>
+        <p>Need more help?<br />Email: Lemivon.com<br />Facebook Page: Lemivon</p>
+        <h3 className="text-lg font-semibold mt-4">Extra Tips</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Keep uploads concise for faster summarization.</li>
+          <li>Use focus sounds + timer for structured sessions.</li>
+          <li>Report bugs or suggest features on GitHub.</li>
+        </ul>
+      </ThemedModal>
     </div>
   )
 }

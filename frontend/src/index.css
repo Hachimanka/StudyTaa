@@ -249,5 +249,19 @@ html {
 .bg-teal-50, .bg-blue-50, .bg-green-50, .bg-purple-50, .bg-pink-50 { background-color: color-mix(in srgb, var(--color-primary) 8%, var(--surface)) !important; }
 .bg-teal-500, .bg-blue-500, .bg-green-500, .bg-purple-500, .bg-pink-500 { background-color: var(--color-primary) !important; }
 
+/* Fade-up entrance animation with adjustable duration via CSS variable */
+@keyframes fade-up {
+	0% { opacity: 0; transform: translateY(16px); }
+	55% { opacity: 1; }
+	100% { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-up var(--fade-up-duration,560ms) cubic-bezier(.18,.86,.32,1) both; will-change: transform, opacity; }
+.animate-fade-up-fast { --fade-up-duration:360ms; }
+.animate-fade-up-slow { --fade-up-duration:900ms; }
+.animate-fade-up-delay-1 { animation-delay: 60ms; }
+.animate-fade-up-delay-2 { animation-delay: 120ms; }
+.animate-fade-up-delay-3 { animation-delay: 180ms; }
+.animate-fade-up-delay-4 { animation-delay: 240ms; }
+
 
 

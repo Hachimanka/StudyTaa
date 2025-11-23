@@ -164,12 +164,12 @@ export default function Summarize() {
   };
 
   return (
-    <div className={`flex min-h-screen`} style={{ background: 'var(--bg)' }}>
+    <div className={`flex min-h-screen animate-fade-up-slow`} style={{ background: 'var(--bg)' }}>
       <Sidebar />
 
-      <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28">
+      <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28 animate-fade-up">
         {/* Page Title */}
-        <div className="mb-8 transform transition-all duration-500 hover:scale-105">
+        <div className="mb-8 transform transition-all duration-500 hover:scale-105 animate-fade-up-fast">
           <h1 className={`text-5xl font-bold page-title`}>
             🤖 AI Content Summarizer
           </h1>
@@ -181,7 +181,7 @@ export default function Summarize() {
         {/* Content Wrapper */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-8">
           {/* Input Section */}
-          <div className={`xl:col-span-2 shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
+          <div className={`xl:col-span-2 shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 animate-fade-up-delay-1 animate-fade-up`} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} flex items-center`}>
                 <span className="mr-2">📝</span>
@@ -387,7 +387,7 @@ export default function Summarize() {
 
           {/* Enhanced Summary Results Section */}
           <div className="xl:col-span-1 space-y-6">
-            <div className={`shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
+            <div className={`shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 animate-fade-up-delay-2 animate-fade-up`} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} flex items-center`}>
                   <span className="mr-2">🎯</span>
@@ -500,7 +500,7 @@ export default function Summarize() {
 
             {/* History Section */}
             {showHistory && summaryHistory.length > 0 && (
-              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300`}>
+              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 animate-fade-up-delay-3 animate-fade-up`}>
                 <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4 flex items-center`}>
                   <span className="mr-2">📚</span>
                   Summary History
@@ -544,7 +544,7 @@ export default function Summarize() {
             )}
 
             {/* Saved Summaries (always visible) */}
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 mt-6`}> 
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 mt-6 animate-fade-up-delay-4 animate-fade-up`}> 
               <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4 flex items-center`}>
                 <span className="mr-2">💾</span>
                 Saved Summaries

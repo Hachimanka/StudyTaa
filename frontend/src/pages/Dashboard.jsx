@@ -515,7 +515,12 @@ export default function Home() {
                   </div>
                 ))
               ) : (
-                weeklyProgress.map((day, i) => (
+                (() => {
+                  const maxMinutes = weeklyProgress.reduce((m, d) => Math.max(m, d.minutes || 0), 0) || 1;
+                  return weeklyProgress.map((day, i) => {
+                    const pct = (day.minutes / maxMinutes) * 100;
+                    const widthPct = Math.max(pct, day.minutes > 0 ? 4 : 0); // ensure tiny visible bar if >0
+                    return (
                   <div key={i} className="flex items-center justify-between">
                     <span className="font-medium w-12">{day.day}</span>
                     <div className="flex-1 mx-4">
@@ -523,9 +528,15 @@ export default function Home() {
                         <div 
                           className="h-2 rounded-full"
                           style={{
-                            background: `linear-gradient(to right, ${themeColors.primary}, ${themeColors.primary}dd)`,
-                            width: `${Math.min(day.sessions * 20, 100)}%`
+                            background: themeColors.gradientCss || `linear-gradient(to right, ${themeColors.primaryHex || themeColors.primary}, ${(themeColors.primaryHex || themeColors.primary)}dd)`,
+                            width: `${Math.min(widthPct, 100)}%`,
+                            transition: 'width 0.4s ease'
                           }}
+                            aria-label={`${day.minutes} minutes studied on ${day.day}`}
+                            role="progressbar"
+                            aria-valuenow={day.minutes}
+                            aria-valuemin={0}
+                            aria-valuemax={maxMinutes}
                         ></div>
                       </div>
                     </div>
@@ -533,7 +544,9 @@ export default function Home() {
                       {day.minutes}min
                     </span>
                   </div>
-                ))
+                    );
+                  });
+                })()
               )}
             </div>
           </div>

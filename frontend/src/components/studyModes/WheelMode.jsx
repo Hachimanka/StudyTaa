@@ -204,18 +204,19 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
             );
           })}
         </svg>
-        {/* Large wheel pointer */}
+        {/* Large wheel pointer (adjusted to point at wheel edge) */}
         <div
           className="absolute left-1/2"
           style={{
-            top: -32,
+            top: -12,
             transform: 'translateX(-50%)',
             zIndex: 2,
+            pointerEvents: 'none'
           }}
         >
-          <svg width="48" height="48" viewBox="0 0 48 48">
-            <polygon points="24,0 40,32 8,32" fill="#14b8a6" stroke="#0f766e" strokeWidth="2" />
-            <circle cx="24" cy="36" r="6" fill="#fff" stroke="#0f766e" strokeWidth="2" />
+          <svg width="56" height="44" viewBox="0 0 56 44">
+            <polygon points="28,2 52,36 4,36" fill="#14b8a6" stroke="#0f766e" strokeWidth="2" />
+            <circle cx="28" cy="36" r="4" fill="#fff" stroke="#0f766e" strokeWidth="2" />
           </svg>
         </div>
       </div>
@@ -230,16 +231,27 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
       >
         {wheelSpinning ? 'Spinning...' : 'Spin the Wheel'}
       </button>
-      {content.length > 0 && selectedIndex < content.length && (
+      {content.length > 0 && (
         <div className={`${cardBg} rounded-xl p-6 shadow`}>
           <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>🎡 Wheel Question:</h3>
-          
-          {/* Question Display */}
-          <div className="mb-6">
-            <p className={`text-lg font-medium mb-4 ${cardText}`}>
-              {content[selectedIndex]?.label || content[selectedIndex]?.question || content[selectedIndex]?.content || content[selectedIndex]?.title || content[selectedIndex]?.topic || content[selectedIndex]?.front || content[selectedIndex]?.statement || 'Question not found'}
-            </p>
-          </div>
+          {/* If spinning, show spinner text; if no revealed index, prompt to spin; else show question */}
+          {wheelSpinning ? (
+            <div className="mb-6 text-center py-8">
+              <div className="text-lg font-medium mb-2">Spinning...</div>
+              <div className="text-sm text-gray-500">The question will appear after the wheel stops.</div>
+            </div>
+          ) : activeIndex === null ? (
+            <div className="mb-6 text-center py-8">
+              <div className="text-lg font-medium mb-2">Spin the wheel to reveal a question</div>
+              <div className="text-sm text-gray-500">Click "Spin the Wheel" to get a randomized question.</div>
+            </div>
+          ) : (
+            <div className="mb-6">
+              <p className={`text-lg font-medium mb-4 ${cardText}`}>
+                {content[activeIndex]?.label || content[activeIndex]?.question || content[activeIndex]?.content || content[activeIndex]?.title || content[activeIndex]?.topic || content[activeIndex]?.front || content[activeIndex]?.statement || 'Question not found'}
+              </p>
+            </div>
+          )}
 
           {/* Answer Section */}
           {!hasAnswered ? (

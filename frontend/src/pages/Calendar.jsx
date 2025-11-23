@@ -873,6 +873,21 @@ export default function Calendar(){
     weeks.push(week);
   }
 
+  // Unified month navigation with year rollover
+  const changeMonth = (delta) => {
+    let newMonth = viewMonth + delta;
+    let newYear = viewYear;
+    if (newMonth < 0) {
+      newMonth = 11;
+      newYear -= 1;
+    } else if (newMonth > 11) {
+      newMonth = 0;
+      newYear += 1;
+    }
+    setViewMonth(newMonth);
+    setViewYear(newYear);
+  };
+
   // Event management functions
   const handleSaveEvent = (eventData) => {
     const persist = async () => {
@@ -1630,7 +1645,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
               <button 
-                onClick={() => setViewMonth(viewMonth === 0 ? 11 : viewMonth - 1)} 
+                onClick={() => changeMonth(-1)} 
                 className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:' + themeColors.light} hover:${themeColors.text} transition-all duration-200 flex items-center justify-center group`}
               >
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="group-hover:scale-110 transition-transform">
@@ -1674,7 +1689,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
               </div>
               
               <button 
-                onClick={() => setViewMonth(viewMonth === 11 ? 0 : viewMonth + 1)} 
+                onClick={() => changeMonth(1)} 
                 className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:' + themeColors.light} hover:${themeColors.text} transition-all duration-200 flex items-center justify-center group`}
               >
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="group-hover:scale-110 transition-transform">

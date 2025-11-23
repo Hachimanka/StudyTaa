@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Sidebar from '../components/Sidebar'
 import TopNav from '../components/TopNav'
 import ChatWidget from '../components/ChatWidget'
@@ -9,7 +9,7 @@ import axios from 'axios'
 const DEBUG_EXTRACTION = false;
 
 // Event Modal Component
-function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, themeColors }) {
+function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, themeColors, onRequestNew }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -71,9 +71,8 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
   };
 
   const handleDelete = () => {
-    if (event && window.confirm('Are you sure you want to delete this event?')) {
-      onDelete(event.id);
-      onClose();
+    if (event) {
+      onDelete(event.id); // parent opens confirm modal
     }
   };
 
@@ -190,7 +189,7 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
             </div>
           </div>
 
-          <div className="flex gap-2 mt-5">
+          <div className="flex flex-wrap gap-2 mt-5">
             <button
               onClick={handleSave}
               className={`flex-1 px-3 py-2 text-white rounded-lg transition-colors text-sm font-medium`}
@@ -206,6 +205,14 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
                 Delete
               </button>
             )}
+            {event && (
+              <button
+                onClick={() => { onRequestNew && onRequestNew(); }}
+                className={`px-3 py-2 ${darkMode ? 'bg-blue-700 text-white hover:bg-blue-600' : 'bg-blue-100 text-blue-800 hover:bg-blue-200'} rounded-lg transition-colors text-sm font-medium`}
+              >
+                Add Event
+              </button>
+            )}
             <button
               onClick={onClose}
               className={`px-3 py-2 ${darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} rounded-lg transition-colors text-sm font-medium`}
@@ -213,6 +220,57 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
               Cancel
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Generic notification modal
+function NotificationModal({ open, onClose, message, type = 'info', darkMode }) {
+  const ref = useRef(null);
+  useEffect(() => { if (open && ref.current) ref.current.focus(); }, [open]);
+  if (!open) return null;
+  // Unified accent color logic: red when no events found, blue otherwise, override for errors
+  const accent = type === 'error' ? 'bg-red-600' : type === 'nonevents' ? 'bg-red-600' : type === 'eventsfound' ? 'bg-blue-600' : 'bg-blue-600';
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+      <div className="absolute inset-0 backdrop-blur-sm backdrop-brightness-75" onClick={onClose} />
+      <div className={`relative w-full max-w-md rounded-xl shadow-xl ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} p-6`} ref={ref} tabIndex={-1}>
+        <div className="flex items-start gap-4">
+          <div className={`w-12 h-12 ${accent} text-white rounded-xl flex items-center justify-center text-xl font-bold shrink-0 select-none`}>!
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm leading-relaxed whitespace-pre-line">{message}</p>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className={`px-4 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-1 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 focus:ring-gray-500' : 'bg-gray-200 hover:bg-gray-300 focus:ring-gray-400'}`}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Confirmation modal
+function ConfirmModal({ open, onCancel, onConfirm, title = 'Confirm', description = 'Are you sure?', confirmLabel = 'Confirm', darkMode }) {
+  const ref = useRef(null);
+  useEffect(() => { if (open && ref.current) ref.current.focus(); }, [open]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+      <div className="absolute inset-0 backdrop-blur-sm backdrop-brightness-75" onClick={onCancel} />
+      <div className={`relative w-full max-w-md rounded-xl shadow-xl ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} p-6`} ref={ref} tabIndex={-1}>
+        <div className="flex items-start gap-4 mb-4">
+          <div className="w-12 h-12 bg-red-600 text-white rounded-xl flex items-center justify-center text-xl font-bold shrink-0">!</div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold mb-1">{title}</h2>
+            <p className="text-sm whitespace-pre-line leading-relaxed">{description}</p>
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <button onClick={onCancel} className={`px-4 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-1 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 focus:ring-gray-500' : 'bg-gray-200 hover:bg-gray-300 focus:ring-gray-400'}`}>Cancel</button>
+          <button onClick={onConfirm} className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500">{confirmLabel}</button>
         </div>
       </div>
     </div>
@@ -784,6 +842,8 @@ export default function Calendar(){
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false); // Add/Edit modal
   const [isListModalOpen, setIsListModalOpen] = useState(false); // Multiple events list
+  const [notification, setNotification] = useState(null); // {message,type}
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   // Prevent background scroll when any modal is open
   useEffect(() => {
@@ -873,21 +933,6 @@ export default function Calendar(){
     weeks.push(week);
   }
 
-  // Unified month navigation with year rollover
-  const changeMonth = (delta) => {
-    let newMonth = viewMonth + delta;
-    let newYear = viewYear;
-    if (newMonth < 0) {
-      newMonth = 11;
-      newYear -= 1;
-    } else if (newMonth > 11) {
-      newMonth = 0;
-      newYear += 1;
-    }
-    setViewMonth(newMonth);
-    setViewYear(newYear);
-  };
-
   // Event management functions
   const handleSaveEvent = (eventData) => {
     const persist = async () => {
@@ -909,6 +954,7 @@ export default function Calendar(){
             reminder: !!saved.reminder
           };
           setEvents(events.map(e => e.id === eventData.id ? mapped : e));
+          setNotification({ message: 'Event updated successfully.', type: 'eventsfound' });
         } else {
           const payload = { ...eventData, date: eventData.date.toISOString() };
           const res = await axios.post('/api/events', payload, { headers });
@@ -924,35 +970,40 @@ export default function Calendar(){
             reminder: !!saved.reminder
           };
           setEvents([...events, mapped]);
+          setNotification({ message: 'Event added successfully.', type: 'eventsfound' });
         }
       } catch (err) {
         console.warn('Persist event failed, applying local update only:', err?.message || err);
         // Local fallback
         if (eventData.id && events.find(e => e.id === eventData.id)) {
           setEvents(events.map(e => e.id === eventData.id ? eventData : e));
+          setNotification({ message: 'Event updated locally (save failed).', type: 'eventsfound' });
         } else {
           setEvents([...events, eventData]);
+          setNotification({ message: 'Event added locally (save failed).', type: 'eventsfound' });
         }
       }
     };
     persist();
   };
 
-  const handleDeleteEvent = (eventId) => {
-    const doDelete = async () => {
-      const headers = getAuthHeaders();
-      const isServerId = typeof eventId === 'string' && eventId.length === 24;
-      try {
-        if (isServerId && headers.Authorization) {
-          await axios.delete(`/api/events/${eventId}`, { headers });
-        }
-      } catch (err) {
-        console.warn('Delete event API failed, removing locally:', err?.message || err);
-      } finally {
-        setEvents(events.filter(e => e.id !== eventId));
+  const performDeleteEvent = async (eventId) => {
+    const headers = getAuthHeaders();
+    const isServerId = typeof eventId === 'string' && eventId.length === 24;
+    try {
+      if (isServerId && headers.Authorization) {
+        await axios.delete(`/api/events/${eventId}`, { headers });
       }
-    };
-    doDelete();
+    } catch (err) {
+      console.warn('Delete event API failed, removing locally:', err?.message || err);
+    } finally {
+      setEvents(events.filter(e => e.id !== eventId));
+      setNotification({ message: 'Event deleted.', type: 'info' });
+    }
+  };
+
+  const handleDeleteEvent = (eventId) => {
+    setConfirmDeleteId(eventId);
   };
 
   const handleDateClick = (day) => {
@@ -1087,7 +1138,7 @@ export default function Calendar(){
       }
       // Check if we have meaningful text content
       if (!fileText || fileText.trim().length < 10) {
-        alert(`File uploaded but no readable text found in ${file.name}`);
+        setNotification({ message: `File uploaded but no readable text found in ${file.name}`, type: 'error' });
         setUploading(false);
         return;
       }
@@ -1120,7 +1171,7 @@ export default function Calendar(){
       const hasDatePatterns = comprehensiveDatePatterns.some(pattern => pattern.test(fullText));
 
       if (!hasDateKeywords && !hasDatePatterns) {
-        alert(`No calendar content detected in ${file.name}`);
+        setNotification({ message: `No calendar content detected in ${file.name}`, type: 'info' });
         setUploading(false);
         return;
       }
@@ -1455,7 +1506,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             reminder: !!d.reminder
           }));
           setEvents([...events, ...mapped]);
-          alert(`✅ Added ${mapped.length} event${mapped.length !== 1 ? 's' : ''} from ${file.name}`);
+          setNotification({ message: `Added ${mapped.length} event${mapped.length !== 1 ? 's' : ''} from ${file.name}`, type: 'eventsfound' });
         } else {
           // Fallback: add locally if not saved (e.g., unauthenticated)
           const localEvents = createPayload.map((p, i) => ({
@@ -1470,18 +1521,18 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           }));
           if (localEvents.length > 0) {
             setEvents([...events, ...localEvents]);
-            alert(`✅ Added ${localEvents.length} event${localEvents.length !== 1 ? 's' : ''} from ${file.name}`);
+            setNotification({ message: `Added ${localEvents.length} event${localEvents.length !== 1 ? 's' : ''} from ${file.name}`, type: 'eventsfound' });
           } else {
-            alert(`No new events added — possible duplicates detected.`);
+            setNotification({ message: 'No new events added — possible duplicates detected.', type: 'nonevents' });
           }
         }
       } else {
-        alert(`📄 File processed - no events found in ${file.name}`);
+        setNotification({ message: `No events found in ${file.name}`, type: 'nonevents' });
       }
       
     } catch (err) {
       console.error('Calendar file upload error:', err);
-      alert(`Failed to process file: ${file.name}\n\nError: ${err.message || 'Unknown error'}\n\nPlease try a different file or check the file format.`);
+      setNotification({ message: `Failed to process file: ${file.name}\nError: ${err.message || 'Unknown error'}`, type: 'error' });
     } finally {
       setUploading(false);
       // Clear the file input
@@ -1645,7 +1696,14 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
               <button 
-                onClick={() => changeMonth(-1)} 
+                onClick={() => {
+                  if (viewMonth === 0) {
+                    setViewMonth(11);
+                    setViewYear(viewYear - 1);
+                  } else {
+                    setViewMonth(viewMonth - 1);
+                  }
+                }} 
                 className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:' + themeColors.light} hover:${themeColors.text} transition-all duration-200 flex items-center justify-center group`}
               >
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="group-hover:scale-110 transition-transform">
@@ -1689,7 +1747,14 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
               </div>
               
               <button 
-                onClick={() => changeMonth(1)} 
+                onClick={() => {
+                  if (viewMonth === 11) {
+                    setViewMonth(0);
+                    setViewYear(viewYear + 1);
+                  } else {
+                    setViewMonth(viewMonth + 1);
+                  }
+                }} 
                 className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:' + themeColors.light} hover:${themeColors.text} transition-all duration-200 flex items-center justify-center group`}
               >
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="group-hover:scale-110 transition-transform">
@@ -1890,6 +1955,23 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           date={selectedDate}
           darkMode={darkMode}
           themeColors={themeColors}
+          onRequestNew={() => { setSelectedEvent(null); }}
+        />
+        <NotificationModal
+          open={!!notification}
+          message={notification?.message}
+          type={notification?.type}
+          onClose={() => setNotification(null)}
+          darkMode={darkMode}
+        />
+        <ConfirmModal
+          open={!!confirmDeleteId}
+          title="Delete Event"
+          description="This action cannot be undone. Delete this event?"
+          confirmLabel="Delete"
+          onCancel={() => setConfirmDeleteId(null)}
+          onConfirm={() => { performDeleteEvent(confirmDeleteId); setConfirmDeleteId(null); setIsModalOpen(false); setSelectedEvent(null); }}
+          darkMode={darkMode}
         />
       </main>
     </div>

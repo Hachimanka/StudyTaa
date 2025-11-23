@@ -219,6 +219,71 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
   );
 }
 
+// Modal to choose one of multiple events on a date
+function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, darkMode, themeColors }) {
+  if (!isOpen) return null;
+  const dayLabel = date ? date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  return (
+    <div className="fixed inset-0 backdrop-blur-md backdrop-brightness-75 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'var(--surface)' }}
+        className={`rounded-xl shadow-xl max-w-xl w-full max-h-[80vh] overflow-y-auto`}
+      >
+        <div className="p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>
+              {dayLabel}: {events.length} Events
+            </h2>
+            <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: 'transparent' }}>
+              <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+              </svg>
+            </button>
+          </div>
+          <div className="space-y-2">
+            {events.map(ev => (
+              <button
+                key={ev.id}
+                onClick={() => onSelect(ev)}
+                className={`w-full text-left p-3 rounded-lg border transition-colors ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span>{ev.priority === 'high' ? '🔴' : ev.priority === 'medium' ? '🟡' : '🟢'}</span>
+                    <span className={`font-medium truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{ev.title}</span>
+                    {ev.time && <span className="text-xs opacity-70 whitespace-nowrap">{ev.time}</span>}
+                  </div>
+                  <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${ev.category === 'exam' ? 'bg-red-200 text-red-800' : ev.category === 'assignment' ? 'bg-yellow-200 text-yellow-800' : ev.category === 'meeting' ? 'bg-purple-200 text-purple-800' : ev.category === 'personal' ? 'bg-green-200 text-green-800' : ev.category === 'study' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-800'}`}>{ev.category}</span>
+                </div>
+                {ev.description && <p className={`mt-1 text-xs line-clamp-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{ev.description}</p>}
+              </button>
+            ))}
+            {events.length === 0 && (
+              <div className={`text-center py-12 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No events</div>
+            )}
+          </div>
+          <div className="flex gap-2 mt-5">
+            <button
+              onClick={onAddNew}
+              className={`flex-1 px-3 py-2 text-white rounded-lg transition-colors text-sm font-medium`}
+              style={{ background: 'var(--color-primary)' }}
+            >
+              Add New Event
+            </button>
+            <button
+              onClick={onClose}
+              className={`px-3 py-2 ${darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} rounded-lg transition-colors text-sm font-medium`}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Helper functions for file reading
 const readFileAsText = (file) => {
   return new Promise((resolve, reject) => {
@@ -717,7 +782,36 @@ export default function Calendar(){
   const [events, setEvents] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Add/Edit modal
+  const [isListModalOpen, setIsListModalOpen] = useState(false); // Multiple events list
+
+  // Prevent background scroll when any modal is open
+  useEffect(() => {
+    const anyOpen = isModalOpen || isListModalOpen;
+    if (anyOpen) {
+      // store previous overflow to restore accurately
+      if (!document.body.dataset.prevOverflow) {
+        document.body.dataset.prevOverflow = document.body.style.overflow || '';
+      }
+      document.body.style.overflow = 'hidden';
+    } else {
+      if (document.body.dataset.prevOverflow !== undefined) {
+        document.body.style.overflow = document.body.dataset.prevOverflow;
+        delete document.body.dataset.prevOverflow;
+      } else {
+        document.body.style.overflow = '';
+      }
+    }
+    return () => {
+      // cleanup in case component unmounts while modal open
+      if (document.body.dataset.prevOverflow !== undefined) {
+        document.body.style.overflow = document.body.dataset.prevOverflow;
+        delete document.body.dataset.prevOverflow;
+      } else {
+        document.body.style.overflow = '';
+      }
+    };
+  }, [isModalOpen, isListModalOpen]);
   const [uploading, setUploading] = useState(false);
   const [view, setView] = useState('month'); // month, week, day
   const [searchTerm, setSearchTerm] = useState('');
@@ -848,9 +942,21 @@ export default function Calendar(){
 
   const handleDateClick = (day) => {
     const clickedDate = new Date(viewYear, viewMonth, day);
+    const dayEvents = getEventsForDay(day);
     setSelectedDate(clickedDate);
-    setSelectedEvent(null);
-    setIsModalOpen(true);
+    if (dayEvents.length === 0) {
+      // No events -> open add modal
+      setSelectedEvent(null);
+      setIsModalOpen(true);
+    } else if (dayEvents.length === 1) {
+      // Single event -> open detail/edit directly
+      setSelectedEvent(dayEvents[0]);
+      setIsModalOpen(true);
+    } else {
+      // Multiple events -> show list first
+      setSelectedEvent(null);
+      setIsListModalOpen(true);
+    }
   };
 
   const handleEventClick = (event, e) => {
@@ -858,6 +964,7 @@ export default function Calendar(){
     setSelectedEvent(event);
     setSelectedDate(event.date);
     setIsModalOpen(true);
+    setIsListModalOpen(false); // ensure list closes if coming from it
   };
 
   // Handle school calendar upload and AI extraction
@@ -1437,7 +1544,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           </div>
           <div className="mt-6 flex gap-2">
             <button
-              onClick={() => {setSelectedDate(new Date()); setSelectedEvent(null); setIsModalOpen(true);}}
+              onClick={() => {setSelectedDate(new Date()); setSelectedEvent(null); setIsModalOpen(true); setIsListModalOpen(false);}}
               className={`px-4 py-2 ${themeColors.bg} ${themeColors.hoverBg} text-white rounded-lg transition-colors flex items-center gap-2`}
             >
               <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -1747,7 +1854,18 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           </div>
         </div>
 
-        {/* Event Modal */}
+        {/* Event List Modal (multiple events selection) */}
+        <EventListModal
+          isOpen={isListModalOpen}
+          onClose={() => setIsListModalOpen(false)}
+          events={selectedDate ? events.filter(ev => ev.date.getFullYear() === selectedDate.getFullYear() && ev.date.getMonth() === selectedDate.getMonth() && ev.date.getDate() === selectedDate.getDate()) : []}
+          date={selectedDate}
+          onSelect={(ev) => { setSelectedEvent(ev); setIsModalOpen(true); setIsListModalOpen(false); }}
+          onAddNew={() => { setSelectedEvent(null); setIsModalOpen(true); setIsListModalOpen(false); }}
+          darkMode={darkMode}
+          themeColors={themeColors}
+        />
+        {/* Event Modal (add/edit) */}
         <EventModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}

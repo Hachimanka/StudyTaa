@@ -1426,11 +1426,11 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
   };
 
   return (
-    <div className={`flex min-h-screen ${darkMode ? 'bg-gray-900' : ''}`}>
+    <div className={`flex min-h-screen ${darkMode ? 'bg-gray-900' : ''} animate-fade-up-slow`}>
       <Sidebar />
-      <main className="flex-1 p-12 ml-20 md:ml-30">
+      <main className="flex-1 p-12 ml-20 md:ml-30 animate-fade-up">
         <ChatWidget />
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex justify-between items-start mb-6 animate-fade-up-fast">
           <div>
             <h1 className={`text-5xl font-bold page-title mt-6`}>Smart Calendar</h1>
             <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Manage your study schedule with intelligent event organization</p>
@@ -1450,7 +1450,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         </div>
 
         {/* Search and Filter Bar */}
-        <div className={`mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-4`}>
+        <div className={`mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-4 animate-fade-up-delay-1 animate-fade-up` }>
           <div className="flex flex-col md:flex-row gap-4 items-center">
             <div className="flex-1 relative">
               <input
@@ -1519,7 +1519,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         )}
 
         {/* Calendar grid with year/month selectors */}
-        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 mb-8`}>
+        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 mb-8 animate-fade-up-delay-2 animate-fade-up`}>
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
               <button 
@@ -1648,9 +1648,9 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         </div>
 
         {/* Upcoming Events and Statistics */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-up-delay-3 animate-fade-up">
           {/* Upcoming Events */}
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6`}>
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 animate-fade-up-delay-4 animate-fade-up`}>
             <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : ''}`}>
               <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className={`${themeColors.text}`}>
                 <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
@@ -1696,7 +1696,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           </div>
 
           {/* Calendar Statistics */}
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6`}>
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 animate-fade-up-delay-4 animate-fade-up`}>
             <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : ''}`}>
               <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className={`${themeColors.text}`}>
                 <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5v12h-2V2h2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zM1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>

@@ -151,7 +151,7 @@ export default function Settings() {
       case 'appearance':
         return (
           <div className="space-y-6">
-            <div className={`p-6 rounded-xl shadow-lg`} style={{ background: 'var(--surface)' }}>
+            <div className={`p-6 rounded-xl shadow-lg animate-fade-up animate-fade-up-slow`} style={{ background: 'var(--surface)' }}>
               <h3 className={`text-lg font-semibold mb-4`} style={{ color: 'var(--text)' }}>
                 Theme & Display
               </h3>
@@ -206,7 +206,7 @@ export default function Settings() {
       case 'account':
         return (
           <div className="space-y-6">
-            <div className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+            <div className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg animate-fade-up animate-fade-up-slow`}>
               <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                 Account Information
               </h3>
@@ -262,7 +262,7 @@ export default function Settings() {
       case 'about':
         return (
           <div className="space-y-6">
-            <div className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg text-center`}>
+            <div className={`p-6 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg text-center animate-fade-up animate-fade-up-slow`}>
               <div className="mb-6">
                 <img src="/StudyTaLogo.png" alt="StudyTa" className="w-16 h-16 mx-auto mb-4" />
                 <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
@@ -310,13 +310,13 @@ export default function Settings() {
   }
 
   return (
-    <div className={`flex min-h-screen transition-colors duration-300`} style={{ background: 'var(--bg)' }}>
+    <div className={`flex min-h-screen transition-colors duration-300 animate-fade-up animate-fade-up-slow`} style={{ background: 'var(--bg)' }}>
       <Sidebar />
-      <main className="flex-1 p-8 ml-20 md:ml-30">
+      <main className="flex-1 p-8 ml-20 md:ml-30 animate-fade-up animate-fade-up-slow">
         <ChatWidget />
         
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-8 animate-fade-up animate-fade-up-slow">
           <h1 className={`text-5xl font-bold page-title`}>
             Settings
           </h1>
@@ -327,8 +327,8 @@ export default function Settings() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Settings Navigation */}
-          <div className="lg:col-span-1">
-            <div className={`p-4 rounded-xl shadow-lg ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className="lg:col-span-1 animate-fade-up animate-fade-up-slow">
+            <div className={`p-4 rounded-xl shadow-lg animate-fade-up animate-fade-up-slow ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
               <nav className="space-y-2">
                 {tabs.map((tab) => (
                   <button
@@ -351,7 +351,7 @@ export default function Settings() {
           </div>
 
           {/* Settings Content */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 animate-fade-up animate-fade-up-slow">
             {renderTabContent()}
             
             {/* Action buttons: Reset only on Appearance; Save on Appearance and Account */}

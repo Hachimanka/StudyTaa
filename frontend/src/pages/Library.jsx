@@ -1182,13 +1182,13 @@ export default function Library() {
   if (loading) {
     // Skeleton loading state: show cards, toolbar, and list placeholders
     return (
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen animate-fade-left-slow">
         <Sidebar />
-        <main className="flex-1 p-12 ml-20 md:ml-30">
+        <main className="flex-1 p-12 ml-20 md:ml-30 animate-fade-left">
           <ChatWidget />
 
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-8 animate-fade-left">
             <div className="h-8 w-40 bg-gray-200 rounded mb-2 animate-pulse"></div>
             <div className="h-4 w-80 bg-gray-200 rounded animate-pulse"></div>
           </div>
@@ -1196,7 +1196,7 @@ export default function Library() {
           {/* Stats skeleton */}
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             {[1,2,3].map((i) => (
-              <div key={i} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+              <div key={i} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm animate-fade-left">
                 <div className="flex items-center gap-4">
                   <div className="flex-shrink-0">
                     <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
@@ -1211,7 +1211,7 @@ export default function Library() {
           </div>
 
           {/* Toolbar skeleton (search + actions) */}
-          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 animate-fade-left">
             <div className="h-10 bg-gray-200 rounded w-full md:w-80 animate-pulse"></div>
             <div className="flex items-center gap-3">
               <div className="h-10 w-28 bg-gray-200 rounded animate-pulse"></div>
@@ -1220,7 +1220,7 @@ export default function Library() {
           </div>
 
           {/* Library Content skeleton */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 animate-fade-left">
             {/* Breadcrumbs skeleton */}
             <div className="mb-4 flex items-center gap-2">
               <div className="h-4 w-20 bg-gray-200 rounded animate-pulse"></div>

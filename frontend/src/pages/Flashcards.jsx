@@ -202,6 +202,12 @@ export default function FileBasedStudyApp() {
   const [aiSuggestions, setAiSuggestions] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
+  const [showLoadModal, setShowLoadModal] = useState(false);
+  const [recentLoadedSet, setRecentLoadedSet] = useState(null);
+  const [pendingLoadSet, setPendingLoadSet] = useState(null);
+  const [showConfirmLoad, setShowConfirmLoad] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const aiRequestTimer = useRef(null);
 
   // Auto match when both selected
@@ -631,8 +637,12 @@ export default function FileBasedStudyApp() {
       matching: 'matching pairs',
       fillBlanks: 'fill-in-the-blanks'
     };
-    
-    alert(`Loaded ${savedSet.itemCount || savedSet.content?.length || savedSet.cards?.length} ${modeNames[savedSet.studyMode] || 'items'} from "${savedSet.title}"`);
+    setRecentLoadedSet({
+      title: savedSet.title,
+      count: savedSet.itemCount || savedSet.content?.length || savedSet.cards?.length || 0,
+      mode: modeNames[savedSet.studyMode] || 'items'
+    });
+    setShowLoadModal(true);
   };
 
   // Delete saved study sets
@@ -640,6 +650,42 @@ export default function FileBasedStudyApp() {
     const updatedSaved = savedStudySets.filter(set => set.id !== id);
     setSavedStudySets(updatedSaved);
     localStorage.setItem('savedStudySets', JSON.stringify(updatedSaved));
+  };
+
+  const confirmLoad = (savedSet) => {
+    setPendingLoadSet(savedSet);
+    setShowConfirmLoad(true);
+  };
+
+  const handleConfirmLoad = () => {
+    if (pendingLoadSet) {
+      loadSavedStudySet(pendingLoadSet);
+    }
+    setShowConfirmLoad(false);
+    setPendingLoadSet(null);
+  };
+
+  const cancelConfirmLoad = () => {
+    setShowConfirmLoad(false);
+    setPendingLoadSet(null);
+  };
+
+  const confirmDelete = (id) => {
+    setPendingDeleteId(id);
+    setShowConfirmDelete(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (pendingDeleteId !== null) {
+      deleteSavedStudySet(pendingDeleteId);
+    }
+    setShowConfirmDelete(false);
+    setPendingDeleteId(null);
+  };
+
+  const cancelConfirmDelete = () => {
+    setShowConfirmDelete(false);
+    setPendingDeleteId(null);
   };
 
   // Request a mode change, prompting to save current generated content if present
@@ -1510,7 +1556,7 @@ export default function FileBasedStudyApp() {
 
   const renderStatsPanel = () => {
     return (
-      <div className={`${cardBg} rounded-xl p-4 shadow-sm`}>
+      <div className={`${cardBg} rounded-xl p-4 shadow-sm animate-fade-up`}>
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-medium">Session Statistics</div>
           <div className="text-xs text-gray-500">{sessionStats.reviewedCount} items</div>
@@ -1585,7 +1631,7 @@ export default function FileBasedStudyApp() {
     if (!fileContent && !uploadedFile && content.length === 0) {
       return (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch ${darkMode ? '' : ''}`}>
-          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto flex flex-col justify-between overflow-auto`}>
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto flex flex-col justify-between overflow-auto animate-fade-up animate-fade-up-slow animate-fade-up-delay-1`}>
             <div>
               <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Ready to Study?</h3>
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>Upload your file to generate AI-powered study materials, or try a sample to preview study modes.</p>
@@ -1619,7 +1665,7 @@ export default function FileBasedStudyApp() {
             <div className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Tip: Use the sample to quickly preview how a study mode looks before uploading your own material.</div>
           </div>
 
-          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto`}> 
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto animate-fade-up animate-fade-up-slow animate-fade-up-delay-2`}> 
             <h3 className={`text-lg font-semibold mb-3 ${cardText}`}>Study Modes</h3>
             <div className="grid grid-cols-2 gap-3">
               {studyModes.map((m) => (
@@ -1643,7 +1689,7 @@ export default function FileBasedStudyApp() {
     if (!activeMode) {
       return (
         <div className={`grid grid-cols-1 md:grid-cols-3 gap-6`}> 
-          <div className={`${cardBg} rounded-xl p-6 shadow col-span-2`}> 
+          <div className={`${cardBg} rounded-xl p-6 shadow col-span-2 animate-fade-up`}> 
             <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Your file is ready</h3>
             <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
             <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-6`}>Choose a study mode to generate AI content and start practicing. Click any card to begin.</p>
@@ -1667,7 +1713,7 @@ export default function FileBasedStudyApp() {
             </div>
           </div>
 
-          <div className={`${cardBg} rounded-xl p-6 shadow`}> 
+          <div className={`${cardBg} rounded-xl p-6 shadow animate-fade-up`}> 
             <h3 className={`text-lg font-semibold mb-3 ${cardText}`}>Quick Actions</h3>
               <div className="space-y-3">
               <button onClick={() => { setContent([]); setActiveMode(null); setFileContent(''); setUploadedFile(null); resetStats(); }} className={`w-full px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-800'}`}>Reset</button>
@@ -1695,7 +1741,7 @@ export default function FileBasedStudyApp() {
               setShowAnswer={setShowAnswer}
             />
             {content.length > 0 && (
-              <div className={`${cardBg} shadow rounded-xl p-4`}>
+              <div className={`${cardBg} shadow rounded-xl p-4 animate-fade-up`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1719,7 +1765,7 @@ export default function FileBasedStudyApp() {
               handleAnswerSelect={handleAnswerSelect}
             />
             {content.length > 0 && (
-              <div className={`${cardBg} shadow rounded-xl p-4`}>
+              <div className={`${cardBg} shadow rounded-xl p-4 animate-fade-up`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1743,7 +1789,7 @@ export default function FileBasedStudyApp() {
               handleAnswerSelect={handleAnswerSelect}
             />
             {content.length > 0 && (
-              <div className={`${cardBg} shadow rounded-xl p-4`}>
+              <div className={`${cardBg} shadow rounded-xl p-4 animate-fade-up`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1774,7 +1820,7 @@ export default function FileBasedStudyApp() {
               setScore={setScore}
             />
             {content.length > 0 && (
-              <div className={`${cardBg} shadow rounded-xl p-4`}>
+              <div className={`${cardBg} shadow rounded-xl p-4 animate-fade-up`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1802,7 +1848,7 @@ export default function FileBasedStudyApp() {
               onComplete={(completed) => setIsCompleted(completed)}
             />
             {content.length > 0 && (
-              <div className={`${cardBg} shadow rounded-xl p-4`}>
+              <div className={`${cardBg} shadow rounded-xl p-4 animate-fade-up`}>
                 <button
                   onClick={saveCurrentStudySet}
                   className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
@@ -1864,7 +1910,7 @@ export default function FileBasedStudyApp() {
         </div>
 
         {/* File Upload */}
-        <div className={`mb-6 ${cardBg} rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}>
+        <div className={`mb-6 ${cardBg} rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 animate-fade-up`}>
           <label className={`block text-sm font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-3`}>
             📄 Upload Study Material
           </label>
@@ -1899,10 +1945,10 @@ export default function FileBasedStudyApp() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-4 lg:grid-cols-3 gap-6">
-            {/* Save prompt modal */}
+            {/* Confirmation Modals */}
             {showSavePrompt && (
               <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
-                <div className={`w-full max-w-lg p-6 rounded-xl ${cardBg} ${cardText} shadow-lg`}>
+                <div className={`w-full max-w-lg p-6 rounded-xl ${cardBg} ${cardText} shadow-lg animate-fade-up`}>
                   <h3 className="text-lg font-semibold mb-2">Save current study set?</h3>
                   <p className="text-sm mb-4">You have generated content for the current study mode. Would you like to save it before switching to a different mode?</p>
                   <div className="flex justify-end gap-3">
@@ -1913,9 +1959,57 @@ export default function FileBasedStudyApp() {
                 </div>
               </div>
             )}
+            {showConfirmLoad && pendingLoadSet && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+                <div className={`w-full max-w-sm p-6 rounded-xl ${cardBg} ${cardText} shadow-lg animate-fade-up`}>
+                  <h3 className="text-lg font-semibold mb-2">Load Study Set?</h3>
+                  <p className="text-sm mb-4">
+                    Load <span className="font-semibold">{pendingLoadSet.itemCount || pendingLoadSet.content?.length || pendingLoadSet.cards?.length || 0}</span> items from
+                    <span className="font-medium"> "{pendingLoadSet.title}"</span>?
+                  </p>
+                  <div className="flex justify-end gap-3">
+                    <button onClick={cancelConfirmLoad} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
+                    <button onClick={handleConfirmLoad} className={`px-4 py-2 rounded-lg ${themeColors.light} ${themeColors.text} hover:${themeColors.hover}`}>Load Set</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {showConfirmDelete && pendingDeleteId !== null && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+                <div className={`w-full max-w-sm p-6 rounded-xl ${cardBg} ${cardText} shadow-lg animate-fade-up`}>
+                  <h3 className="text-lg font-semibold mb-2">Delete Study Set?</h3>
+                  <p className="text-sm mb-4">This action will permanently remove the saved set. Continue?</p>
+                  <div className="flex justify-end gap-3">
+                    <button onClick={cancelConfirmDelete} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
+                    <button onClick={handleConfirmDelete} className="px-4 py-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200">Delete</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {showLoadModal && recentLoadedSet && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+                <div className={`w-full max-w-sm p-6 rounded-xl ${cardBg} ${cardText} shadow-lg animate-fade-up`}>
+                  <h3 className="text-lg font-semibold mb-2">Study Set Loaded</h3>
+                  <p className="text-sm mb-4">
+                    Loaded <span className="font-semibold">{recentLoadedSet.count}</span> {recentLoadedSet.mode} from
+                    <span className="font-medium"> "{recentLoadedSet.title}"</span>.
+                  </p>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => { setShowLoadModal(false); setRecentLoadedSet(null); }}
+                      className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    >Close</button>
+                    <button
+                      onClick={() => { setShowLoadModal(false); }}
+                      className={`px-4 py-2 rounded-lg ${themeColors.light} ${themeColors.text} hover:${themeColors.hover}`}
+                    >Start Studying →</button>
+                  </div>
+                </div>
+              </div>
+            )}
           {/* Mode Selection */}
           <div className="xl:col-span-1 lg:col-span-1">
-            <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+            <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 animate-fade-up animate-fade-up-slow animate-fade-up-delay-3`}>
               <h2 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>🎯 Study Methods</h2>
               <div className="space-y-3">
                 {studyModes.map((mode) => (
@@ -1947,7 +2041,7 @@ export default function FileBasedStudyApp() {
           <div className="xl:col-span-2 lg:col-span-2">
             {/* Progress Bar */}
             {content.length > 0 && activeMode !== 'wheel' && activeMode !== 'matching' && (
-              <div className={`${cardBg} shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+              <div className={`${cardBg} shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 animate-fade-up`}>
                 <div className="flex justify-between items-center mb-2">
                   <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Progress</span>
                   <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-semibold`}>
@@ -1965,7 +2059,7 @@ export default function FileBasedStudyApp() {
 
             {/* Score Display */}
             {(activeMode === 'quiz' || activeMode === 'trueFalse' || activeMode === 'fillBlanks') && content.length > 0 && (
-              <div className={`bg-gradient-to-r ${themeColors.light} ${themeColors.light} shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border border-${themeColors.primary}-100`}>
+              <div className={`bg-gradient-to-r ${themeColors.light} ${themeColors.light} shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border border-${themeColors.primary}-100 animate-fade-up`}>
                 <div className="flex items-center justify-between">
                   <span className={`${themeColors.textDark} font-semibold`}>Current Score</span>
                   <span className={`${themeColors.textDark} text-2xl font-bold ${darkMode ? 'bg-gray-700' : ''} px-3 py-1 rounded-lg shadow-sm`}>
@@ -1976,20 +2070,20 @@ export default function FileBasedStudyApp() {
             )}
 
             {/* Main Content */}
-            <div className="mb-6">
+            <div className="mb-6 animate-fade-up">
               {renderContent()}
             </div>
 
             {/* Stats Panel */}
             {content.length > 0 && (
-              <div className="mb-6">
+              <div className="mb-6 animate-fade-up">
                 {renderStatsPanel()}
               </div>
             )}
 
             {/* Navigation Buttons */}
             {content.length > 0 && activeMode !== 'wheel' && activeMode !== 'matching' && (
-              <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300`}>
+              <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 animate-fade-up`}>
                 <div className="flex justify-between items-center">
                   <button
                     onClick={handlePrevious}
@@ -2035,7 +2129,7 @@ export default function FileBasedStudyApp() {
 
           {/* Saved Study Sets History */}
           <div className="xl:col-span-1 lg:col-span-3 xl:col-start-4">
-            <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+            <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 animate-fade-up animate-fade-up-slow animate-fade-up-delay-3`}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>💾 Saved Study Sets</h2>
                 <button
@@ -2080,14 +2174,14 @@ export default function FileBasedStudyApp() {
                             </div>
                             <div className="flex space-x-1 ml-2">
                               <button
-                                onClick={() => loadSavedStudySet(savedSet)}
+                                onClick={() => confirmLoad(savedSet)}
                                 className={`px-2 py-1 text-xs ${themeColors.light} ${themeColors.text} rounded hover:${themeColors.hover} transition-colors`}
                                 title="Load study set"
                               >
                                 📖 Load
                               </button>
                               <button
-                                onClick={() => deleteSavedStudySet(savedSet.id)}
+                                onClick={() => confirmDelete(savedSet.id)}
                                 className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
                                 title="Delete study set"
                               >

@@ -105,12 +105,12 @@ export default function Music() {
   }
 
   return (
-    <div className={`flex min-h-screen transition-colors duration-300 ${pageBackground}`}>
+    <div className={`flex min-h-screen transition-colors duration-300 animate-fade-up-slow ${pageBackground}`}>
       <Sidebar />
-      <main className="relative flex-1 p-6 md:p-10 ml-20">
+      <main className="relative flex-1 p-6 md:p-10 ml-20 animate-fade-up-slow">
         <ChatWidget />
 
-        <header className="mb-10">
+        <header className="mb-10 animate-fade-up-slow">
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-teal-500 to-teal-600 bg-clip-text text-transparent">
             Focus Music
           </h1>
@@ -157,7 +157,7 @@ export default function Music() {
                   <article
                     key={track.id}
                     onClick={() => playTrack(track)}
-                    className={`cursor-pointer rounded-2xl border-2 p-5 transition-transform hover:-translate-y-1 hover:shadow-lg ${
+                    className={`cursor-pointer rounded-2xl border-2 p-5 transition-transform hover:-translate-y-1 hover:shadow-lg animate-fade-up-slow ${
                       selected
                         ? `bg-gradient-to-br ${themeColors.gradient} text-white border-white/30`
                         : darkMode
@@ -206,7 +206,7 @@ export default function Music() {
             )}
 
             {currentTrack && (
-              <section className={`rounded-2xl border p-6 shadow-xl ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+                          <section className={`rounded-2xl border p-6 shadow-xl animate-fade-up-slow ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="text-sm uppercase tracking-wide text-teal-500">Now Playing</p>
@@ -302,7 +302,7 @@ export default function Music() {
           </section>
 
           <aside className="space-y-6">
-            <section className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-200 text-gray-800'}`}>
+            <section className={`rounded-2xl border p-6 animate-fade-up-slow ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-200 text-gray-800'}`}>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Focus Timer</h3>
                 <button
@@ -377,7 +377,7 @@ export default function Music() {
               )}
             </section>
 
-            <section className={`rounded-2xl p-6 text-white shadow-xl bg-gradient-to-br ${themeColors.gradient}`}>
+            <section className={`rounded-2xl p-6 text-white shadow-xl bg-gradient-to-br animate-fade-up-slow ${themeColors.gradient}`}>
               <h3 className="text-lg font-semibold">Focus Tips</h3>
               <ul className="mt-4 space-y-2 text-sm">
                 {tipList.map((tip) => (

@@ -263,5 +263,19 @@ html {
 .animate-fade-up-delay-3 { animation-delay: 180ms; }
 .animate-fade-up-delay-4 { animation-delay: 240ms; }
 
+/* Fade-left entrance animation mirroring fade-up but translating on X axis */
+@keyframes fade-left {
+	0% { opacity: 0; transform: translateX(16px); }
+	55% { opacity: 1; }
+	100% { opacity: 1; transform: translateX(0); }
+}
+.animate-fade-left { animation: fade-left var(--fade-left-duration,560ms) cubic-bezier(.18,.86,.32,1) both; will-change: transform, opacity; }
+.animate-fade-left-fast { --fade-left-duration:360ms; }
+.animate-fade-left-slow { --fade-left-duration:900ms; }
+.animate-fade-left-delay-1 { animation-delay: 60ms; }
+.animate-fade-left-delay-2 { animation-delay: 120ms; }
+.animate-fade-left-delay-3 { animation-delay: 180ms; }
+.animate-fade-left-delay-4 { animation-delay: 240ms; }
+
 
 

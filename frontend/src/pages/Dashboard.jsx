@@ -195,11 +195,11 @@ export default function Home() {
       <Sidebar />
 
       {/* Main Dashboard */}
-      <main className="p-12 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300 animate-fade-up">
+      <main className="p-12 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300">
         <ChatWidget />
         
         {/* Header */}
-        <div className="mb-8 animate-fade-up">
+        <div className="mb-8">
           <h1 className="text-5xl font-bold">
             {fullName ? `Welcome back, ${fullName}!` : "Welcome back!"}
           </h1>
@@ -268,7 +268,7 @@ export default function Home() {
             }
           ].map((stat, i) => (
             loading ? (
-              <div key={i} className={`p-6 flex items-center justify-between rounded-2xl shadow transition-transform hover:scale-105 ${darkMode ? "bg-gray-800" : "bg-white"} animate-fade-up`}>
+              <div key={i} className={`p-6 flex items-center justify-between rounded-2xl shadow transition-transform hover:scale-105 ${darkMode ? "bg-gray-800" : "bg-white"}`}>
                 <div className="mx-auto w-full max-w-sm rounded-md p-2">
                   <div className="flex animate-pulse space-x-4">
                     <div className="w-10 h-10 rounded-full bg-gray-200"></div>
@@ -286,7 +286,7 @@ export default function Home() {
                 key={i}
                 className={`p-6 flex items-center justify-between rounded-2xl shadow transition-transform hover:scale-105 ${
                   darkMode ? "bg-gray-800" : "bg-white"
-                } animate-fade-up`}
+                }`}
               >
                 <div>
                   <p
@@ -313,9 +313,9 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
           {/* Recent Activity */}
           <div
-            className={`p-6 rounded-2xl shadow ${
+            className={`p-6 rounded-2xl shadow animate-fade-up ${
               darkMode ? "bg-gray-800" : "bg-white"
-            } animate-fade-up`}
+            }`}
           >
             <h3 className="text-2xl font-semibold mb-4">Recent Activity</h3>
             {loading ? (
@@ -380,9 +380,9 @@ export default function Home() {
 
           {/* Quick Actions */}
           <div
-            className={`p-6 rounded-2xl shadow ${
+            className={`p-6 rounded-2xl shadow animate-fade-up ${
               darkMode ? "bg-gray-800" : "bg-white"
-            } animate-fade-up`}
+            }`}
           >
             <h3 className="text-2xl font-semibold mb-4">Quick Actions</h3>
             <div className="space-y-4">
@@ -496,9 +496,9 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
           {/* Weekly Progress */}
           <div
-            className={`p-6 rounded-2xl shadow ${
+            className={`p-6 rounded-2xl shadow animate-fade-up animate-fade-up-slow ${
               darkMode ? "bg-gray-800" : "bg-white"
-            } animate-fade-up`}
+            }`}
           >
             <h3 className="text-2xl font-semibold mb-4">This Week's Progress</h3>
             <div className="space-y-3">
@@ -553,9 +553,9 @@ export default function Home() {
 
           {/* Recent Files */}
           <div
-            className={`p-6 rounded-2xl shadow ${
+            className={`p-6 rounded-2xl shadow animate-fade-up animate-fade-up-slow ${
               darkMode ? "bg-gray-800" : "bg-white"
-            } animate-fade-up`}
+            }`}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-2xl font-semibold">Recent Files</h3>

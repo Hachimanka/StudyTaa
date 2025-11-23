@@ -20,6 +20,7 @@ import Settings from './pages/Settings'
 import ChatWidget from './components/ChatWidget'
 import AuthenticatedWidget from './components/AuthenticatedWidget'
 import GlobalMusicPlayer from './components/GlobalMusicPlayer'
+import FloatingTimer from './components/FloatingTimer'
 
 export default function App() {
   return (
@@ -48,6 +49,8 @@ export default function App() {
         <AuthenticatedWidget />
         {/* Global music player stays mounted across routes */}
         <GlobalMusicPlayer />
+        {/* Floating draggable focus timer */}
+        <FloatingTimer />
         </MusicProvider>
       </SettingsProvider>
     </AuthProvider>

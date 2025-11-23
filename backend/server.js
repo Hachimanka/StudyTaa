@@ -53,8 +53,13 @@ app.use('/api/events', eventRoutes);
 const PORT = process.env.PORT || 5000;
 const BACKEND_BASE = process.env.BACKEND_BASE || `http://localhost:${PORT}`;
 
-// --- Initialize Gemini AI ---
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// --- Initialize Gemini AI (mutable state so we can disable on fatal errors) ---
+let genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+let aiEnabled = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your-google-gemini-key');
+
+if (!aiEnabled) {
+  console.warn('⚠️ Gemini AI is disabled because no valid GEMINI_API_KEY was found in environment variables. AI endpoints will return guidance until a valid key is provided.');
+}
 
 // --- StudyTa AI context with plain text instructions ---
 const STUDYTA_CONTEXT = `
@@ -118,12 +123,32 @@ app.post("/api/ai", async (req, res) => {
     const fullPrompt = STUDYTA_CONTEXT + "\nUser: " + safePrompt;
     console.log('Full Gemini prompt:', fullPrompt);
 
+    if (!aiEnabled || !genAI) {
+      return res.status(503).json({
+        error: 'AI unavailable',
+        message: 'Gemini AI is not configured or has been disabled. Please set a valid GEMINI_API_KEY in the backend environment variables and restart the server. If a key was rejected, revoke it in Google Cloud Console and create a new restricted key. Do NOT commit API keys to the repository.'
+      });
+    }
+
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     let result;
     try {
       result = await model.generateContent(fullPrompt);
     } catch (geminiErr) {
       console.error('Gemini API error:', geminiErr);
+      // Detect leaked/revoked API key responses
+      const status = geminiErr?.status || geminiErr?.statusCode || (geminiErr?.response && geminiErr.response.status);
+      const msg = geminiErr?.message || (geminiErr?.response && JSON.stringify(geminiErr.response)) || '';
+      if (status === 403 || /leaked|forbidden|reported as leaked/i.test(msg)) {
+        // Disable AI to avoid repeated failing calls and give clear guidance
+        aiEnabled = false;
+        genAI = null;
+        console.error('Disabling AI endpoints due to rejected Gemini API key (status 403).');
+        return res.status(503).json({
+          error: 'AI temporarily disabled',
+          message: 'The configured Gemini API key was rejected (possible leaked or revoked). AI endpoints have been temporarily disabled on the server. Revoke the key in Google Cloud Console, create a new restricted key (apply IP/referrer and API restrictions), update the backend environment variable `GEMINI_API_KEY`, and restart the server. Do NOT commit keys to the repository. See: https://console.cloud.google.com/apis/credentials'
+        });
+      }
       return res.status(500).json({ error: 'Gemini API error', details: geminiErr.message });
     }
 
@@ -261,6 +286,13 @@ app.post("/api/ai/summarize", async (req, res) => {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "No text provided" });
 
+    if (!aiEnabled || !genAI) {
+      return res.status(503).json({
+        error: 'AI unavailable',
+        message: 'Gemini AI is not configured or has been disabled. Please set a valid GEMINI_API_KEY in the backend environment variables and restart the server. If a key was rejected, revoke it in Google Cloud Console and create a new restricted key. Do NOT commit API keys to the repository.'
+      });
+    }
+
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
@@ -271,8 +303,26 @@ Avoid unnecessary symbols or markdown. Use short sentences or bullet points if n
 Text:
 ${text}
     `;
+    let result;
+    try {
+      result = await model.generateContent(prompt);
+    } catch (geminiErr) {
+      console.error('Gemini API error (summarize):', geminiErr);
+      const status = geminiErr?.status || geminiErr?.statusCode || (geminiErr?.response && geminiErr.response.status);
+      const msg = geminiErr?.message || (geminiErr?.response && JSON.stringify(geminiErr.response)) || '';
+      if (status === 403 || /leaked|forbidden|reported as leaked/i.test(msg)) {
+        // Disable AI to avoid repeated failing calls and give clear guidance
+        aiEnabled = false;
+        genAI = null;
+        console.error('Disabling AI endpoints due to rejected Gemini API key (status 403).');
+        return res.status(503).json({
+          error: 'AI temporarily disabled',
+          message: 'The configured Gemini API key was rejected (possible leaked or revoked). AI endpoints have been temporarily disabled on the server. Revoke the key in Google Cloud Console, create a new restricted key (apply IP/referrer and API restrictions), update the backend environment variable `GEMINI_API_KEY`, and restart the server. Do NOT commit keys to the repository. See: https://console.cloud.google.com/apis/credentials'
+        });
+      }
+      return res.status(500).json({ error: 'Gemini API error', details: geminiErr.message });
+    }
 
-    const result = await model.generateContent(prompt);
     let summary = result?.response?.text?.() || "No summary generated";
 
     // Clean formatting:

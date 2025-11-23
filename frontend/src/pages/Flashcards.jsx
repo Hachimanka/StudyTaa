@@ -291,7 +291,7 @@ export default function FileBasedStudyApp() {
       id: 'flashcards', 
       name: 'Flash Cards', 
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
       )
@@ -300,7 +300,7 @@ export default function FileBasedStudyApp() {
       id: 'quiz', 
       name: 'Quiz', 
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       )
@@ -309,7 +309,7 @@ export default function FileBasedStudyApp() {
       id: 'trueFalse', 
       name: 'True or False', 
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       )
@@ -318,7 +318,7 @@ export default function FileBasedStudyApp() {
       id: 'matching', 
       name: 'Matching Pairs', 
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />
         </svg>
       )
@@ -327,7 +327,7 @@ export default function FileBasedStudyApp() {
       id: 'fillBlanks', 
       name: 'Fill in the Blanks', 
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
       )
@@ -1411,7 +1411,7 @@ export default function FileBasedStudyApp() {
               onClick={() => handleAnswerSelect(true, answer === true)}
               disabled={selectedAnswer !== null}
             >
-              <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 mx-auto mb-2" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               True
@@ -1427,7 +1427,7 @@ export default function FileBasedStudyApp() {
               onClick={() => handleAnswerSelect(false, answer === false)}
               disabled={selectedAnswer !== null}
             >
-              <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 mx-auto mb-2" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
               False
@@ -1487,7 +1487,7 @@ export default function FileBasedStudyApp() {
             style={{ transform: `rotate(${wheelRotation}deg)` }}
           >
             <div className={`absolute inset-2 ${darkMode ? 'bg-gray-900' : 'bg-white'} rounded-full flex items-center justify-center`}>
-              <svg className="w-16 h-16 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-16 h-16" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="8" />
                 <path d="M12 8v4l2 2" />
               </svg>
@@ -1771,7 +1771,7 @@ export default function FileBasedStudyApp() {
         <div className="text-center">
           <div className="mb-6">
             <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -2068,17 +2068,21 @@ export default function FileBasedStudyApp() {
               currentIndex={currentIndex}
               showAnswer={showAnswer}
               setShowAnswer={setShowAnswer}
+              onNext={handleNext}
+              onPrevious={handlePrevious}
             />
             {content.length > 0 && (
               <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
-                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                  disabled={isCurrentContentSaved}
+                  className="w-full px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-2"
+                  style={isCurrentContentSaved ? { background: (darkMode ? '#374151' : '#9CA3AF'), color: 'white', cursor: 'not-allowed' } : { background: themeColors.gradientCss, color: 'white' }}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" style={{ color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                  <span>Save Flashcard Set ({content.length} cards)</span>
+                  <span>{isCurrentContentSaved ? 'Saved' : `Save Flashcard Set (${content.length} cards)`}</span>
                 </button>
               </div>
             )}
@@ -2097,12 +2101,14 @@ export default function FileBasedStudyApp() {
               <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
-                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                  disabled={isCurrentContentSaved}
+                  className="w-full px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-2"
+                  style={isCurrentContentSaved ? { background: (darkMode ? '#374151' : '#9CA3AF'), color: 'white', cursor: 'not-allowed' } : { background: themeColors.gradientCss, color: 'white' }}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" style={{ color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                  <span>Save Quiz Set ({content.length} questions)</span>
+                  <span>{isCurrentContentSaved ? 'Saved' : `Save Quiz Set (${content.length} questions)`}</span>
                 </button>
               </div>
             )}
@@ -2121,12 +2127,14 @@ export default function FileBasedStudyApp() {
               <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
-                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                  disabled={isCurrentContentSaved}
+                  className="w-full px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-2"
+                  style={isCurrentContentSaved ? { background: (darkMode ? '#374151' : '#9CA3AF'), color: 'white', cursor: 'not-allowed' } : { background: themeColors.gradientCss, color: 'white' }}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" style={{ color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                  <span>Save True/False Set ({content.length} questions)</span>
+                  <span>{isCurrentContentSaved ? 'Saved' : `Save True/False Set (${content.length} questions)`}</span>
                 </button>
               </div>
             )}
@@ -2154,12 +2162,14 @@ export default function FileBasedStudyApp() {
               <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
-                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                  disabled={isCurrentContentSaved}
+                  className="w-full px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-2"
+                  style={isCurrentContentSaved ? { background: (darkMode ? '#374151' : '#9CA3AF'), color: 'white', cursor: 'not-allowed' } : { background: themeColors.gradientCss, color: 'white' }}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" style={{ color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                  <span>Save Wheel Set ({content.length} questions)</span>
+                  <span>{isCurrentContentSaved ? 'Saved' : `Save Wheel Set (${content.length} questions)`}</span>
                 </button>
               </div>
             )}
@@ -2182,12 +2192,14 @@ export default function FileBasedStudyApp() {
               <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
-                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                  disabled={isCurrentContentSaved}
+                  className="w-full px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-2"
+                  style={isCurrentContentSaved ? { background: (darkMode ? '#374151' : '#9CA3AF'), color: 'white', cursor: 'not-allowed' } : { background: themeColors.gradientCss, color: 'white' }}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" style={{ color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                  <span>Save Matching Set ({content.length} pairs)</span>
+                  <span>{isCurrentContentSaved ? 'Saved' : `Save Matching Set (${content.length} pairs)`}</span>
                 </button>
               </div>
             )}
@@ -2212,12 +2224,14 @@ export default function FileBasedStudyApp() {
               <div className={`${cardBg} shadow rounded-xl p-4`}>
                 <button
                   onClick={saveCurrentStudySet}
-                  className="w-full px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:bg-emerald-700 hover:shadow-lg flex items-center justify-center space-x-2"
+                  disabled={isCurrentContentSaved}
+                  className="w-full px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-2"
+                  style={isCurrentContentSaved ? { background: (darkMode ? '#374151' : '#9CA3AF'), color: 'white', cursor: 'not-allowed' } : { background: themeColors.gradientCss, color: 'white' }}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" style={{ color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                  <span>Save Fill-in-Blanks Set ({content.length} questions)</span>
+                  <span>{isCurrentContentSaved ? 'Saved' : `Save Fill-in-Blanks Set (${content.length} questions)`}</span>
                 </button>
               </div>
             )}
@@ -2265,7 +2279,11 @@ export default function FileBasedStudyApp() {
         {/* File Upload */}
         <div className={`mb-6 ${cardBg} rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}>
           <label className={`block text-sm font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-3`}>
-            📄 Upload Study Material
+            <svg className="w-5 h-5 inline mr-2" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7 2h6l4 4v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M7 2v6h6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Upload Study Material
           </label>
           <div className="flex items-center space-x-4">
             <input
@@ -2352,7 +2370,14 @@ export default function FileBasedStudyApp() {
           {/* Mode Selection */}
           <div className="xl:col-span-1 lg:col-span-1">
             <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
-              <h2 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>🎯 Study Methods</h2>
+              <h2 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                <svg className="w-6 h-6 inline mr-2" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 2v3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 19v3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Study Methods
+              </h2>
               <div className="space-y-3">
                 {studyModes.map((mode) => (
                   <button
@@ -2444,10 +2469,10 @@ export default function FileBasedStudyApp() {
                     // Determine answered status using the central answeredSet which is updated
                     // whenever a question is answered (quiz/trueFalse/fillBlanks/wheel).
                     const prevIdx = currentIndex - 1;
-                    // Option B: disable Previous if the previous question has already been answered
-                    const prevDisabled = currentIndex === 0 || answeredSet.has(prevIdx);
-                    const currentAnswered = answeredSet.has(currentIndex);
-                    const nextDisabled = !currentAnswered || currentIndex === content.length - 1;
+                    // For flashcards we allow free navigation (no answer gating).
+                    const prevDisabled = currentIndex === 0 || (activeMode !== 'flashcards' && answeredSet.has(prevIdx));
+                    const currentAnswered = (activeMode === 'flashcards') ? true : answeredSet.has(currentIndex);
+                    const nextDisabled = (activeMode === 'flashcards') ? (currentIndex === content.length - 1) : (!currentAnswered || currentIndex === content.length - 1);
 
                     return (
                       <>
@@ -2531,7 +2556,14 @@ export default function FileBasedStudyApp() {
           <div className="xl:col-span-1 lg:col-span-3 xl:col-start-4">
             <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>💾 Saved Study Sets</h2>
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  <svg className="w-5 h-5 inline mr-2" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 3h14v7H5z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M7 10v9a1 1 0 001 1h8a1 1 0 001-1v-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M9 7h6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Saved Study Sets
+                </h2>
                 <button
                   onClick={() => setShowHistory(!showHistory)}
                   className={`${themeColors.text} hover:${themeColors.textDark} font-medium text-sm transition-colors`}
@@ -2546,16 +2578,46 @@ export default function FileBasedStudyApp() {
                     <p className="text-gray-500 text-sm text-center py-4">No saved study sets yet</p>
                   ) : (
                     savedStudySets.map((savedSet) => {
-                      // Get appropriate icon for study mode
+                      // Get appropriate icon for study mode (SVGs use theme color)
                       const modeIcons = {
-                        flashcards: '🃏',
-                        quiz: '❓',
-                        trueFalse: '✅',
-                        wheel: '🎯',
-                        matching: '🔗',
-                        fillBlanks: '📝'
+                        flashcards: (
+                          <svg className="w-5 h-5" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h3a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7zM13 7h6" />
+                          </svg>
+                        ),
+                        quiz: (
+                          <svg className="w-5 h-5" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ),
+                        trueFalse: (
+                          <svg className="w-5 h-5" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ),
+                        wheel: (
+                          <svg className="w-5 h-5" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M12 2v3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M12 19v3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        ),
+                        matching: (
+                          <svg className="w-5 h-5" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14a3 3 0 104.24 4.24l3-3a3 3 0 00-4.24-4.24l-1.06 1.06" />
+                          </svg>
+                        ),
+                        fillBlanks: (
+                          <svg className="w-5 h-5" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M16 3l4 4" />
+                          </svg>
+                        )
                       };
-                      const icon = modeIcons[savedSet.studyMode] || '📚';
+                      const icon = modeIcons[savedSet.studyMode] || (
+                        <svg className="w-5 h-5" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      );
                       
                       return (
                         <div key={savedSet.id} className={`border ${darkMode ? 'border-gray-600 hover:border-' + themeColors.primary + '-400' : 'border-gray-200 hover:border-' + themeColors.primary + '-300'} rounded-lg p-3 transition-colors`}>
@@ -2569,7 +2631,10 @@ export default function FileBasedStudyApp() {
                                 {savedSet.itemCount || savedSet.content?.length || savedSet.cards?.length || 0} items • {savedSet.createdAt}
                               </p>
                               <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'} truncate`}>
-                                📄 {savedSet.fileName}
+                                <svg className="w-4 h-4 inline mr-1" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M7 2h6l4 4v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                {savedSet.fileName}
                               </p>
                             </div>
                               <div className="flex space-x-1 ml-2">

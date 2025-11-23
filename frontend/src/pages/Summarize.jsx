@@ -309,11 +309,11 @@ export default function Summarize() {
 
       <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28">
         {/* Page Title */}
-        <div className="mb-8 transform transition-all duration-500 hover:scale-105">
+        <div className="mb-8 page-header-group">
           <h1 className={`text-5xl font-bold page-title`}>
             AI Content Summarizer
           </h1>
-          <p className={`mt-2 text-lg`} style={{ color: 'var(--muted)' }}>
+          <p className={`mt-2 text-lg page-subtitle`} style={{ color: 'var(--muted)' }}>
             Transform any content into intelligent, concise summaries with advanced AI
           </p>
         </div>

@@ -18,12 +18,19 @@ export default function Landing() {
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
           >
-            <h1 className="text-5xl font-bold page-title mb-8 max-w-4xl mx-auto">
+            <div className="page-header-group mb-8 max-w-4xl mx-auto">
+              <h1 className="text-5xl font-bold page-title">
               Master Any Subject with{" "}
               <span className="text-primary">
                 AI Intelligence
               </span> 
-            </h1>
+              </h1>
+              <p className="text-subheading text-muted max-w-3xl mx-auto text-lg page-subtitle mt-4">
+                Transform your study sessions with intelligent summaries,
+                interactive flashcards, and personalized learning analytics that
+                adapt to your unique learning style.
+              </p>
+            </div>
           </motion.div>
 
           <motion.div
@@ -32,11 +39,7 @@ export default function Landing() {
             transition={{ duration: 0.8, delay: 0.2 }}
             viewport={{ once: true }}
           >
-            <p className="text-subheading text-muted mb-12 max-w-3xl mx-auto text-lg">
-              Transform your study sessions with intelligent summaries,
-              interactive flashcards, and personalized learning analytics that
-              adapt to your unique learning style.
-            </p>
+            {/* Removed duplicate paragraph moved inside group */}
           </motion.div>
 
           <motion.div

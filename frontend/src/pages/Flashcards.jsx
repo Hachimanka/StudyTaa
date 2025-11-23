@@ -2269,11 +2269,11 @@ export default function FileBasedStudyApp() {
           </div>
         )}
         {/* Header */}
-        <div className="mb-8 transform transition-all duration-500 hover:scale-105">
+        <div className="mb-8 page-header-group">
           <h1 className={`text-5xl font-bold page-title`}>
             AI Study Mode - File Based
           </h1>
-          <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-lg`}>Upload your study material and practice with AI-generated content</p>
+          <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-lg page-subtitle`}>Upload your study material and practice with AI-generated content</p>
         </div>
 
         {/* File Upload */}

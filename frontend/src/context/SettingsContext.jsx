@@ -220,8 +220,32 @@ export const SettingsProvider = ({ children }) => {
   // Apply color theme to document
   useEffect(() => {
     const root = document.documentElement
-    root.classList.remove('theme-teal', 'theme-blue', 'theme-purple', 'theme-green', 'theme-pink')
-    root.classList.add(`theme-${colorTheme}`)
+    const applyThemeForPath = () => {
+      const path = window.location.pathname.toLowerCase()
+      const excluded = new Set(['/', '/landing', '/login', '/register', '/forgot-password'])
+      // Always reset existing theme classes
+      root.classList.remove('theme-teal', 'theme-blue', 'theme-purple', 'theme-green', 'theme-pink')
+      if (excluded.has(path)) {
+        // Force default (teal) theme on auth/landing pages, independent of user selection
+        root.classList.add('theme-teal')
+      } else {
+        root.classList.add(`theme-${colorTheme}`)
+      }
+    }
+    applyThemeForPath()
+    // Listen for route changes (history navigation)
+    const handleLocationChange = () => applyThemeForPath()
+    window.addEventListener('popstate', handleLocationChange)
+    // Patch pushState/replaceState to catch SPA navigations
+    const originalPush = history.pushState
+    const originalReplace = history.replaceState
+    history.pushState = function(...args) { originalPush.apply(this, args); handleLocationChange() }
+    history.replaceState = function(...args) { originalReplace.apply(this, args); handleLocationChange() }
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange)
+      history.pushState = originalPush
+      history.replaceState = originalReplace
+    }
   }, [colorTheme])
 
   // Persist selected colorTheme to studyTaSettings so it survives reloads
@@ -403,6 +427,7 @@ export const SettingsProvider = ({ children }) => {
       teal: {
         primary: 'teal',
         gradient: 'from-teal-500 to-teal-600',
+        darkGradient: 'from-teal-900 to-teal-800',
         hover: 'hover:from-teal-600 hover:to-teal-700',
         bg: 'bg-teal-500',
         hoverBg: 'hover:bg-teal-600',
@@ -414,6 +439,7 @@ export const SettingsProvider = ({ children }) => {
       blue: {
         primary: 'blue',
         gradient: 'from-blue-500 to-blue-600',
+        darkGradient: 'from-blue-900 to-blue-800',
         hover: 'hover:from-blue-600 hover:to-blue-700',
         bg: 'bg-blue-500',
         hoverBg: 'hover:bg-blue-600',
@@ -425,6 +451,7 @@ export const SettingsProvider = ({ children }) => {
       purple: {
         primary: 'purple',
         gradient: 'from-purple-500 to-purple-600',
+        darkGradient: 'from-purple-900 to-purple-800',
         hover: 'hover:from-purple-600 hover:to-purple-700',
         bg: 'bg-purple-500',
         hoverBg: 'hover:bg-purple-600',
@@ -436,6 +463,7 @@ export const SettingsProvider = ({ children }) => {
       green: {
         primary: 'green',
         gradient: 'from-green-500 to-green-600',
+        darkGradient: 'from-green-900 to-green-800',
         hover: 'hover:from-green-600 hover:to-green-700',
         bg: 'bg-green-500',
         hoverBg: 'hover:bg-green-600',
@@ -447,6 +475,7 @@ export const SettingsProvider = ({ children }) => {
       pink: {
         primary: 'pink',
         gradient: 'from-pink-500 to-pink-600',
+        darkGradient: 'from-pink-900 to-pink-800',
         hover: 'hover:from-pink-600 hover:to-pink-700',
         bg: 'bg-pink-500',
         hoverBg: 'hover:bg-pink-600',

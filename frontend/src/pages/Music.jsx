@@ -60,9 +60,8 @@ export default function Music() {
 
   const themeColors = getThemeColors()
   const primaryKey = themeColors.primary || 'teal'
-  const pageBackground = darkMode
-    ? 'bg-gradient-to-br from-gray-900 to-gray-800'
-    : lightBackgroundByTheme[primaryKey] || lightBackgroundByTheme.teal
+  // Use neutral light background for consistency across pages (remove per-theme gradients)
+  const pageBackground = darkMode ? 'bg-gray-900' : 'bg-gray-50'
 
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -110,11 +109,9 @@ export default function Music() {
       <main className="relative flex-1 p-6 md:p-10 ml-20">
         <ChatWidget />
 
-        <header className="mb-10">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-teal-500 to-teal-600 bg-clip-text text-transparent">
-            Focus Music
-          </h1>
-          <p className={`mt-2 text-base md:text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+        <header className="mb-10 page-header-group">
+          <h1 className="page-title mt-6">Focus Music</h1>
+          <p className={`mt-2 text-base md:text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'} page-subtitle`}>
             Pick a soundscape to stay in the zone while you study.
           </p>
         </header>
@@ -209,7 +206,7 @@ export default function Music() {
               <section className={`rounded-2xl border p-6 shadow-xl ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="text-sm uppercase tracking-wide text-teal-500">Now Playing</p>
+                    <p className={`text-sm uppercase tracking-wide ${themeColors.text}`}>Now Playing</p>
                     <h2 className={`text-2xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{currentTrack.name}</h2>
                     {currentTrack.artist && (
                       <p className="text-sm text-gray-500 dark:text-gray-400">{currentTrack.artist}</p>
@@ -319,7 +316,7 @@ export default function Music() {
               {showTimer ? (
                 <div className="space-y-6">
                   <div className="flex flex-col items-center">
-                    <div className="text-4xl font-bold text-teal-500">{formatTime(timeLeft)}</div>
+                    <div className={`text-4xl font-bold ${themeColors.text}`}>{formatTime(timeLeft)}</div>
                     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Session length: {timerDurationMinutes} minutes</p>
                   </div>
                   <div className="space-y-3">

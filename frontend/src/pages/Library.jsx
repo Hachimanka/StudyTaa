@@ -1274,9 +1274,9 @@ export default function Library() {
         )}
         
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-8 page-header-group">
           <h1 className="text-5xl font-bold page-title">Library</h1>
-          <p className="mt-2 text-gray-600">Manage your documents and study materials</p>
+          <p className="mt-2 text-gray-600 page-subtitle">Manage your documents and study materials</p>
         </div>
 
 

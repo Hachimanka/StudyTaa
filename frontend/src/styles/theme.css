@@ -350,7 +350,6 @@
   font-size: 3rem; /* text-5xl */
   line-height: 1.05;
   font-weight: 700; /* font-bold */
-  /* Use a strong theme color; fall back to --color-primary */
   color: var(--primary-600, var(--color-primary));
 }
 
@@ -359,3 +358,21 @@
   font-size: 1.25rem; /* text-xl */
   color: var(--color-muted);
 }
+
+/* Group hover wrapper to scale both title & subtitle together */
+.page-header-group {
+  display: inline-block;
+  transition: transform 0.35s cubic-bezier(.22,.82,.3,1);
+  will-change: transform;
+}
+.page-header-group:hover { transform: scale(1.05); }
+.page-header-group:active { transform: scale(0.98); }
+
+/* Hover scale utility for special styled headers (e.g., gradient text) */
+/* Retained for standalone gradient titles when not using group wrapper */
+.page-header-hover {
+  transition: transform 0.35s cubic-bezier(.22,.82,.3,1);
+  will-change: transform;
+}
+.page-header-hover:hover { transform: scale(1.05); }
+.page-header-hover:active { transform: scale(0.98); }

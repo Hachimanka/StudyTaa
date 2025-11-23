@@ -1431,14 +1431,14 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
       <main className="flex-1 p-12 ml-20 md:ml-30">
         <ChatWidget />
         <div className="flex justify-between items-start mb-6">
-          <div>
+          <div className="page-header-group">
             <h1 className={`text-5xl font-bold page-title mt-6`}>Smart Calendar</h1>
-            <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Manage your study schedule with intelligent event organization</p>
+            <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'} page-subtitle`}>Manage your study schedule with intelligent event organization</p>
           </div>
           <div className="mt-6 flex gap-2">
             <button
               onClick={() => {setSelectedDate(new Date()); setSelectedEvent(null); setIsModalOpen(true);}}
-              className={`px-4 py-2 bg-${themeColors.primary}-600 text-white rounded-lg hover:bg-${themeColors.primary}-700 transition-colors flex items-center gap-2`}
+              className={`px-4 py-2 ${themeColors.bg} ${themeColors.hoverBg} text-white rounded-lg transition-colors flex items-center gap-2`}
             >
               <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>

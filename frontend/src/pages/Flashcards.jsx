@@ -33,7 +33,7 @@ const processUploadedFile = async (file) => {
 };
 
 // AI content generation using backend Gemini API
-const generateContentFromFile = async (mode, fileContent) => {
+const generateContentFromFile = async (mode, fileContent, itemCount = null) => {
   try {
     // Map internal mode ids to human-friendly descriptions and JSON schemas
     const modeMap = {
@@ -64,9 +64,10 @@ const generateContentFromFile = async (mode, fileContent) => {
     };
 
     const modeInfo = modeMap[mode] || { label: mode, instructions: `Return a JSON array appropriate for ${mode}.` };
+    const countDirective = itemCount ? `Return exactly ${itemCount} ${modeInfo.label.toLowerCase()}. ` : '';
     const prompt = `You are an assistant that produces structured study material.
-Produce ${modeInfo.label} from the following source material. ${modeInfo.instructions}
-Material:\n${fileContent}`;
+  ${countDirective}Produce ${modeInfo.label} from the following source material. ${modeInfo.instructions}
+  Material:\n${fileContent}`;
 
     console.log('Requesting AI generation for mode:', mode, 'label:', modeInfo.label);
     const response = await axios.post('/api/ai', { prompt });
@@ -124,7 +125,7 @@ Material:\n${fileContent}`;
     } catch (e) {
       // If parsing fails, show error and fallback to empty array
       console.error('AI JSON parse error:', e, 'raw reply:', rawReply);
-      alert('AI did not return valid JSON. Raw reply logged to console.');
+      showModal('AI did not return valid JSON. Raw reply logged to console.', 'AI Error');
       aiData = [];
     }
     return aiData;
@@ -165,6 +166,10 @@ export default function FileBasedStudyApp() {
   const [wheelSpinning, setWheelSpinning] = useState(false);
   const [wheelRotation, setWheelRotation] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
+  // Quiz-specific setting: whether to auto-advance after answering
+  const [quizAutoNext, setQuizAutoNext] = useState(true);
+  // True/False-specific setting: whether to auto-advance after answering
+  const [trueFalseAutoNext, setTrueFalseAutoNext] = useState(true);
   const [savedStudySets, setSavedStudySets] = useState(() => {
     try {
       // Try new key first, fallback to old key for backwards compatibility
@@ -178,9 +183,63 @@ export default function FileBasedStudyApp() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [viewedQuestions, setViewedQuestions] = useState(new Set());
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
+  // Track which wheel indices have been answered so they can be removed/disabled
+  const [wheelAnsweredSet, setWheelAnsweredSet] = useState(new Set());
+  // Track which indices in the current session have been answered (quiz/trueFalse/fillBlanks)
+  const [answeredSet, setAnsweredSet] = useState(new Set());
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [pendingMode, setPendingMode] = useState(null);
   const [isGameOpen, setIsGameOpen] = useState(false);
+  // Count prompt state: ask user how many items to generate for a selected mode
+  const [showCountPrompt, setShowCountPrompt] = useState(false);
+  const [countPromptMode, setCountPromptMode] = useState(null);
+  const [countInput, setCountInput] = useState('');
+  // When true, prevent the useEffect auto-load from firing (we'll load explicitly)
+  const [suppressAutoLoad, setSuppressAutoLoad] = useState(false);
+  // Modal state to replace browser alerts
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalConfirmAction, setModalConfirmAction] = useState(null);
+  const [modalCancelAction, setModalCancelAction] = useState(null);
+  const [modalConfirmLabel, setModalConfirmLabel] = useState('OK');
+  const [modalCancelLabel, setModalCancelLabel] = useState('Cancel');
+  const closeModal = () => {
+    setModalOpen(false);
+    setModalConfirmAction(null);
+    setModalCancelAction(null);
+    setModalConfirmLabel('OK');
+    setModalCancelLabel('Cancel');
+  };
+
+  const showModal = (message, title = '') => { setModalTitle(title); setModalMessage(message); setModalOpen(true); };
+
+  const showConfirm = (message, title, onConfirm, onCancel = null, confirmLabel = 'OK', cancelLabel = 'Cancel') => {
+    setModalTitle(title || 'Confirm');
+    setModalMessage(message);
+    setModalConfirmAction(() => () => { if (onConfirm) onConfirm(); closeModal(); });
+    setModalCancelAction(() => () => { if (onCancel) onCancel(); closeModal(); });
+    setModalConfirmLabel(confirmLabel || 'OK');
+    setModalCancelLabel(cancelLabel || 'Cancel');
+    setModalOpen(true);
+  };
+
+  // Determine whether the current generated `content` has already been saved
+  const isCurrentContentSaved = React.useMemo(() => {
+    try {
+      if (!content || content.length === 0) return false;
+      const contentStr = JSON.stringify(content);
+      return savedStudySets.some(s => {
+        try {
+          return JSON.stringify(s.content) === contentStr;
+        } catch (e) {
+          return false;
+        }
+      });
+    } catch (e) {
+      return false;
+    }
+  }, [content, savedStudySets]);
   
   // Matching game state
   const [selectedTerm, setSelectedTerm] = useState(null);
@@ -252,16 +311,6 @@ export default function FileBasedStudyApp() {
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      )
-    },
-    { 
-      id: 'wheel', 
-      name: 'Spin the Wheel', 
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 6v6l4 2" />
         </svg>
       )
     },
@@ -367,7 +416,7 @@ export default function FileBasedStudyApp() {
       setProgress(0);
     } catch (error) {
       console.error('Error processing file:', error);
-      alert('Error processing file. Please try again.');
+      showModal('Error processing file. Please try again.', 'File Error');
     }
 
     setLoading(false);
@@ -392,14 +441,23 @@ export default function FileBasedStudyApp() {
     setMatchingScore(0);
     setViewedQuestions(new Set());
     setAnsweredQuestions([]);
+    setWheelAnsweredSet(new Set());
+    setAnsweredSet(new Set());
     // Reset file input
     const fileInput = document.querySelector('input[type="file"]');
     if (fileInput) {
       fileInput.value = '';
     }
+    setRevealedCorrectIndex(undefined);
   };
 
-  const loadContentFromFile = async (mode, content = fileContent) => {
+  // Validate wheel items: ensure they have a visible label/question before placing on the wheel
+  const isValidWheelItem = (it) => {
+    if (!it) return false;
+    return Boolean(it.label || it.front || it.question || it.statement || it.content || it.title || it.topic);
+  };
+
+  const loadContentFromFile = async (mode, content = fileContent, itemCount = null) => {
     // Prevent starting another generation while one is already running
     if (loading) {
       console.warn('Generation already in progress — ignoring duplicate request.');
@@ -418,16 +476,26 @@ export default function FileBasedStudyApp() {
     setIsCompleted(false);
     setViewedQuestions(new Set());
     setAnsweredQuestions([]);
+    setWheelAnsweredSet(new Set());
     
     try {
-      const data = await generateContentFromFile(mode, content);
+      let data = await generateContentFromFile(mode, content, itemCount);
       console.log('Loaded AI data for mode', mode, ':', data);
+      // If wheel mode, filter out invalid/empty slices so the wheel count matches real items
+      if (mode === 'wheel' && Array.isArray(data)) {
+        data = data.filter(isValidWheelItem);
+        console.log('Filtered wheel data (valid slices):', data.length);
+      }
       setContent(data);
+      // reset answered set for new content
+      setAnsweredSet(new Set());
     } catch (error) {
       console.error('Failed to generate content:', error);
     }
     
     setLoading(false);
+    setRevealedCorrectIndex(undefined);
+    setAnsweredSet(new Set());
   };
 
   // --- Session stats helpers ---
@@ -443,8 +511,9 @@ export default function FileBasedStudyApp() {
 
   const updateStatsOnAnswer = (correct) => {
     // Do not record stats for Flashcards
-    if (activeMode === 'flashcards') return;
+    if (activeMode === 'flashcards') return null;
     const now = Date.now();
+    let newStats = null;
     setSessionStats(prev => {
       const reviewed = prev.reviewedCount + 1;
       const correctCount = prev.correctCount + (correct ? 1 : 0);
@@ -454,7 +523,7 @@ export default function FileBasedStudyApp() {
       const currentStreak = correct ? prev.currentStreak + 1 : 0;
       const longestStreak = Math.max(prev.longestStreak, currentStreak);
       const accuracy = reviewed > 0 ? Math.round((correctCount / reviewed) * 100) : 0;
-      return {
+      newStats = {
         ...prev,
         reviewedCount: reviewed,
         correctCount,
@@ -465,10 +534,12 @@ export default function FileBasedStudyApp() {
         currentStreak,
         longestStreak
       };
+      return newStats;
     });
     setLastActionTime(now);
     // Schedule AI tips update after answer (debounced)
     scheduleAiTips(activeMode);
+    return newStats;
   };
 
   const updateStatsOnView = () => {
@@ -514,6 +585,66 @@ export default function FileBasedStudyApp() {
     }, 1000);
   };
 
+  // Helper to get readable option text for objects (used across modes)
+  const getOptionText = (opt) => {
+    if (typeof opt === 'string') return opt;
+    if (!opt) return '';
+    return opt.text || opt.option || opt.label || opt.value || JSON.stringify(opt);
+  };
+
+  // Resolve correct index/text for a question object in a consistent way
+  const resolveCorrectIndex = (question) => {
+    if (!question) return { numericCorrectIndex: undefined, correctAnswerTextFallback: null, optionTexts: [] };
+    let options = question.options || question.choices || [];
+    if (typeof options === 'string') options = options.split(/\n|,/).map(o => o.trim()).filter(Boolean);
+    const optionTexts = Array.isArray(options) ? options.map(getOptionText) : [];
+    const correctIndexRaw = typeof question.correct !== 'undefined' ? question.correct : question.answer;
+    let numericCorrectIndex;
+    let correctTextFromRaw = null;
+    if (typeof correctIndexRaw !== 'undefined' && correctIndexRaw !== null) {
+      const asNumber = Number(correctIndexRaw);
+      if (!isNaN(asNumber)) {
+        if (Number.isInteger(asNumber)) {
+          if (asNumber >= 0 && asNumber < optionTexts.length) numericCorrectIndex = asNumber;
+          else if (asNumber >= 1 && asNumber <= optionTexts.length) numericCorrectIndex = asNumber - 1;
+        }
+      }
+      if (typeof correctIndexRaw === 'object' && correctIndexRaw !== null) {
+        correctTextFromRaw = getOptionText(correctIndexRaw);
+      }
+      if (typeof correctIndexRaw === 'string') {
+        const trimmed = correctIndexRaw.trim();
+        if (/^[A-Z]$/i.test(trimmed)) {
+          const idx = trimmed.toUpperCase().charCodeAt(0) - 'A'.charCodeAt(0);
+          if (idx >= 0 && idx < optionTexts.length) numericCorrectIndex = idx;
+        }
+        if (typeof numericCorrectIndex === 'undefined') {
+          const lower = trimmed.toLowerCase();
+          const found = optionTexts.findIndex(t => t && t.toLowerCase().trim() === lower);
+          if (found !== -1) numericCorrectIndex = found;
+          else {
+            const contains = optionTexts.findIndex(t => t && t.toLowerCase().includes(lower));
+            if (contains !== -1) numericCorrectIndex = contains;
+          }
+        }
+      }
+      if (typeof numericCorrectIndex === 'undefined' && correctTextFromRaw) {
+        const lower = correctTextFromRaw.toLowerCase().trim();
+        const found = optionTexts.findIndex(t => t && t.toLowerCase().trim() === lower);
+        if (found !== -1) numericCorrectIndex = found;
+        else {
+          const contains = optionTexts.findIndex(t => t && t.toLowerCase().includes(lower));
+          if (contains !== -1) numericCorrectIndex = contains;
+        }
+      }
+    }
+    const correctAnswerTextFallback = (typeof correctIndexRaw === 'string' || typeof correctIndexRaw === 'number') ? String(correctIndexRaw) : (correctTextFromRaw || null);
+    return { numericCorrectIndex, correctAnswerTextFallback, optionTexts };
+  };
+
+  // State for the revealed correct index after answering (so UI highlights reliably)
+  const [revealedCorrectIndex, setRevealedCorrectIndex] = useState(undefined);
+
   useEffect(() => {
     return () => {
       if (aiRequestTimer.current) clearTimeout(aiRequestTimer.current);
@@ -529,7 +660,7 @@ export default function FileBasedStudyApp() {
   };
 
   // --- AI-driven improvement suggestions ---
-  const buildImprovementPrompt = (mode) => {
+  const buildImprovementPrompt = (mode, stats = null) => {
     const modeNames = {
       flashcards: 'Flashcards',
       quiz: 'Quiz',
@@ -548,16 +679,17 @@ export default function FileBasedStudyApp() {
       return `${i+1}. ${JSON.stringify(it).slice(0,80)}`;
     }).join('\n');
 
-    return `You are an expert study coach. A user just completed a study session with the following summary:\n\nMode: ${modeNames[mode] || mode}\nItems reviewed: ${sessionStats.reviewedCount}\nCorrect: ${sessionStats.correctCount}\nIncorrect: ${sessionStats.incorrectCount}\nAccuracy: ${sessionStats.accuracy}%\nTime elapsed: ${formatTime(sessionStats.timeElapsed)}\nAverage time per item: ${Math.round(sessionStats.avgTimePerCard/1000)}s\nCurrent streak: ${sessionStats.currentStreak}\nBest streak: ${sessionStats.longestStreak}\n\nSample items (first up to 6):\n${sampleItems}\n\nBased on this information, provide a short, actionable improvement plan for the user: 5 concise recommendations the user should do next to improve retention and understanding (e.g., what to review, what mode to practice next, suggested spacing and number of repetitions, how to break down difficult items). Keep the advice practical and prioritized. Use plain text, short bullets.`;
+    const s = stats || sessionStats;
+    return `You are an expert study coach. A user just completed a study session with the following summary:\n\nMode: ${modeNames[mode] || mode}\nItems reviewed: ${s.reviewedCount}\nCorrect: ${s.correctCount}\nIncorrect: ${s.incorrectCount}\nAccuracy: ${s.accuracy}%\nTime elapsed: ${formatTime(s.timeElapsed)}\nAverage time per item: ${Math.round(s.avgTimePerCard/1000)}s\nCurrent streak: ${s.currentStreak}\nBest streak: ${s.longestStreak}\n\nSample items (first up to 6):\n${sampleItems}\n\nBased on this information, provide a short, actionable improvement plan for the user: 5 concise recommendations the user should do next to improve retention and understanding (e.g., what to review, what mode to practice next, suggested spacing and number of repetitions, how to break down difficult items). Keep the advice practical and prioritized. Use plain text, short bullets.`;
   };
 
-  const requestImprovementSuggestions = async (mode = activeMode) => {
+  const requestImprovementSuggestions = async (mode = activeMode, stats = null) => {
     // Avoid duplicate concurrent calls
     if (aiLoading) return;
     setAiError(null);
     setAiLoading(true);
     try {
-      const prompt = buildImprovementPrompt(mode);
+      const prompt = buildImprovementPrompt(mode, stats);
       const res = await axios.post('/api/ai', { prompt });
       const reply = res?.data?.reply || res?.data || '';
       // store raw reply
@@ -580,7 +712,7 @@ export default function FileBasedStudyApp() {
   // Save current study content to history
   const saveCurrentStudySet = () => {
     if (content.length === 0 || !activeMode) {
-      alert('No study content to save!');
+      showModal('No study content to save!', 'Save');
       return;
     }
 
@@ -606,12 +738,17 @@ export default function FileBasedStudyApp() {
     const updatedSaved = [savedSet, ...savedStudySets];
     setSavedStudySets(updatedSaved);
     localStorage.setItem('savedStudySets', JSON.stringify(updatedSaved));
-    alert(`Saved ${content.length} ${modeNames[activeMode].toLowerCase()} items to history!`);
+    showModal(`Saved ${content.length} ${modeNames[activeMode].toLowerCase()} items to history!`, 'Saved');
   };
 
   // Load saved study content
   const loadSavedStudySet = (savedSet) => {
-    setContent(savedSet.content || savedSet.cards); // Handle both old and new format
+    let loaded = savedSet.content || savedSet.cards || [];
+    if (savedSet.studyMode === 'wheel' && Array.isArray(loaded)) {
+      loaded = loaded.filter(item => item && (item.label || item.front || item.question || item.statement || item.content || item.title || item.topic));
+    }
+    setContent(loaded);
+    setAnsweredSet(new Set());
     setActiveMode(savedSet.studyMode || 'flashcards'); // Default to flashcards for old saves
     setCurrentIndex(0);
     setShowAnswer(false);
@@ -634,7 +771,7 @@ export default function FileBasedStudyApp() {
       fillBlanks: 'fill-in-the-blanks'
     };
     
-    alert(`Loaded ${savedSet.itemCount || savedSet.content?.length || savedSet.cards?.length} ${modeNames[savedSet.studyMode] || 'items'} from "${savedSet.title}"`);
+    showModal(`Loaded ${savedSet.itemCount || savedSet.content?.length || savedSet.cards?.length} ${modeNames[savedSet.studyMode] || 'items'} from "${savedSet.title}"`, 'Loaded');
   };
 
   // Delete saved study sets
@@ -651,6 +788,7 @@ export default function FileBasedStudyApp() {
     setCurrentIndex(0);
     // Reset wheel mode state when switching modes
     setViewedQuestions(new Set());
+    setWheelAnsweredSet(new Set());
     // Reset fill-in-the-blanks state when switching modes
     setAnsweredQuestions([]);
   };
@@ -658,7 +796,7 @@ export default function FileBasedStudyApp() {
   const requestModeChange = (modeId) => {
     // Prevent switching while AI is generating content
     if (loading) {
-      alert('AI generation in progress — please wait.');
+      showModal('AI generation in progress — please wait.', 'AI');
       return;
     }
     // If no uploaded file, don't allow switching
@@ -671,8 +809,8 @@ export default function FileBasedStudyApp() {
       setShowSavePrompt(true);
       return;
     }
-    // Otherwise just switch
-    performModeSwitch(modeId);
+    // Otherwise ask how many items to generate and then generate
+    openCountPrompt(modeId);
   };
 
   const handleSaveAndSwitch = () => {
@@ -682,13 +820,22 @@ export default function FileBasedStudyApp() {
       console.error('Save before switch failed:', e);
     }
     setShowSavePrompt(false);
-    if (pendingMode) performModeSwitch(pendingMode);
+    if (pendingMode) {
+      // Prevent useEffect from auto-loading; we'll load explicitly after asking for count
+      setSuppressAutoLoad(true);
+      performModeSwitch(pendingMode);
+      openCountPrompt(pendingMode);
+    }
     setPendingMode(null);
   };
 
   const handleDiscardAndSwitch = () => {
     setShowSavePrompt(false);
-    if (pendingMode) performModeSwitch(pendingMode);
+    if (pendingMode) {
+      setSuppressAutoLoad(true);
+      performModeSwitch(pendingMode);
+      openCountPrompt(pendingMode);
+    }
     setPendingMode(null);
   };
 
@@ -697,12 +844,35 @@ export default function FileBasedStudyApp() {
     setPendingMode(null);
   };
 
+  const openCountPrompt = (modeId) => {
+    setCountPromptMode(modeId);
+    setCountInput('');
+    setShowCountPrompt(true);
+  };
+
+  const handleGenerateWithCount = async () => {
+    const mode = countPromptMode;
+    const count = parseInt(countInput, 10);
+    setShowCountPrompt(false);
+    setSuppressAutoLoad(false);
+    if (!mode) return;
+    // Ensure we set the active mode and explicitly load content with the desired count
+    setActiveMode(mode);
+    await loadContentFromFile(mode, fileContent, isNaN(count) ? null : count);
+    // reset the prompt mode
+    setCountPromptMode(null);
+    setCountInput('');
+  };
+
   useEffect(() => {
     // Only load content if file is uploaded AND user selects a mode (not on upload)
+    // If `suppressAutoLoad` is true we will skip this automatic behavior because
+    // the flow will explicitly call `loadContentFromFile` with an item count.
+    if (suppressAutoLoad) return;
     if (fileContent && activeMode && uploadedFile) {
       loadContentFromFile(activeMode);
     }
-  }, [activeMode]);
+  }, [activeMode, suppressAutoLoad]);
 
   const handleNext = () => {
     // For fill-in-the-blanks, only proceed if answer has been checked
@@ -728,6 +898,7 @@ export default function FileBasedStudyApp() {
       setCurrentIndex(currentIndex + 1);
       setShowAnswer(false);
       setSelectedAnswer(null);
+      setRevealedCorrectIndex(undefined);
       setUserAnswer('');
       setProgress(((currentIndex + 1) / content.length) * 100);
     } else {
@@ -746,6 +917,7 @@ export default function FileBasedStudyApp() {
       setCurrentIndex(currentIndex - 1);
       setShowAnswer(false);
       setSelectedAnswer(null);
+      setRevealedCorrectIndex(undefined);
       setUserAnswer('');
       setProgress(((currentIndex - 1) / content.length) * 100);
     }
@@ -754,14 +926,87 @@ export default function FileBasedStudyApp() {
   const handleAnswerSelect = (answerIndex, correct = false) => {
     // Start stats and record this answer
     startStatsIfNeeded();
-    updateStatsOnAnswer(!!correct);
-    setSelectedAnswer(answerIndex);
-    if (correct) {
+    // Recompute correctness for quiz mode using the resolver so we reliably
+    // highlight the correct option even when AI returns different shapes.
+    let isCorrect = !!correct;
+    let updatedStats = null;
+    if (activeMode === 'quiz') {
+      const q = content[currentIndex];
+      const resolved = resolveCorrectIndex(q);
+      // reveal the resolved index so UI can use it
+      setRevealedCorrectIndex(typeof resolved.numericCorrectIndex !== 'undefined' ? resolved.numericCorrectIndex : undefined);
+      if (typeof resolved.numericCorrectIndex !== 'undefined') {
+        isCorrect = (answerIndex === resolved.numericCorrectIndex);
+      } else if (resolved.correctAnswerTextFallback) {
+        // compare by text
+        const optText = getOptionText((q.options || q.choices || [])[answerIndex]);
+        isCorrect = optText && String(optText).trim() === String(resolved.correctAnswerTextFallback).trim();
+      }
+    }
+    // Update stats and capture the returned fresh stats object
+    updatedStats = updateStatsOnAnswer(!!isCorrect);
+    // Normalize numeric index answers to numbers (keep booleans as-is)
+    const normalizedAnswer = (typeof answerIndex === 'number' || (!isNaN(Number(answerIndex)) && typeof answerIndex !== 'boolean')) ? Number(answerIndex) : answerIndex;
+    setSelectedAnswer(normalizedAnswer);
+    if (isCorrect) {
       setScore(s => s + 1);
     }
-    setTimeout(() => {
-      handleNext();
-    }, 1500);
+    // Mark this index as answered so navigation rules can use it
+    setAnsweredSet(prev => {
+      const next = new Set(prev);
+      next.add(currentIndex);
+      return next;
+    });
+    // Auto-advance behavior: respect the user's toggle per mode
+    let shouldAutoNext = true;
+    if (activeMode === 'quiz') shouldAutoNext = !!quizAutoNext;
+    else if (activeMode === 'trueFalse') shouldAutoNext = !!trueFalseAutoNext;
+
+    // If auto-next is enabled, advance after a short delay
+    if (shouldAutoNext) {
+      setTimeout(() => {
+        handleNext();
+      }, 1500);
+    } else {
+      // If this was the last question and the user did NOT allow auto-next,
+      // we still need to mark completion and request AI tips immediately so
+      // the session summary and tips show without requiring the user to click Next.
+      if (currentIndex === content.length - 1) {
+        setIsCompleted(true);
+        try {
+          // cancel any pending debounced AI request and call immediately with fresh stats
+          if (aiRequestTimer.current) {
+            clearTimeout(aiRequestTimer.current);
+            aiRequestTimer.current = null;
+          }
+          requestImprovementSuggestions(activeMode, updatedStats);
+        } catch (e) {
+          console.error('Failed to request AI tips after final answer:', e);
+        }
+      }
+    }
+  };
+
+  // Handler called by WheelMode when a wheel question is answered
+  const handleWheelAnswered = (idx, wasCorrect) => {
+    if (typeof idx !== 'number') return;
+    setWheelAnsweredSet(prev => {
+      const next = new Set(prev);
+      next.add(idx);
+      // If all slices answered, mark completion
+      if (next.size === content.length && content.length > 0) setIsCompleted(true);
+      return next;
+    });
+    // also mark in the generic answered set
+    setAnsweredSet(prev => {
+      const next = new Set(prev);
+      next.add(idx);
+      return next;
+    });
+    // Update stats and score
+    startStatsIfNeeded();
+    updateStatsOnAnswer(!!wasCorrect);
+    if (wasCorrect) setScore(s => s + 1);
   };
 
   const checkFillBlankAnswer = () => {
@@ -774,9 +1019,22 @@ export default function FileBasedStudyApp() {
       newScore = score + 1;
       setScore(s => s + 1);
     }
-    // Stats: record this checked answer
+    // Stats: record this checked answer and get updated stats
     startStatsIfNeeded();
-    updateStatsOnAnswer(isCorrect);
+    const updatedStats = updateStatsOnAnswer(isCorrect);
+    // mark this index answered
+    setAnsweredSet(prev => {
+      const next = new Set(prev);
+      next.add(currentIndex);
+      return next;
+    });
+    // Immediately request AI improvement suggestions for this session after scoring,
+    // passing the freshly computed stats so the AI sees accurate numbers.
+    try {
+      requestImprovementSuggestions(activeMode, updatedStats);
+    } catch (e) {
+      console.error('Failed to request AI tips after checking fill-blank answer:', e);
+    }
     
     // Check if this is the last question (completion)
     if (currentIndex === content.length - 1) {
@@ -789,9 +1047,19 @@ export default function FileBasedStudyApp() {
 
     setWheelSpinning(true);
     const spins = Math.floor(Math.random() * 5) + 5;
-    // Pick a random slice to land on
+    // Pick a random slice to land on that has NOT been answered yet
+    const available = [];
+    for (let i = 0; i < content.length; i++) {
+      if (!wheelAnsweredSet.has(i)) available.push(i);
+    }
+    if (available.length === 0) {
+      // All answered
+      setWheelSpinning(false);
+      setIsCompleted(true);
+      return;
+    }
+    const targetIndex = available[Math.floor(Math.random() * available.length)];
     const sliceAngle = 360 / content.length;
-    const targetIndex = Math.floor(Math.random() * content.length);
     // Calculate the rotation so the targetIndex lands at 0deg (top)
     const finalRotation = wheelRotation + (spins * 360) + (360 - targetIndex * sliceAngle);
     setWheelRotation(finalRotation);
@@ -829,7 +1097,7 @@ export default function FileBasedStudyApp() {
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create concise question/answer flashcards from your uploaded file.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button onClick={() => loadContentFromFile('flashcards')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => openCountPrompt('flashcards')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
                 <button onClick={() => { setContent(sampleSets.flashcards); setActiveMode('flashcards'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
@@ -861,7 +1129,17 @@ export default function FileBasedStudyApp() {
       <div className="space-y-6">
         <div 
           className="relative min-h-[16rem] h-auto overflow-auto cursor-pointer"
-          onClick={() => setShowAnswer(!showAnswer)}
+          onClick={() => {
+            const willShow = !showAnswer;
+            setShowAnswer(willShow);
+            if (willShow) {
+              setAnsweredSet(prev => {
+                const next = new Set(prev);
+                next.add(currentIndex);
+                return next;
+              });
+            }
+          }}
         >
           <div className={`absolute inset-0 w-full h-full transition-all duration-500 transform ${showAnswer ? 'scale-95' : ''}`}>
             {!showAnswer ? (
@@ -881,16 +1159,18 @@ export default function FileBasedStudyApp() {
   };
 
   const renderQuiz = () => {
+    // Auto-Next toggle is rendered in the progress bar area for visibility
     if (content.length === 0 || !content[currentIndex]) {
       if (fileContent) {
         return (
           <div className="space-y-6">
+            {/* Auto-Next toggle is now shown in the progress bar area */}
             <div className={`${cardBg} rounded-xl p-6 shadow min-h-[12rem]`}>
               <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Generate Quiz Questions</h3>
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create multiple-choice questions from your file content.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button onClick={() => loadContentFromFile('quiz')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => openCountPrompt('quiz')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
                 <button onClick={() => { setContent(sampleSets.quiz); setActiveMode('quiz'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
@@ -900,6 +1180,7 @@ export default function FileBasedStudyApp() {
       }
       return (
         <div className="space-y-6">
+          {/* Auto-Next toggle moved to progress bar for better visibility */}
           <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto flex flex-col justify-center items-center`}>
             <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Quiz Template</h3>
             <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Question: [Multiple choice question]</p>
@@ -925,15 +1206,94 @@ export default function FileBasedStudyApp() {
     if (typeof options === 'string') {
       options = options.split(/\n|,/).map(o => o.trim()).filter(Boolean);
     }
+    // Helper to get readable option text for objects
+    const getOptionText = (opt) => {
+      if (typeof opt === 'string') return opt;
+      if (!opt) return '';
+      return opt.text || opt.option || opt.label || opt.value || JSON.stringify(opt);
+    };
+
     console.log('Quiz options:', options);
-    const correctIndex = typeof question.correct !== 'undefined' ? question.correct : question.answer;
-    console.log('Quiz correctIndex:', correctIndex);
+    const correctIndexRaw = typeof question.correct !== 'undefined' ? question.correct : question.answer;
+    console.log('Quiz correctIndex (raw):', correctIndexRaw);
+    // Resolve correct index to a numeric position in the options array.
+    // Support these common shapes returned from AI/backends:
+    // - numeric index (0-based or 1-based)
+    // - letter index like 'A'..'D'
+    // - option text (string) that matches one of the option texts
+    // - option object equal or with a .text/.label/.option/.value property
+    let numericCorrectIndex;
+    const optionTexts = Array.isArray(options) ? options.map(getOptionText) : [];
+    let correctTextFromRaw = null;
+    if (typeof correctIndexRaw !== 'undefined' && correctIndexRaw !== null) {
+      // If it's a plain number (or numeric string), try to use it (support 0-based and 1-based)
+      const asNumber = Number(correctIndexRaw);
+      if (!isNaN(asNumber)) {
+        if (Number.isInteger(asNumber)) {
+          // prefer 0-based, but accept 1-based if value is between 1 and len
+          if (asNumber >= 0 && asNumber < optionTexts.length) {
+            numericCorrectIndex = asNumber;
+          } else if (asNumber >= 1 && asNumber <= optionTexts.length) {
+            numericCorrectIndex = asNumber - 1;
+          }
+        }
+      }
+
+      // If not resolved yet and the raw is an object with text-like fields, extract text
+      if (typeof correctIndexRaw === 'object' && correctIndexRaw !== null) {
+        correctTextFromRaw = getOptionText(correctIndexRaw);
+      }
+
+      // If still unresolved and raw is a string, check for letter mapping (A,B,C..) and exact/text match
+      if (typeof correctIndexRaw === 'string') {
+        const trimmed = correctIndexRaw.trim();
+        // Single-letter like 'A' maps to index 0
+        if (/^[A-Z]$/i.test(trimmed)) {
+          const idx = trimmed.toUpperCase().charCodeAt(0) - 'A'.charCodeAt(0);
+          if (idx >= 0 && idx < optionTexts.length) numericCorrectIndex = idx;
+        }
+        // exact text match (case-insensitive)
+        if (typeof numericCorrectIndex === 'undefined') {
+          const lower = trimmed.toLowerCase();
+          const found = optionTexts.findIndex(t => t && t.toLowerCase().trim() === lower);
+          if (found !== -1) numericCorrectIndex = found;
+          else {
+            // try contains-match as a fallback
+            const contains = optionTexts.findIndex(t => t && t.toLowerCase().includes(lower));
+            if (contains !== -1) numericCorrectIndex = contains;
+          }
+        }
+      }
+
+      // If we have text from an object, try to match it against options
+      if (typeof numericCorrectIndex === 'undefined' && correctTextFromRaw) {
+        const lower = correctTextFromRaw.toLowerCase().trim();
+        const found = optionTexts.findIndex(t => t && t.toLowerCase().trim() === lower);
+        if (found !== -1) numericCorrectIndex = found;
+        else {
+          const contains = optionTexts.findIndex(t => t && t.toLowerCase().includes(lower));
+          if (contains !== -1) numericCorrectIndex = contains;
+        }
+      }
+    }
+
+    // Prepare a displayable correct answer text when index resolution fails
+    const correctAnswerTextFallback = (typeof correctIndexRaw === 'string' || typeof correctIndexRaw === 'number')
+      ? String(correctIndexRaw)
+      : (correctTextFromRaw || null);
+    console.log('Resolved numericCorrectIndex:', numericCorrectIndex, 'correctAnswerTextFallback:', correctAnswerTextFallback);
+    console.log('Option texts:', optionTexts);
+    // If a revealed index was set when the user answered, prefer that for UI highlighting
+    if (typeof revealedCorrectIndex !== 'undefined') {
+      numericCorrectIndex = revealedCorrectIndex;
+    }
     if (!qText || options.length === 0) {
       // Fallback to template if missing fields
       console.log('Quiz fallback: missing qText or options');
       return (
         <div className="space-y-6">
-          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto flex flex-col justify-center items-center`}>
+          {/* Auto-Next toggle moved to progress bar for better visibility */}
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto flex flex-col justify-center items-center`}> 
             <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>Quiz Template</h3>
             <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Question: [Multiple choice question]</p>
             <div className="mt-2 w-full">
@@ -949,26 +1309,22 @@ export default function FileBasedStudyApp() {
     }
     return (
       <div className="space-y-6">
-        <div className={`${cardBg} rounded-xl p-6 shadow`}>
+        {/* Auto-Next toggle is now shown in the progress bar area */}
+        <div className={`${cardBg} rounded-xl p-6 shadow`}> 
           <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>{qText}</h3>
           <div className="space-y-3">
             {options.map((option, index) => {
               let buttonClass = 'border-gray-200 hover:border-teal-300 hover:bg-teal-50';
-              
+              const optText = getOptionText(option);
+
               if (selectedAnswer !== null) {
-                // First check if this is the correct answer
-                if (index === correctIndex) {
-                  // Always highlight the correct answer in green when an answer is selected
+                const isCorrect = (typeof numericCorrectIndex !== 'undefined') ? (index === numericCorrectIndex) : (optText && correctAnswerTextFallback && String(optText).trim() === String(correctAnswerTextFallback).trim());
+                const isSelected = selectedAnswer === index;
+                if (isCorrect) {
                   buttonClass = 'border-green-500 bg-green-50 text-green-800';
-                }
-                // Then check if this is the selected wrong answer (this can override correct answer styling)
-                else if (selectedAnswer === index && index !== correctIndex) {
-                  // Highlight the selected wrong answer in red
+                } else if (isSelected && !isCorrect) {
                   buttonClass = 'border-red-500 bg-red-50 text-red-800';
-                }
-                // Other unselected options
-                else if (selectedAnswer !== index && index !== correctIndex) {
-                  // Other options remain neutral
+                } else {
                   buttonClass = 'border-gray-200 bg-gray-50 text-gray-500';
                 }
               }
@@ -977,13 +1333,20 @@ export default function FileBasedStudyApp() {
                 <button
                   key={index}
                   className={`w-full p-3 rounded-lg border-2 transition-all text-left ${buttonClass}`}
-                  onClick={() => handleAnswerSelect(index, index === correctIndex)}
+                  onClick={() => handleAnswerSelect(index, (typeof numericCorrectIndex !== 'undefined') ? index === numericCorrectIndex : (optText && correctAnswerTextFallback && String(optText).trim() === String(correctAnswerTextFallback).trim()))}
                   disabled={selectedAnswer !== null}
                 >
-                  {option}
+                  {getOptionText(option)}
                 </button>
               );
             })}
+            {selectedAnswer !== null && (
+              <div className="mt-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                <p className="text-teal-800">
+                  <strong>Correct answer:</strong> {typeof numericCorrectIndex !== 'undefined' ? getOptionText(options[numericCorrectIndex]) : (correctAnswerTextFallback || 'N/A')}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -995,12 +1358,13 @@ export default function FileBasedStudyApp() {
       if (fileContent) {
         return (
           <div className="space-y-6">
-            <div className={`${cardBg} rounded-xl p-6 shadow min-h-[12rem]`}>
+            {/* Auto-Next toggle is now shown in the progress bar area */}
+            <div className={`${cardBg} rounded-xl p-6 shadow min-h-[12rem]`}> 
               <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Generate True/False Questions</h3>
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create true/false statements from your file.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button onClick={() => loadContentFromFile('trueFalse')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => openCountPrompt('trueFalse')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
                 <button onClick={() => { setContent(sampleSets.trueFalse); setActiveMode('trueFalse'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
@@ -1010,7 +1374,8 @@ export default function FileBasedStudyApp() {
       }
       return (
         <div className="space-y-6">
-          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto flex flex-col justify-center items-center`}>
+            {/* Auto-Next toggle is now shown in the progress bar area */}
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto flex flex-col justify-center items-center`}> 
             <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>True/False Template</h3>
             <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Statement: [Fact or claim]</p>
             <div className="flex gap-4 mt-4">
@@ -1093,7 +1458,7 @@ export default function FileBasedStudyApp() {
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create randomized wheel slices from your content.</p>
               <div className="mt-4 flex flex-wrap gap-3 justify-center">
-                <button onClick={() => loadContentFromFile('wheel')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => openCountPrompt('wheel')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
                 <button onClick={() => { setContent(sampleSets.wheel); setActiveMode('wheel'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
@@ -1176,7 +1541,7 @@ export default function FileBasedStudyApp() {
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create term-definition pairs from your file for matching practice.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button onClick={() => loadContentFromFile('matching')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => openCountPrompt('matching')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
                 <button onClick={() => { setContent(sampleSets.matching); setActiveMode('matching'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
@@ -1271,7 +1636,7 @@ export default function FileBasedStudyApp() {
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>{uploadedFile ? uploadedFile.name : 'Using sample content'}</p>
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create fill-in-the-blank prompts from your text.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button onClick={() => loadContentFromFile('fillBlanks')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
+                <button onClick={() => openCountPrompt('fillBlanks')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
                 <button onClick={() => { setContent(sampleSets.fillBlanks); setActiveMode('fillBlanks'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
@@ -1460,6 +1825,7 @@ export default function FileBasedStudyApp() {
                 setMatchingScore(0);
                 // Reset wheel mode state
                 setViewedQuestions(new Set());
+                setWheelAnsweredSet(new Set());
                 // Reset fill-in-the-blanks state
                 setAnsweredQuestions([]);
               }}
@@ -1477,6 +1843,7 @@ export default function FileBasedStudyApp() {
                 setIsCompleted(false);
                 // Reset wheel mode state
                 setViewedQuestions(new Set());
+                setWheelAnsweredSet(new Set());
                 // Reset fill-in-the-blanks state
                 setAnsweredQuestions([]);
               }}
@@ -1780,6 +2147,8 @@ export default function FileBasedStudyApp() {
               viewedQuestions={viewedQuestions}
               score={score}
               setScore={setScore}
+              disabledIndices={Array.from(wheelAnsweredSet)}
+              onAnswered={handleWheelAnswered}
             />
             {content.length > 0 && (
               <div className={`${cardBg} shadow rounded-xl p-4`}>
@@ -1863,6 +2232,28 @@ export default function FileBasedStudyApp() {
     <div className={`flex min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <Sidebar />
       <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28">
+        {/* Global modal for alerts with blurred backdrop */}
+        {modalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeModal} />
+            <div className="relative z-10 w-full max-w-lg mx-4">
+              <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6`}> 
+                {modalTitle && <div className={`text-lg font-semibold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>{modalTitle}</div>}
+                <div className={`text-sm whitespace-pre-wrap ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>{modalMessage}</div>
+                <div className="mt-4 flex justify-end space-x-2">
+                  {modalConfirmAction ? (
+                    <>
+                      <button onClick={() => { if (modalCancelAction) modalCancelAction(); else closeModal(); }} className="px-4 py-2 bg-gray-100 rounded">{modalCancelLabel}</button>
+                      <button onClick={() => { if (modalConfirmAction) modalConfirmAction(); else closeModal(); }} className="px-4 py-2 bg-red-600 text-white rounded">{modalConfirmLabel}</button>
+                    </>
+                  ) : (
+                    <button onClick={closeModal} className="px-4 py-2 bg-teal-600 text-white rounded">OK</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Header */}
         <div className="mb-8 transform transition-all duration-500 hover:scale-105">
           <h1 className={`text-5xl font-bold page-title`}>
@@ -1911,18 +2302,53 @@ export default function FileBasedStudyApp() {
             {showSavePrompt && (
               <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
                 <div className={`w-full max-w-lg p-6 rounded-xl ${cardBg} ${cardText} shadow-lg`}>
-                  <h3 className="text-lg font-semibold mb-2">Save current study set?</h3>
-                  <p className="text-sm mb-4">You have generated content for the current study mode. Would you like to save it before switching to a different mode?</p>
+                  {isCurrentContentSaved ? (
+                    <>
+                      <h3 className="text-lg font-semibold mb-2">Switch study mode?</h3>
+                      <p className="text-sm mb-4">This study set is already saved. Do you want to switch modes without saving?</p>
+                      <div className="flex justify-end gap-3">
+                        <button onClick={handleCancelSwitch} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
+                        <button onClick={handleDiscardAndSwitch} className={`px-4 py-2 rounded-lg ${themeColors.light} ${themeColors.text} hover:${themeColors.hover}`}>Switch</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-lg font-semibold mb-2">Save current study set?</h3>
+                      <p className="text-sm mb-4">You have generated content for the current study mode. Would you like to save it before switching to a different mode?</p>
+                      <div className="flex justify-end gap-3">
+                        <button onClick={handleCancelSwitch} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
+                        <button onClick={handleDiscardAndSwitch} className="px-4 py-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200">Don't Save</button>
+                        <button onClick={handleSaveAndSwitch} className={`px-4 py-2 rounded-lg ${themeColors.light} ${themeColors.text} hover:${themeColors.hover}`}>Save & Switch</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* Mini-game modal moved: trigger is displayed in the content column below */}
+            {/* Count prompt modal: ask how many items to generate for the selected mode */}
+            {showCountPrompt && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+                <div className={`w-full max-w-md p-6 rounded-xl ${cardBg} ${cardText} shadow-lg`}> 
+                  <h3 className="text-lg font-semibold mb-2">How many items to generate?</h3>
+                  <p className="text-sm mb-4">Enter the number of items you want the AI to produce for this study mode.</p>
+                  <div className="mb-4">
+                    <input
+                      type="number"
+                      min="1"
+                      value={countInput}
+                      onChange={(e) => setCountInput(e.target.value)}
+                      className={`w-full p-3 border-2 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-gray-800'}`}
+                      placeholder="e.g. 10"
+                    />
+                  </div>
                   <div className="flex justify-end gap-3">
-                    <button onClick={handleCancelSwitch} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
-                    <button onClick={handleDiscardAndSwitch} className="px-4 py-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200">Don't Save</button>
-                    <button onClick={handleSaveAndSwitch} className={`px-4 py-2 rounded-lg ${themeColors.light} ${themeColors.text} hover:${themeColors.hover}`}>Save & Switch</button>
+                    <button onClick={() => { setShowCountPrompt(false); setCountPromptMode(null); setSuppressAutoLoad(false); }} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
+                    <button onClick={handleGenerateWithCount} className={`px-4 py-2 rounded-lg ${themeColors.light} ${themeColors.text} hover:${themeColors.hover}`}>Generate</button>
                   </div>
                 </div>
               </div>
             )}
-            {/* Mini-game modal */}
-            <GameModal isOpen={isGameOpen} onClose={() => setIsGameOpen(false)} content={content} fileContent={fileContent} />
           {/* Mode Selection */}
           <div className="xl:col-span-1 lg:col-span-1">
             <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
@@ -1949,18 +2375,7 @@ export default function FileBasedStudyApp() {
                     <span className="ml-3 font-medium">{mode.name}</span>
                   </button>
                 ))}
-                <button
-                  onClick={() => setIsGameOpen(true)}
-                  disabled={loading || (!fileContent && content.length === 0)}
-                  className={`w-full flex items-center p-3 rounded-lg border-2 transition-all duration-300 text-left ${
-                    (loading || (!fileContent && content.length === 0))
-                      ? (darkMode ? 'border-gray-700 bg-gray-700 text-gray-500 cursor-not-allowed' : 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed')
-                      : (darkMode ? 'border-gray-600 hover:border-teal-400 hover:bg-gray-700 text-gray-300' : 'border-gray-200 hover:border-teal-300 hover:bg-white text-gray-600')
-                  }`}
-                >
-                  <div className="transition-transform duration-300 mr-2">🎮</div>
-                  <span className="ml-1 font-medium">Play Mini Game</span>
-                </button>
+                {/* Removed Play Mini Game button from Study Methods - mini-game is available in the main content area */}
               </div>
             </div>
           </div>
@@ -1972,9 +2387,27 @@ export default function FileBasedStudyApp() {
               <div className={`${cardBg} shadow rounded-xl p-6 mb-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
                 <div className="flex justify-between items-center mb-2">
                   <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-medium`}>Progress</span>
-                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-semibold`}>
-                    {currentIndex + 1} / {content.length}
-                  </span>
+                  <div className="flex items-center space-x-3">
+                    <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} font-semibold`}>
+                      {currentIndex + 1} / {content.length}
+                    </span>
+                    {(activeMode === 'quiz' || activeMode === 'trueFalse') && (
+                      <label className="inline-flex items-center space-x-2 text-sm">
+                        <span className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Auto-Next</span>
+                        <button
+                          onClick={() => {
+                            if (activeMode === 'quiz') setQuizAutoNext(q => !q);
+                            else if (activeMode === 'trueFalse') setTrueFalseAutoNext(v => !v);
+                          }}
+                          className={`ml-2 px-3 py-1 rounded-full border transition-colors ${
+                            (activeMode === 'quiz' ? quizAutoNext : trueFalseAutoNext) ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-700 border-gray-300'
+                          }`}
+                        >
+                          {(activeMode === 'quiz' ? quizAutoNext : trueFalseAutoNext) ? 'On' : 'Off'}
+                        </button>
+                      </label>
+                    )}
+                  </div>
                 </div>
                 <div className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full h-3 overflow-hidden`}>
                   <div 
@@ -2002,56 +2435,95 @@ export default function FileBasedStudyApp() {
               {renderContent()}
             </div>
 
-            {/* Stats Panel */}
-            {content.length > 0 && (
+            {/* Navigation Buttons */}
+            {content.length > 0 && activeMode !== 'wheel' && activeMode !== 'matching' && (
+              <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300`}>
+                <div className="flex justify-between items-center">
+                  {/* Determine whether current question is answered based on mode */}
+                  {(() => {
+                    // Determine answered status using the central answeredSet which is updated
+                    // whenever a question is answered (quiz/trueFalse/fillBlanks/wheel).
+                    const prevIdx = currentIndex - 1;
+                    // Option B: disable Previous if the previous question has already been answered
+                    const prevDisabled = currentIndex === 0 || answeredSet.has(prevIdx);
+                    const currentAnswered = answeredSet.has(currentIndex);
+                    const nextDisabled = !currentAnswered || currentIndex === content.length - 1;
+
+                    return (
+                      <>
+                        <button
+                          onClick={handlePrevious}
+                          disabled={prevDisabled}
+                          className={`px-8 py-3 rounded-lg transition-all duration-300 transform font-semibold ${
+                            prevDisabled
+                              ? `${darkMode ? 'bg-gray-700 text-gray-600' : 'bg-gray-200 text-gray-400'} cursor-not-allowed`
+                              : `${darkMode ? 'bg-gray-600 text-white hover:bg-gray-500' : 'bg-gray-500 text-white hover:bg-gray-600'} hover:scale-105 hover:shadow-lg hover:-translate-x-1 active:scale-95`
+                          }`}
+                          title={prevDisabled ? 'Cannot go back to already-answered questions' : undefined}
+                        >
+                          ← Previous
+                        </button>
+
+                        <span className={`text-sm ${darkMode ? 'text-gray-400 bg-gray-700' : 'text-gray-500 bg-gray-100'} font-medium px-3 py-1 rounded-full`}>
+                          {currentIndex + 1} of {content.length}
+                        </span>
+
+                        <button
+                          onClick={handleNext}
+                          disabled={nextDisabled}
+                          className={`px-8 py-3 rounded-lg transition-all duration-300 transform font-semibold ${
+                            currentIndex === content.length - 1
+                              ? `${darkMode ? 'bg-gray-700 text-gray-600' : 'bg-gray-200 text-gray-400'} cursor-not-allowed`
+                              : (activeMode === 'fillBlanks' && !showAnswer)
+                              ? 'bg-orange-400 text-white cursor-not-allowed'
+                              : `bg-${themeColors.primary}-600 text-white hover:bg-${themeColors.primary}-700 hover:scale-105 hover:shadow-lg hover:translate-x-1 active:scale-95`
+                          }`}
+                          title={
+                            (activeMode === 'fillBlanks' && !showAnswer)
+                              ? 'Check your answer first before moving to the next question'
+                              : (nextDisabled ? 'Answer the current question before navigating' : undefined)
+                          }
+                        >
+                          {(activeMode === 'fillBlanks' && !showAnswer) ? 'Check Answer First' : 'Next →'}
+                        </button>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Stats Panel (hidden for Flashcards mode) */}
+            {content.length > 0 && activeMode !== 'flashcards' && (
               <div className="mb-6">
                 {renderStatsPanel()}
               </div>
             )}
 
-            {/* Navigation Buttons */}
-            {content.length > 0 && activeMode !== 'wheel' && activeMode !== 'matching' && (
-              <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300`}>
-                <div className="flex justify-between items-center">
-                  <button
-                    onClick={handlePrevious}
-                    disabled={currentIndex === 0}
-                    className={`px-8 py-3 rounded-lg transition-all duration-300 transform font-semibold ${
-                      currentIndex === 0
-                        ? `${darkMode ? 'bg-gray-700 text-gray-600' : 'bg-gray-200 text-gray-400'} cursor-not-allowed`
-                        : `${darkMode ? 'bg-gray-600 text-white hover:bg-gray-500' : 'bg-gray-500 text-white hover:bg-gray-600'} hover:scale-105 hover:shadow-lg hover:-translate-x-1 active:scale-95`
-                    }`}
-                  >
-                    ← Previous
-                  </button>
-
-                  <span className={`text-sm ${darkMode ? 'text-gray-400 bg-gray-700' : 'text-gray-500 bg-gray-100'} font-medium px-3 py-1 rounded-full`}>
-                    {currentIndex + 1} of {content.length}
-                  </span>
-
-                  <button
-                    onClick={handleNext}
-                    disabled={
-                      currentIndex === content.length - 1 || 
-                      (activeMode === 'fillBlanks' && !showAnswer)
-                    }
-                    className={`px-8 py-3 rounded-lg transition-all duration-300 transform font-semibold ${
-                      currentIndex === content.length - 1
-                        ? `${darkMode ? 'bg-gray-700 text-gray-600' : 'bg-gray-200 text-gray-400'} cursor-not-allowed`
-                        : (activeMode === 'fillBlanks' && !showAnswer)
-                        ? 'bg-orange-400 text-white cursor-not-allowed'
-                        : `bg-${themeColors.primary}-600 text-white hover:bg-${themeColors.primary}-700 hover:scale-105 hover:shadow-lg hover:translate-x-1 active:scale-95`
-                    }`}
-                    title={
-                      (activeMode === 'fillBlanks' && !showAnswer) 
-                        ? 'Check your answer first before moving to the next question'
-                        : undefined
-                    }
-                  >
-                    {(activeMode === 'fillBlanks' && !showAnswer) ? 'Check Answer First' : 'Next →'}
-                  </button>
+            {/* Mini-game card (separate from mode selector) - show only when a file is uploaded or fileContent exists */}
+            {(uploadedFile || fileContent) && (
+              <div className={`${cardBg} shadow rounded-xl p-6 mt-6`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className={`text-lg font-semibold ${cardText}`}>Mini-game</h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Play the Flappy mini-game</p>
+                  </div>
+                  <div>
+                    <button
+                      onClick={() => setIsGameOpen(true)}
+                      disabled={loading || (!uploadedFile && !fileContent)}
+                      className={`px-4 py-2 rounded-lg font-semibold ${loading || (!uploadedFile && !fileContent) ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-teal-600 text-white'} hover:bg-teal-700`}
+                    >
+                      Play Mini-game
+                    </button>
+                  </div>
                 </div>
               </div>
+            )}
+
+            {/* Mount GameModal here so it appears separate from the study mode selector */}
+            {isGameOpen && (
+              <GameModal isOpen={isGameOpen} onClose={() => setIsGameOpen(false)} content={content} fileContent={fileContent} />
             )}
           </div>
 
@@ -2100,16 +2572,30 @@ export default function FileBasedStudyApp() {
                                 📄 {savedSet.fileName}
                               </p>
                             </div>
-                            <div className="flex space-x-1 ml-2">
+                              <div className="flex space-x-1 ml-2">
                               <button
-                                onClick={() => loadSavedStudySet(savedSet)}
+                                onClick={() => showConfirm(
+                                  `Load ${savedSet.itemCount || savedSet.content?.length || savedSet.cards?.length || 0} items from \"${savedSet.title}\"?`,
+                                  'Load Study Set',
+                                  () => loadSavedStudySet(savedSet),
+                                  null,
+                                  'Load',
+                                  'Cancel'
+                                )}
                                 className={`px-2 py-1 text-xs ${themeColors.light} ${themeColors.text} rounded hover:${themeColors.hover} transition-colors`}
                                 title="Load study set"
                               >
                                 📖 Load
                               </button>
                               <button
-                                onClick={() => deleteSavedStudySet(savedSet.id)}
+                                onClick={() => showConfirm(
+                                  `Delete "${savedSet.title}"? This cannot be undone.`,
+                                  'Delete Study Set',
+                                  () => deleteSavedStudySet(savedSet.id),
+                                  null,
+                                  'Delete',
+                                  'Cancel'
+                                )}
                                 className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
                                 title="Delete study set"
                               >

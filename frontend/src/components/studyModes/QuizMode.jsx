@@ -1,11 +1,17 @@
 import React from 'react';
 import { useSettings } from '../../context/SettingsContext';
+import { buildOptionsCache } from '../../utils/studyUtils';
 
 export default function QuizMode({ content, currentIndex, selectedAnswer, handleAnswerSelect }) {
   const { darkMode } = useSettings();
   const cardBg = darkMode ? 'bg-gray-800' : 'bg-white';
   const cardText = darkMode ? 'text-gray-200' : 'text-gray-800';
   const subtleBg = darkMode ? 'bg-gray-700' : 'bg-gray-100';
+  const getOptionText = (opt) => {
+    if (typeof opt === 'string') return opt;
+    if (!opt) return '';
+    return opt.text || opt.label || opt.option || opt.value || JSON.stringify(opt);
+  };
   if (content.length === 0 || !content[currentIndex]) {
     return (
       <div className="space-y-6">
@@ -49,29 +55,7 @@ export default function QuizMode({ content, currentIndex, selectedAnswer, handle
     selected = selectedAnswer[currentIndex];
   }
   // Memoize options per question so they do not reshuffle on every render
-  const [optionsCache] = React.useState(() => {
-    // For each question, generate options once
-    return content.map((q, idx) => {
-      if (!q || !q.answer) return null;
-      const allAnswers = content.map(qq => qq.answer).filter(a => a && a !== q.answer);
-      const distractors = [];
-      const used = new Set();
-      while (distractors.length < 3 && allAnswers.length > 0) {
-        const i = Math.floor(Math.random() * allAnswers.length);
-        if (!used.has(allAnswers[i])) {
-          distractors.push(allAnswers[i]);
-          used.add(allAnswers[i]);
-        }
-      }
-      while (distractors.length < 3) distractors.push('N/A');
-      const optionsArr = [q.answer, ...distractors];
-      for (let i = optionsArr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [optionsArr[i], optionsArr[j]] = [optionsArr[j], optionsArr[i]];
-      }
-      return optionsArr;
-    });
-  });
+  const [optionsCache] = React.useState(() => buildOptionsCache(content));
 
   if (!qText || options.length === 0) {
     // Fallback: use memoized options
@@ -85,21 +69,15 @@ export default function QuizMode({ content, currentIndex, selectedAnswer, handle
             <div className="space-y-3">
               {optionsArr.map((option, index) => {
                 let buttonClass = 'border-gray-200 hover:border-teal-300 hover:bg-teal-50';
-                
                 if (selected !== null) {
-                  // First check if this is the correct answer
+                  // Always highlight the correct answer in green when an answer is selected
                   if (index === correctIndex) {
-                    // Always highlight the correct answer in green when an answer is selected
                     buttonClass = 'border-green-500 bg-green-50 text-green-800';
-                  }
-                  // Then check if this is the selected wrong answer (this can override correct answer styling)
-                  else if (selected === index && index !== correctIndex) {
+                  } else if (selected === index && index !== correctIndex) {
                     // Highlight the selected wrong answer in red
                     buttonClass = 'border-red-500 bg-red-50 text-red-800';
-                  }
-                  // Other unselected options
-                  else if (selected !== index && index !== correctIndex) {
-                    // Other options remain neutral
+                  } else {
+                    // Other options neutral
                     buttonClass = 'border-gray-200 bg-gray-50 text-gray-500';
                   }
                 }
@@ -113,10 +91,17 @@ export default function QuizMode({ content, currentIndex, selectedAnswer, handle
                     }}
                     disabled={selected !== null}
                   >
-                    {option}
+                    {getOptionText(option)}
                   </button>
                 );
               })}
+              {selected !== null && (
+                <div className="mt-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                  <p className="text-teal-800">
+                    <strong>Correct answer:</strong> {typeof correctIndex === 'number' && correctIndex >= 0 ? getOptionText(optionsArr[correctIndex]) : (question.correct || question.answer || 'N/A')}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -144,25 +129,38 @@ export default function QuizMode({ content, currentIndex, selectedAnswer, handle
       <div className={`${cardBg} rounded-xl p-6 shadow`}>
         <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>{qText}</h3>
         <div className="space-y-3">
-          {options.map((option, index) => (
-            <button
-              key={index}
-              className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
-                selectedAnswer === index
-                  ? index === correctIndex
-                    ? 'border-green-500 bg-green-50 text-green-800'
-                    : 'border-red-500 bg-red-50 text-red-800'
-                  : 'border-gray-200 hover:border-teal-300 hover:bg-teal-50'
-              }`}
-              onClick={() => {
-                console.log('Selected:', index, 'Correct:', correctIndex);
-                handleAnswerSelect(index, index === correctIndex);
-              }}
-              disabled={selectedAnswer !== null}
-            >
-              {option}
-            </button>
-          ))}
+          {options.map((option, index) => {
+            let buttonClass = 'border-gray-200 hover:border-teal-300 hover:bg-teal-50';
+            if (selected !== null) {
+              if (index === correctIndex) {
+                buttonClass = 'border-green-500 bg-green-50 text-green-800';
+              } else if (selected === index && index !== correctIndex) {
+                buttonClass = 'border-red-500 bg-red-50 text-red-800';
+              } else {
+                buttonClass = 'border-gray-200 bg-gray-50 text-gray-500';
+              }
+            }
+            return (
+              <button
+                key={index}
+                className={`w-full p-3 rounded-lg border-2 transition-all text-left ${buttonClass}`}
+                onClick={() => {
+                  console.log('Selected:', index, 'Correct:', correctIndex);
+                  handleAnswerSelect(index, index === correctIndex);
+                }}
+                disabled={selected !== null}
+              >
+                {getOptionText(option)}
+              </button>
+            );
+          })}
+          {selected !== null && (
+            <div className="mt-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+              <p className="text-teal-800">
+                <strong>Correct answer:</strong> {typeof correctIndex === 'number' && correctIndex >= 0 ? getOptionText(options[correctIndex]) : (question.correct || question.answer || 'N/A')}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

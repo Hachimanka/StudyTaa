@@ -1,22 +1,24 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Sidebar from '../components/Sidebar'
 import TopNav from '../components/TopNav'
 import ChatWidget from '../components/ChatWidget'
 import { useSettings } from '../context/SettingsContext'
 import axios from 'axios'
+import { useReminders } from '../context/ReminderContext'
 
 // Debug toggle: set true to log extraction details
 const DEBUG_EXTRACTION = false;
 
 // Event Modal Component
-function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, themeColors }) {
+function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, themeColors, onRequestNew }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     time: '',
     priority: 'medium',
     category: 'general',
-    reminder: false
+    reminder: false,
+    reminderOffsetMinutes: 15
   });
   const [formDate, setFormDate] = useState('');
 
@@ -41,7 +43,8 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
         time: event.time || '',
         priority: event.priority || 'medium',
         category: event.category || 'general',
-        reminder: event.reminder || false
+        reminder: event.reminder || false,
+        reminderOffsetMinutes: event.reminderOffsetMinutes != null ? event.reminderOffsetMinutes : 15
       });
       setFormDate(toInputDate(event.date || date));
     } else {
@@ -51,7 +54,8 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
         time: '',
         priority: 'medium',
         category: 'general',
-        reminder: false
+        reminder: false,
+        reminderOffsetMinutes: 15
       });
       setFormDate(toInputDate(date));
     }
@@ -71,9 +75,8 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
   };
 
   const handleDelete = () => {
-    if (event && window.confirm('Are you sure you want to delete this event?')) {
-      onDelete(event.id);
-      onClose();
+    if (event) {
+      onDelete(event.id); // parent opens confirm modal
     }
   };
 
@@ -177,20 +180,45 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
               />
             </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="reminder"
-                checked={formData.reminder}
-                onChange={(e) => setFormData({...formData, reminder: e.target.checked})}
-                className={`mr-2 h-4 w-4 rounded`}
-                style={{ accentColor: 'var(--color-primary)' }}
-              />
-              <label htmlFor="reminder" className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Set reminder</label>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="reminder"
+                  checked={formData.reminder}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    reminder: e.target.checked,
+                    // reset offset if newly checked
+                    reminderOffsetMinutes: e.target.checked ? formData.reminderOffsetMinutes ?? 15 : formData.reminderOffsetMinutes
+                  })}
+                  className={`mr-2 h-4 w-4 rounded`}
+                  style={{ accentColor: 'var(--color-primary)' }}
+                />
+                <label htmlFor="reminder" className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Set reminder</label>
+              </div>
+              {formData.reminder && (
+                <div className="grid grid-cols-2 gap-2 items-end">
+                  <div>
+                    <label className={`block text-xs font-medium mb-1`} style={{ color: 'var(--text)' }}>Notify Minutes Before</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.reminderOffsetMinutes}
+                      onChange={(e) => setFormData({ ...formData, reminderOffsetMinutes: Math.max(0, Number(e.target.value)) })}
+                      className={`w-full p-2 border rounded-lg`}
+                      style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'rgba(0,0,0,0.06)' }}
+                    />
+                  </div>
+                  <div className="text-xs" style={{ color: 'var(--text)' }}>
+                    {formData.reminderOffsetMinutes > 0 ? `You will be notified ${formData.reminderOffsetMinutes} minute${formData.reminderOffsetMinutes===1?'':'s'} before.` : 'Notification at event time.'}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="flex gap-2 mt-5">
+          <div className="flex flex-wrap gap-2 mt-5">
             <button
               onClick={handleSave}
               className={`flex-1 px-3 py-2 text-white rounded-lg transition-colors text-sm font-medium`}
@@ -206,11 +234,135 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
                 Delete
               </button>
             )}
+            {event && (
+              <button
+                onClick={() => { onRequestNew && onRequestNew(); }}
+                className={`px-3 py-2 ${darkMode ? 'bg-blue-700 text-white hover:bg-blue-600' : 'bg-blue-100 text-blue-800 hover:bg-blue-200'} rounded-lg transition-colors text-sm font-medium`}
+              >
+                Add Event
+              </button>
+            )}
             <button
               onClick={onClose}
               className={`px-3 py-2 ${darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} rounded-lg transition-colors text-sm font-medium`}
             >
               Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Generic notification modal
+function NotificationModal({ open, onClose, message, type = 'info', darkMode }) {
+  const ref = useRef(null);
+  useEffect(() => { if (open && ref.current) ref.current.focus(); }, [open]);
+  if (!open) return null;
+  // Unified accent color logic: red when no events found, blue otherwise, override for errors
+  const accent = type === 'error' ? 'bg-red-600' : type === 'nonevents' ? 'bg-red-600' : type === 'eventsfound' ? 'bg-blue-600' : 'bg-blue-600';
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+      <div className="absolute inset-0 backdrop-blur-sm backdrop-brightness-75" onClick={onClose} />
+      <div className={`relative w-full max-w-md rounded-xl shadow-xl ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} p-6`} ref={ref} tabIndex={-1}>
+        <div className="flex items-start gap-4">
+          <div className={`w-12 h-12 ${accent} text-white rounded-xl flex items-center justify-center text-xl font-bold shrink-0 select-none`}>!
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm leading-relaxed whitespace-pre-line">{message}</p>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className={`px-4 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-1 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 focus:ring-gray-500' : 'bg-gray-200 hover:bg-gray-300 focus:ring-gray-400'}`}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Confirmation modal
+function ConfirmModal({ open, onCancel, onConfirm, title = 'Confirm', description = 'Are you sure?', confirmLabel = 'Confirm', darkMode }) {
+  const ref = useRef(null);
+  useEffect(() => { if (open && ref.current) ref.current.focus(); }, [open]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+      <div className="absolute inset-0 backdrop-blur-sm backdrop-brightness-75" onClick={onCancel} />
+      <div className={`relative w-full max-w-md rounded-xl shadow-xl ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} p-6`} ref={ref} tabIndex={-1}>
+        <div className="flex items-start gap-4 mb-4">
+          <div className="w-12 h-12 bg-red-600 text-white rounded-xl flex items-center justify-center text-xl font-bold shrink-0">!</div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold mb-1">{title}</h2>
+            <p className="text-sm whitespace-pre-line leading-relaxed">{description}</p>
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <button onClick={onCancel} className={`px-4 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-1 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 focus:ring-gray-500' : 'bg-gray-200 hover:bg-gray-300 focus:ring-gray-400'}`}>Cancel</button>
+          <button onClick={onConfirm} className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500">{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Modal to choose one of multiple events on a date
+function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, darkMode, themeColors }) {
+  if (!isOpen) return null;
+  const dayLabel = date ? date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  return (
+    <div className="fixed inset-0 backdrop-blur-md backdrop-brightness-75 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'var(--surface)' }}
+        className={`rounded-xl shadow-xl max-w-xl w-full max-h-[80vh] overflow-y-auto`}
+      >
+        <div className="p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>
+              {dayLabel}: {events.length} Events
+            </h2>
+            <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: 'transparent' }}>
+              <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+              </svg>
+            </button>
+          </div>
+          <div className="space-y-2">
+            {events.map(ev => (
+              <button
+                key={ev.id}
+                onClick={() => onSelect(ev)}
+                className={`w-full text-left p-3 rounded-lg border transition-colors ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span>{ev.priority === 'high' ? '🔴' : ev.priority === 'medium' ? '🟡' : '🟢'}</span>
+                    <span className={`font-medium truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{ev.title}</span>
+                    {ev.time && <span className="text-xs opacity-70 whitespace-nowrap">{ev.time}</span>}
+                  </div>
+                  <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${ev.category === 'exam' ? 'bg-red-200 text-red-800' : ev.category === 'assignment' ? 'bg-yellow-200 text-yellow-800' : ev.category === 'meeting' ? 'bg-purple-200 text-purple-800' : ev.category === 'personal' ? 'bg-green-200 text-green-800' : ev.category === 'study' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-800'}`}>{ev.category}</span>
+                </div>
+                {ev.description && <p className={`mt-1 text-xs line-clamp-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{ev.description}</p>}
+              </button>
+            ))}
+            {events.length === 0 && (
+              <div className={`text-center py-12 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No events</div>
+            )}
+          </div>
+          <div className="flex gap-2 mt-5">
+            <button
+              onClick={onAddNew}
+              className={`flex-1 px-3 py-2 text-white rounded-lg transition-colors text-sm font-medium`}
+              style={{ background: 'var(--color-primary)' }}
+            >
+              Add New Event
+            </button>
+            <button
+              onClick={onClose}
+              className={`px-3 py-2 ${darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} rounded-lg transition-colors text-sm font-medium`}
+            >
+              Close
             </button>
           </div>
         </div>
@@ -715,9 +867,41 @@ export default function Calendar(){
   
   // Calendar state
   const [events, setEvents] = useState([]);
+  const { refresh: refreshGlobalReminders } = useReminders();
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Add/Edit modal
+  const [isListModalOpen, setIsListModalOpen] = useState(false); // Multiple events list
+  const [notification, setNotification] = useState(null); // {message,type}
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  // Prevent background scroll when any modal is open
+  useEffect(() => {
+    const anyOpen = isModalOpen || isListModalOpen;
+    if (anyOpen) {
+      // store previous overflow to restore accurately
+      if (!document.body.dataset.prevOverflow) {
+        document.body.dataset.prevOverflow = document.body.style.overflow || '';
+      }
+      document.body.style.overflow = 'hidden';
+    } else {
+      if (document.body.dataset.prevOverflow !== undefined) {
+        document.body.style.overflow = document.body.dataset.prevOverflow;
+        delete document.body.dataset.prevOverflow;
+      } else {
+        document.body.style.overflow = '';
+      }
+    }
+    return () => {
+      // cleanup in case component unmounts while modal open
+      if (document.body.dataset.prevOverflow !== undefined) {
+        document.body.style.overflow = document.body.dataset.prevOverflow;
+        delete document.body.dataset.prevOverflow;
+      } else {
+        document.body.style.overflow = '';
+      }
+    };
+  }, [isModalOpen, isListModalOpen]);
   const [uploading, setUploading] = useState(false);
   const [view, setView] = useState('month'); // month, week, day
   const [searchTerm, setSearchTerm] = useState('');
@@ -746,7 +930,9 @@ export default function Calendar(){
           time: doc.time || '',
           priority: doc.priority || 'medium',
           category: doc.category || 'general',
-          reminder: !!doc.reminder
+          reminder: !!doc.reminder,
+          reminderOffsetMinutes: doc.reminderOffsetMinutes != null ? doc.reminderOffsetMinutes : null,
+          reminderAt: doc.reminderAt ? new Date(doc.reminderAt) : null
         }));
         setEvents(mapped);
       } catch (err) {
@@ -797,9 +983,14 @@ export default function Calendar(){
             time: saved.time,
             priority: saved.priority,
             category: saved.category,
-            reminder: !!saved.reminder
+            reminder: !!saved.reminder,
+            reminderOffsetMinutes: saved.reminderOffsetMinutes != null ? saved.reminderOffsetMinutes : null,
+            reminderAt: saved.reminderAt ? new Date(saved.reminderAt) : null
           };
           setEvents(events.map(e => e.id === eventData.id ? mapped : e));
+          setNotification({ message: 'Event updated successfully.', type: 'eventsfound' });
+          window.dispatchEvent(new Event('eventsChanged'));
+          refreshGlobalReminders();
         } else {
           const payload = { ...eventData, date: eventData.date.toISOString() };
           const res = await axios.post('/api/events', payload, { headers });
@@ -812,45 +1003,70 @@ export default function Calendar(){
             time: saved.time,
             priority: saved.priority,
             category: saved.category,
-            reminder: !!saved.reminder
+            reminder: !!saved.reminder,
+            reminderOffsetMinutes: saved.reminderOffsetMinutes != null ? saved.reminderOffsetMinutes : null,
+            reminderAt: saved.reminderAt ? new Date(saved.reminderAt) : null
           };
           setEvents([...events, mapped]);
+          setNotification({ message: 'Event added successfully.', type: 'eventsfound' });
+          window.dispatchEvent(new Event('eventsChanged'));
+          refreshGlobalReminders();
         }
       } catch (err) {
         console.warn('Persist event failed, applying local update only:', err?.message || err);
         // Local fallback
         if (eventData.id && events.find(e => e.id === eventData.id)) {
           setEvents(events.map(e => e.id === eventData.id ? eventData : e));
+          setNotification({ message: 'Event updated locally (save failed).', type: 'eventsfound' });
         } else {
           setEvents([...events, eventData]);
+          setNotification({ message: 'Event added locally (save failed).', type: 'eventsfound' });
         }
+        window.dispatchEvent(new Event('eventsChanged'));
+        refreshGlobalReminders();
       }
     };
     persist();
   };
 
-  const handleDeleteEvent = (eventId) => {
-    const doDelete = async () => {
-      const headers = getAuthHeaders();
-      const isServerId = typeof eventId === 'string' && eventId.length === 24;
-      try {
-        if (isServerId && headers.Authorization) {
-          await axios.delete(`/api/events/${eventId}`, { headers });
-        }
-      } catch (err) {
-        console.warn('Delete event API failed, removing locally:', err?.message || err);
-      } finally {
-        setEvents(events.filter(e => e.id !== eventId));
+  const performDeleteEvent = async (eventId) => {
+    const headers = getAuthHeaders();
+    const isServerId = typeof eventId === 'string' && eventId.length === 24;
+    try {
+      if (isServerId && headers.Authorization) {
+        await axios.delete(`/api/events/${eventId}`, { headers });
       }
-    };
-    doDelete();
+    } catch (err) {
+      console.warn('Delete event API failed, removing locally:', err?.message || err);
+    } finally {
+      setEvents(events.filter(e => e.id !== eventId));
+      setNotification({ message: 'Event deleted.', type: 'info' });
+      window.dispatchEvent(new Event('eventsChanged'));
+      refreshGlobalReminders();
+    }
+  };
+
+  const handleDeleteEvent = (eventId) => {
+    setConfirmDeleteId(eventId);
   };
 
   const handleDateClick = (day) => {
     const clickedDate = new Date(viewYear, viewMonth, day);
+    const dayEvents = getEventsForDay(day);
     setSelectedDate(clickedDate);
-    setSelectedEvent(null);
-    setIsModalOpen(true);
+    if (dayEvents.length === 0) {
+      // No events -> open add modal
+      setSelectedEvent(null);
+      setIsModalOpen(true);
+    } else if (dayEvents.length === 1) {
+      // Single event -> open detail/edit directly
+      setSelectedEvent(dayEvents[0]);
+      setIsModalOpen(true);
+    } else {
+      // Multiple events -> show list first
+      setSelectedEvent(null);
+      setIsListModalOpen(true);
+    }
   };
 
   const handleEventClick = (event, e) => {
@@ -858,6 +1074,7 @@ export default function Calendar(){
     setSelectedEvent(event);
     setSelectedDate(event.date);
     setIsModalOpen(true);
+    setIsListModalOpen(false); // ensure list closes if coming from it
   };
 
   // Handle school calendar upload and AI extraction
@@ -965,7 +1182,7 @@ export default function Calendar(){
       }
       // Check if we have meaningful text content
       if (!fileText || fileText.trim().length < 10) {
-        alert(`File uploaded but no readable text found in ${file.name}`);
+        setNotification({ message: `File uploaded but no readable text found in ${file.name}`, type: 'error' });
         setUploading(false);
         return;
       }
@@ -998,7 +1215,7 @@ export default function Calendar(){
       const hasDatePatterns = comprehensiveDatePatterns.some(pattern => pattern.test(fullText));
 
       if (!hasDateKeywords && !hasDatePatterns) {
-        alert(`No calendar content detected in ${file.name}`);
+        setNotification({ message: `No calendar content detected in ${file.name}`, type: 'info' });
         setUploading(false);
         return;
       }
@@ -1330,10 +1547,14 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             time: d.time,
             priority: d.priority,
             category: d.category,
-            reminder: !!d.reminder
+            reminder: !!d.reminder,
+            reminderOffsetMinutes: d.reminderOffsetMinutes != null ? d.reminderOffsetMinutes : null,
+            reminderAt: d.reminderAt ? new Date(d.reminderAt) : null
           }));
           setEvents([...events, ...mapped]);
-          alert(`✅ Added ${mapped.length} event${mapped.length !== 1 ? 's' : ''} from ${file.name}`);
+          setNotification({ message: `Added ${mapped.length} event${mapped.length !== 1 ? 's' : ''} from ${file.name}`, type: 'eventsfound' });
+          window.dispatchEvent(new Event('eventsChanged'));
+          refreshGlobalReminders();
         } else {
           // Fallback: add locally if not saved (e.g., unauthenticated)
           const localEvents = createPayload.map((p, i) => ({
@@ -1344,26 +1565,32 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             time: p.time,
             priority: p.priority,
             category: p.category,
-            reminder: p.reminder
+            reminder: p.reminder,
+            reminderOffsetMinutes: p.reminderOffsetMinutes != null ? p.reminderOffsetMinutes : null,
+            reminderAt: null
           }));
           if (localEvents.length > 0) {
             setEvents([...events, ...localEvents]);
-            alert(`✅ Added ${localEvents.length} event${localEvents.length !== 1 ? 's' : ''} from ${file.name}`);
+            setNotification({ message: `Added ${localEvents.length} event${localEvents.length !== 1 ? 's' : ''} from ${file.name}`, type: 'eventsfound' });
+            window.dispatchEvent(new Event('eventsChanged'));
+            refreshGlobalReminders();
           } else {
-            alert(`No new events added — possible duplicates detected.`);
+            setNotification({ message: 'No new events added — possible duplicates detected.', type: 'nonevents' });
           }
         }
       } else {
-        alert(`📄 File processed - no events found in ${file.name}`);
+        setNotification({ message: `No events found in ${file.name}`, type: 'nonevents' });
       }
       
     } catch (err) {
       console.error('Calendar file upload error:', err);
-      alert(`Failed to process file: ${file.name}\n\nError: ${err.message || 'Unknown error'}\n\nPlease try a different file or check the file format.`);
+      setNotification({ message: `Failed to process file: ${file.name}\nError: ${err.message || 'Unknown error'}`, type: 'error' });
     } finally {
       setUploading(false);
       // Clear the file input
       e.target.value = '';
+      window.dispatchEvent(new Event('eventsChanged'));
+      refreshGlobalReminders();
     }
   };
 
@@ -1437,7 +1664,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           </div>
           <div className="mt-6 flex gap-2">
             <button
-              onClick={() => {setSelectedDate(new Date()); setSelectedEvent(null); setIsModalOpen(true);}}
+              onClick={() => {setSelectedDate(new Date()); setSelectedEvent(null); setIsModalOpen(true); setIsListModalOpen(false);}}
               className={`px-4 py-2 ${themeColors.bg} ${themeColors.hoverBg} text-white rounded-lg transition-colors flex items-center gap-2`}
             >
               <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -1523,7 +1750,14 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
               <button 
-                onClick={() => setViewMonth(viewMonth === 0 ? 11 : viewMonth - 1)} 
+                onClick={() => {
+                  if (viewMonth === 0) {
+                    setViewMonth(11);
+                    setViewYear(viewYear - 1);
+                  } else {
+                    setViewMonth(viewMonth - 1);
+                  }
+                }} 
                 className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:' + themeColors.light} hover:${themeColors.text} transition-all duration-200 flex items-center justify-center group`}
               >
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="group-hover:scale-110 transition-transform">
@@ -1567,7 +1801,14 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
               </div>
               
               <button 
-                onClick={() => setViewMonth(viewMonth === 11 ? 0 : viewMonth + 1)} 
+                onClick={() => {
+                  if (viewMonth === 11) {
+                    setViewMonth(0);
+                    setViewYear(viewYear + 1);
+                  } else {
+                    setViewMonth(viewMonth + 1);
+                  }
+                }} 
                 className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:' + themeColors.light} hover:${themeColors.text} transition-all duration-200 flex items-center justify-center group`}
               >
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="group-hover:scale-110 transition-transform">
@@ -1747,7 +1988,18 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           </div>
         </div>
 
-        {/* Event Modal */}
+        {/* Event List Modal (multiple events selection) */}
+        <EventListModal
+          isOpen={isListModalOpen}
+          onClose={() => setIsListModalOpen(false)}
+          events={selectedDate ? events.filter(ev => ev.date.getFullYear() === selectedDate.getFullYear() && ev.date.getMonth() === selectedDate.getMonth() && ev.date.getDate() === selectedDate.getDate()) : []}
+          date={selectedDate}
+          onSelect={(ev) => { setSelectedEvent(ev); setIsModalOpen(true); setIsListModalOpen(false); }}
+          onAddNew={() => { setSelectedEvent(null); setIsModalOpen(true); setIsListModalOpen(false); }}
+          darkMode={darkMode}
+          themeColors={themeColors}
+        />
+        {/* Event Modal (add/edit) */}
         <EventModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
@@ -1757,6 +2009,23 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           date={selectedDate}
           darkMode={darkMode}
           themeColors={themeColors}
+          onRequestNew={() => { setSelectedEvent(null); }}
+        />
+        <NotificationModal
+          open={!!notification}
+          message={notification?.message}
+          type={notification?.type}
+          onClose={() => setNotification(null)}
+          darkMode={darkMode}
+        />
+        <ConfirmModal
+          open={!!confirmDeleteId}
+          title="Delete Event"
+          description="This action cannot be undone. Delete this event?"
+          confirmLabel="Delete"
+          onCancel={() => setConfirmDeleteId(null)}
+          onConfirm={() => { performDeleteEvent(confirmDeleteId); setConfirmDeleteId(null); setIsModalOpen(false); setSelectedEvent(null); }}
+          darkMode={darkMode}
         />
       </main>
     </div>

@@ -180,8 +180,10 @@ export default function Settings() {
   }
 
   // SVG Icons
-  const IconPalette = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32">
+  // Reusable themed icon components accepting className/style
+  const getTabIconStyle = (isActive) => ({ color: isActive ? 'currentColor' : 'var(--color-primary)' })
+  const IconPalette = ({ className = '', style = {} }) => (
+    <svg className={`themed-icon ${className}`} style={style} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32">
       <circle cx="10" cy="12" r="2" fill="currentColor"/>
       <circle cx="16" cy="9" r="2" fill="currentColor"/>
       <circle cx="22" cy="12" r="2" fill="currentColor"/>
@@ -191,8 +193,8 @@ export default function Settings() {
     </svg>
   );
 
-  const IconUser = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+  const IconUser = ({ className = '', style = {} }) => (
+    <svg className={`themed-icon ${className}`} style={style} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
       <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5">
         <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2Z"/>
         <path d="M4.271 18.346S6.5 15.5 12 15.5s7.73 2.846 7.73 2.846M12 12a3 3 0 1 0 0-6a3 3 0 0 0 0 6Z"/>
@@ -200,26 +202,26 @@ export default function Settings() {
     </svg>
   );
 
-  const IconInfo = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 512 512">
+  const IconInfo = ({ className = '', style = {} }) => (
+    <svg className={`themed-icon ${className}`} style={style} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 512 512">
       <path fill="currentColor" fillRule="evenodd" d="M256 42.667C138.18 42.667 42.667 138.179 42.667 256c0 117.82 95.513 213.334 213.333 213.334c117.822 0 213.334-95.513 213.334-213.334S373.822 42.667 256 42.667m0 384c-94.105 0-170.666-76.561-170.666-170.667S161.894 85.334 256 85.334c94.107 0 170.667 76.56 170.667 170.666S350.107 426.667 256 426.667m26.714-256c0 15.468-11.262 26.667-26.497 26.667c-15.851 0-26.837-11.2-26.837-26.963c0-15.15 11.283-26.37 26.837-26.37c15.235 0 26.497 11.22 26.497 26.666m-48 64h42.666v128h-42.666z"/>
     </svg>
   );
 
-  const IconMoon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+  const IconMoon = ({ className = '', style = {} }) => (
+    <svg className={`themed-icon ${className}`} style={style} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
       <path fill="currentColor" d="M12.058 20q-3.333 0-5.667-2.334Q4.058 15.333 4.058 12q0-2.47 1.413-4.536t4.01-2.972q.306-.107.536-.056q.231.05.381.199t.191.38q.042.233-.062.489q-.194.477-.282.966t-.087 1.03q0 2.667 1.866 4.533q1.867 1.867 4.534 1.867q.698 0 1.278-.148q.58-.148.987-.24q.217-.04.4.01q.18.051.287.176q.119.125.16.308q.042.182-.047.417q-.715 2.45-2.803 4.014Q14.733 20 12.058 20Zm0-1q2.2 0 3.95-1.213t2.55-3.162q-.5.125-1 .2t-1 .075q-3.075 0-5.238-2.163T9.158 7.5q0-.5.075-1t.2-1q-1.95.8-3.163 2.55T5.058 12q0 2.9 2.05 4.95t4.95 2.05Zm-.25-6.75Z"/>
     </svg>
   );
 
-  const IconReset = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32">
+  const IconReset = ({ className = '', style = {} }) => (
+    <svg className={`themed-icon ${className}`} style={style} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32">
       <path fill="currentColor" d="M18 28A12 12 0 1 0 6 16v6.2l-3.6-3.6L1 20l6 6l6-6l-1.4-1.4L8 22.2V16a10 10 0 1 1 10 10Z"/>
     </svg>
   );
 
-  const IconSave = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+  const IconSave = ({ className = '', style = {} }) => (
+    <svg className={`themed-icon ${className}`} style={style} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
       <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16.25 21v-4.765a1.59 1.59 0 0 0-1.594-1.588H9.344a1.59 1.59 0 0 0-1.594 1.588V21m8.5-17.715v2.362a1.59 1.59 0 0 1-1.594 1.588H9.344A1.59 1.59 0 0 1 7.75 5.647V3m8.5.285A3.196 3.196 0 0 0 14.93 3H7.75m8.5.285c.344.156.661.374.934.645l2.382 2.375A3.17 3.17 0 0 1 20.5 8.55v9.272A3.182 3.182 0 0 1 17.312 21H6.688A3.182 3.182 0 0 1 3.5 17.823V6.176A3.182 3.182 0 0 1 6.688 3H7.75"/>
     </svg>
   );
@@ -265,7 +267,7 @@ export default function Settings() {
                 onChange={setDarkMode} 
                 label={
                   <span className="flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" style={{ display: 'inline', marginRight: '0.5rem' }}>
+                    <svg className="themed-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" style={{ display: 'inline', marginRight: '0.5rem' }}>
                       <path fill="currentColor" d="M12.058 20q-3.333 0-5.667-2.334Q4.058 15.333 4.058 12q0-2.47 1.413-4.536t4.01-2.972q.306-.107.536-.056q.231.05.381.199t.191.38q.042.233-.062.489q-.194.477-.282.966t-.087 1.03q0 2.667 1.866 4.533q1.867 1.867 4.534 1.867q.698 0 1.278-.148q.58-.148.987-.24q.217-.04.4.01q.18.051.287.176q.119.125.16.308q.042.182-.047.417q-.715 2.45-2.803 4.014Q14.733 20 12.058 20Zm0-1q2.2 0 3.95-1.213t2.55-3.162q-.5.125-1 .2t-1 .075q-3.075 0-5.238-2.163T9.158 7.5q0-.5.075-1t.2-1q-1.95.8-3.163 2.55T5.058 12q0 2.9 2.05 4.95t4.95 2.05Zm-.25-6.75Z"/>
                     </svg>
                     Dark Mode
@@ -275,7 +277,7 @@ export default function Settings() {
               
               <div className="py-3">
                 <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32" style={{ display: 'inline', marginRight: '0.5rem' }}>
+                  <svg className="themed-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32" style={{ display: 'inline', marginRight: '0.5rem' }}>
                     <circle cx="10" cy="12" r="2" fill="currentColor"/>
                     <circle cx="16" cy="9" r="2" fill="currentColor"/>
                     <circle cx="22" cy="12" r="2" fill="currentColor"/>
@@ -301,7 +303,7 @@ export default function Settings() {
 
               <div className="py-3">
                 <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 15 15" style={{ display: 'inline', marginRight: '0.5rem' }}>
+                  <svg className="themed-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 15 15" style={{ display: 'inline', marginRight: '0.5rem' }}>
                     <path fill="currentColor" fillRule="evenodd" d="M2.782 2.217a.4.4 0 0 0-.565 0l-2 2a.4.4 0 0 0 .565.566L2.1 3.466v8.068L.782 10.217a.4.4 0 0 0-.565.566l2 2a.4.4 0 0 0 .565 0l2-2a.4.4 0 0 0-.565-.566l-1.318 1.317V3.466l1.318 1.317a.4.4 0 0 0 .565-.566l-2-2Zm7.718.533a.5.5 0 0 1 .47.33l3 8.32a.5.5 0 0 1-.94.34l-.982-2.724H8.952l-.982 2.723a.5.5 0 0 1-.94-.34l3-8.319a.5.5 0 0 1 .47-.33Zm0 1.974l1.241 3.442H9.26l1.24-3.442Z" clipRule="evenodd"/>
                   </svg>
                   Font Size
@@ -333,7 +335,7 @@ export default function Settings() {
               
               <div className={`py-3`}>
                 <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" style={{ display: 'inline', marginRight: '0.5rem' }}>
+                  <svg className="themed-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" style={{ display: 'inline', marginRight: '0.5rem' }}>
                     <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5">
                       <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2Z"/>
                       <path d="M4.271 18.346S6.5 15.5 12 15.5s7.73 2.846 7.73 2.846M12 12a3 3 0 1 0 0-6a3 3 0 0 0 0 6Z"/>
@@ -355,7 +357,7 @@ export default function Settings() {
 
               <div className="py-3">
                 <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 14" style={{ display: 'inline', marginRight: '0.5rem' }}>
+                  <svg className="themed-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 14" style={{ display: 'inline', marginRight: '0.5rem' }}>
                     <path fill="currentColor" d="M14.5 13h-13C.67 13 0 12.33 0 11.5v-9C0 1.67.67 1 1.5 1h13c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5ZM1.5 2c-.28 0-.5.22-.5.5v9c0 .28.22.5.5.5h13c.28 0 .5-.22.5-.5v-9c0-.28-.22-.5-.5-.5h-13Z"/>
                     <path fill="currentColor" d="M8 8.96c-.7 0-1.34-.28-1.82-.79L.93 2.59c-.19-.2-.18-.52.02-.71c.2-.19.52-.18.71.02l5.25 5.58c.57.61 1.61.61 2.18 0l5.25-5.57c.19-.2.51-.21.71-.02c.2.19.21.51.02.71L9.82 8.18c-.48.51-1.12.79-1.82.79Z"/>
                   </svg>
@@ -406,7 +408,7 @@ export default function Settings() {
               <div className={`text-center space-y-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 <div>
                   <h4 className="font-semibold mb-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" style={{ display: 'inline', marginRight: '0.5rem' }}>
+                    <svg className="themed-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" style={{ display: 'inline', marginRight: '0.5rem' }}>
                       <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0c1.172 1.025 1.172 2.687 0 3.712c-.203.179-.43.326-.67.442c-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0a9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/>
                     </svg>
                     What's New
@@ -421,7 +423,7 @@ export default function Settings() {
 
                 <div>
                   <h4 className="font-semibold mb-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" style={{ display: 'inline', marginRight: '0.5rem' }}>
+                    <svg className="themed-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" style={{ display: 'inline', marginRight: '0.5rem' }}>
                       <path fill="currentColor" fillRule="evenodd" d="M12.588 5.02a4.525 4.525 0 0 1 6.399 6.399l-.01.01l-2.264 2.264a4.525 4.525 0 0 1-6.824-.489a.75.75 0 1 1 1.201-.898a3.026 3.026 0 0 0 4.562.327l2.26-2.26a3.026 3.026 0 0 0-4.278-4.277L12.34 7.383a.75.75 0 1 1-1.058-1.064zM8.905 9.266a4.525 4.525 0 0 1 5.205 1.53a.75.75 0 0 1-1.201.898a3.024 3.024 0 0 0-4.562-.327l-2.26 2.26a3.025 3.025 0 0 0 4.277 4.278l1.286-1.286a.75.75 0 0 1 1.061 1.06l-1.3 1.3a4.525 4.525 0 0 1-6.399-6.398l.01-.01l2.264-2.264a4.5 4.5 0 0 1 1.62-1.04" clipRule="evenodd"/>
                     </svg>
                     Links
@@ -471,22 +473,26 @@ export default function Settings() {
           <div className="lg:col-span-1">
             <div className={`p-4 rounded-xl shadow-lg ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
               <nav className="space-y-2">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex text-left px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
-                      activeTab === tab.id
-                        ? `bg-gradient-to-r ${themeColors.gradient} text-white shadow-md`
-                        : darkMode
-                          ? 'text-gray-300 hover:bg-gray-700'
-                          : `text-gray-700 hover:bg-${themeColors.primary}-50`
-                    }`}
-                  >
-                    <span className="mr-3">{tab.icon}</span>
-                    {tab.name}
-                  </button>
-                ))}
+                {tabs.map((tab) => {
+                  const isActive = activeTab === tab.id
+                  const iconEl = React.cloneElement(tab.icon, { style: getTabIconStyle(isActive) })
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`w-full flex text-left px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                        isActive
+                          ? `active bg-gradient-to-r ${themeColors.gradient} text-white shadow-md`
+                          : darkMode
+                            ? 'text-gray-300 hover:bg-gray-700'
+                            : `text-gray-700 hover:bg-${themeColors.primary}-50`
+                      }`}
+                    >
+                      <span className="mr-3">{iconEl}</span>
+                      {tab.name}
+                    </button>
+                  )
+                })}
               </nav>
             </div>
           </div>
@@ -504,7 +510,7 @@ export default function Settings() {
                     onClick={resetAppearance}
                     className={`${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2`}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32">
+                    <svg className="themed-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32">
                       <path fill="currentColor" d="M18 28A12 12 0 1 0 6 16v6.2l-3.6-3.6L1 20l6 6l6-6l-1.4-1.4L8 22.2V16a10 10 0 1 1 10 10Z"/>
                     </svg>
                     Reset to Defaults
@@ -516,7 +522,7 @@ export default function Settings() {
                   onClick={saveSettings}
                   className={`bg-gradient-to-r ${themeColors.gradient} ${themeColors.hover} text-white px-8 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" style={{ display:'inline' }}>
                     <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16.25 21v-4.765a1.59 1.59 0 0 0-1.594-1.588H9.344a1.59 1.59 0 0 0-1.594 1.588V21m8.5-17.715v2.362a1.59 1.59 0 0 1-1.594 1.588H9.344A1.59 1.59 0 0 1 7.75 5.647V3m8.5.285A3.196 3.196 0 0 0 14.93 3H7.75m8.5.285c.344.156.661.374.934.645l2.382 2.375A3.17 3.17 0 0 1 20.5 8.55v9.272A3.182 3.182 0 0 1 17.312 21H6.688A3.182 3.182 0 0 1 3.5 17.823V6.176A3.182 3.182 0 0 1 6.688 3H7.75"/>
                   </svg>
                   Save Settings

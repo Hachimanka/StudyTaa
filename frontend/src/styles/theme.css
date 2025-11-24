@@ -401,6 +401,20 @@
 .page-header-hover:hover { transform: scale(1.05); }
 .page-header-hover:active { transform: scale(0.98); }
 
+/* Themed SVG icon utility */
+.themed-icon {
+  display: inline-block;
+  color: var(--color-primary);
+  /* Allow icons that rely on stroke to inherit */
+  stroke: currentColor;
+  transition: color .25s ease, stroke .25s ease;
+}
+.dark .themed-icon {
+  color: var(--color-primary); /* same accent in dark */
+}
+/* When placed inside an active gradient button with white text, inherit that */
+.active .themed-icon { color: currentColor; }
+
 /* Custom Scrollbar (WebKit) */
 *::-webkit-scrollbar {
   width: 10px;

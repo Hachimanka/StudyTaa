@@ -84,14 +84,14 @@ export default function Landing() {
   return (
     <div
       id="landingPage"
-      className="min-h-screen flex flex-col overflow-y-auto snap-y snap-mandatory"
+      className="min-h-screen flex flex-col overflow-y-auto snap-y snap-mandatory bg-white"
     >
       {/* Hero Section containing TopNav + header content */}
-      <section className="relative h-screen overflow-hidden flex flex-col snap-start">
+      <section className="relative min-h-screen overflow-hidden flex flex-col snap-start md:h-screen">
         {/* Ensure nav renders above decorative overlay */}
         <TopNav />
         <div className="absolute inset-0 opacity-10 pointer-events-none z-0"></div>
-        <div className="flex flex-col flex-grow px-6 max-w-7xl w-full mx-auto text-center justify-center relative z-10">
+        <div className="flex flex-col flex-grow px-4 sm:px-6 max-w-7xl w-full mx-auto text-center justify-center relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -140,8 +140,8 @@ export default function Landing() {
       </section>
 
       {/* Fun Activities Section */}
-    <section className="h-screen px-6 section-surface bg-[#EDF1F6] flex items-center snap-start">
-        <div className="max-w-7xl mx-auto">
+      <section className="min-h-screen section-surface bg-[#EDF1F6] flex items-center snap-start md:h-screen px-4 sm:px-6">
+        <div className="max-w-7xl w-full mx-auto flex flex-col items-center justify-center">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -158,7 +158,7 @@ export default function Landing() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8 justify-items-center">
             {[
               {
                 icon: IconQuiz,
@@ -206,9 +206,9 @@ export default function Landing() {
       {/* Features Section */}
       <section
         id="features"
-        className="h-screen px-6 hero-surface flex items-center snap-start"
+        className="min-h-screen hero-surface flex items-center snap-start md:h-screen px-4 sm:px-6"
       >
-        <div className="max-w-7xl mx-auto ">
+        <div className="max-w-7xl w-full mx-auto flex flex-col items-center justify-center ">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -225,7 +225,7 @@ export default function Landing() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 justify-items-center">
             {[
               { icon: IconSummarizer, title: "AI Summarizer", text: "Convert lengthy texts into concise, digestible summaries with key insights highlighted" },
               { icon: IconFlashcards, title: "Smart Flashcards", text: "Auto-generate intelligent flashcards from your study materials with spaced repetition" },
@@ -253,8 +253,8 @@ export default function Landing() {
       </section>
 
       {/* How It Works Section */}
-    <section id="how-it-works" className="h-screen px-6 section-surface bg-[#FFFFFF] flex items-center snap-start">
-        <div className="max-w-7xl mx-auto">
+    <section id="how-it-works" className="min-h-screen section-surface bg-[#FFFFFF] flex items-center snap-start md:h-screen px-4 sm:px-6">
+      <div className="max-w-7xl w-full mx-auto flex flex-col items-center justify-center">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -268,7 +268,7 @@ export default function Landing() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8 justify-items-center">
             {[
               { step: "1", title: "Sign Up", text: "Create your free account in seconds and join the Lemivon community." },
               { step: "2", title: "Choose Features", text: "Access quizzes, flashcards, and AI tools tailored to your subjects." },
@@ -299,9 +299,9 @@ export default function Landing() {
   {/* About Section + Footer (full-height, footer pinned to bottom) */}
   <section
     id="about"
-    className="h-screen section-surface bg-[#FFFFFF] flex flex-col snap-start"
+    className="min-h-screen section-surface bg-[#FFFFFF] flex flex-col snap-start md:h-screen"
   >
-    <div className="max-w-7xl w-full mx-auto px-6 py-16 flex-grow text-center">
+    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-16 flex-grow text-center flex flex-col items-center justify-center">
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -318,9 +318,9 @@ export default function Landing() {
       </motion.div>
     </div>
     <footer id="contact" className="footer-surface text-muted py-8 mt-auto w-full">
-      <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-8">
-        <div className="flex flex-col">
-          <div className="flex items-start gap-4 mb-3">
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 justify-items-center text-center">
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-4 mb-3">
             <img
               src="/Lemivon.ico"
               alt="StudyTa Logo"
@@ -332,7 +332,7 @@ export default function Landing() {
             Your AI-powered study companion for smarter learning.
           </p>
         </div>
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center justify-center">
           <h4 className="font-semibold text-heading mb-3">Quick Links</h4>
           <ul className="space-y-2 text-sm">
             <li><a href="#features" className="hover:text-heading transition">Features</a></li>
@@ -341,9 +341,9 @@ export default function Landing() {
             <li><a href="#contact" className="hover:text-heading transition">Contact</a></li>
           </ul>
         </div>
-        <div className="pl-6 md:pl-50">
+        <div className="flex flex-col items-center">
           <h4 className="font-semibold text-heading mb-3">Follow Us</h4>
-          <div className="flex space-x-4 items-center">
+          <div className="flex space-x-4 items-center justify-center">
             <a
               href="https://www.facebook.com/forrosueloleonard.lape"
               target="_blank"

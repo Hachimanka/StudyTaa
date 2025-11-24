@@ -152,7 +152,7 @@ export default function Landing() {
             <h2 className="text-heading text-primary mb-4 text-3xl">
               Interactive Learning Experience
             </h2>
-            <p className="text-body text-muted max-w-2xl mx-auto">
+            <p className="text-body text-xl text-muted max-w-2xl mx-auto">
               Engage with dynamic activities designed to make learning enjoyable
               and effective
             </p>
@@ -219,7 +219,7 @@ export default function Landing() {
             <h2 className="text-heading text-primary mb-4 text-3xl">
               Powerful Study Features
             </h2>
-            <p className="text-body text-muted max-w-2xl mx-auto">
+            <p className="text-body text-xl text-muted max-w-2xl mx-auto">
               Advanced AI-powered tools designed to accelerate your learning
               journey
             </p>
@@ -263,14 +263,14 @@ export default function Landing() {
             className="text-center mb-16"
           >
             <h2 className="text-heading text-primary mb-4 text-3xl">How It Works</h2>
-            <p className="text-body text-muted max-w-2xl mx-auto">
-              Simple steps to start your learning journey with StudyTa
+            <p className="text-body text-xl text-muted max-w-2xl mx-auto">
+              Simple steps to start your learning journey with Lemivon
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { step: "1", title: "Sign Up", text: "Create your free account in seconds and join the StudyTa community." },
+              { step: "1", title: "Sign Up", text: "Create your free account in seconds and join the Lemivon community." },
               { step: "2", title: "Choose Features", text: "Access quizzes, flashcards, and AI tools tailored to your subjects." },
               { step: "3", title: "Track Progress", text: "Monitor your study habits with analytics and streaks to stay motivated." },
             ].map((item, i) => (
@@ -296,12 +296,12 @@ export default function Landing() {
         </div>
       </section>
 
-  {/* About + Footer Combined */}
+  {/* About Section + Footer (full-height, footer pinned to bottom) */}
   <section
     id="about"
-    className="h-screen px-6 section-surface bg-[#FFFFFF] flex flex-col snap-start"
+    className="h-screen section-surface bg-[#FFFFFF] flex flex-col snap-start"
   >
-    <div className="max-w-7xl w-full mx-auto flex-grow flex items-center justify-center text-center">
+    <div className="max-w-7xl w-full mx-auto px-6 py-16 flex-grow text-center">
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -309,23 +309,30 @@ export default function Landing() {
         viewport={{ once: true }}
       >
         <h2 className="text-heading text-primary mb-4 text-3xl">About Us</h2>
-        <p className="text-body text-muted max-w-3xl mx-auto">
-          StudyTa was created by passionate students and developers who
+        <p className="text-body text-xl text-muted max-w-3xl mx-auto">
+          Lemivon was created by passionate students and developers who
           believe learning should be smarter, interactive, and accessible for
           everyone. We combine technology and education to empower learners
           worldwide.
         </p>
       </motion.div>
     </div>
-    <footer id="contact" className="footer-surface text-muted py-8 mt-0">
+    <footer id="contact" className="footer-surface text-muted py-8 mt-auto w-full">
       <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-8">
-        <div>
-          <h3 className="text-lg font-bold text-heading mb-3">StudyTa</h3>
+        <div className="flex flex-col">
+          <div className="flex items-start gap-4 mb-3">
+            <img
+              src="/Lemivon.ico"
+              alt="StudyTa Logo"
+              className="w-10 h-12 rounded"
+            />
+            <h3 className="text-2xl font-bold footer-title py-2">Lemivon</h3>
+          </div>
           <p className="text-sm text-muted">
             Your AI-powered study companion for smarter learning.
           </p>
         </div>
-        <div>
+        <div className="flex flex-col items-center">
           <h4 className="font-semibold text-heading mb-3">Quick Links</h4>
           <ul className="space-y-2 text-sm">
             <li><a href="#features" className="hover:text-heading transition">Features</a></li>
@@ -334,17 +341,37 @@ export default function Landing() {
             <li><a href="#contact" className="hover:text-heading transition">Contact</a></li>
           </ul>
         </div>
-        <div>
+        <div className="pl-6 md:pl-50">
           <h4 className="font-semibold text-heading mb-3">Follow Us</h4>
-          <div className="flex space-x-4 text-lg">
-            <a href="#" className="hover:text-heading">🌐</a>
-            <a href="#" className="hover:text-heading">🐦</a>
-            <a href="#" className="hover:text-heading">📘</a>
+          <div className="flex space-x-4 items-center">
+            <a
+              href="https://www.facebook.com/forrosueloleonard.lape"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+              className="hover:opacity-80 transition"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="w-6 h-6">
+                <path fill="#1877F2" d="M256 128C256 57.308 198.692 0 128 0C57.308 0 0 57.307 0 128c0 63.888 46.808 116.843 108 126.445V165H75.5v-37H108V99.8c0-32.08 19.11-49.8 48.347-49.8C170.352 50 185 52.5 185 52.5V84h-16.14C152.958 84 148 93.867 148 103.99V128h35.5l-5.675 37H148v89.445c61.192-9.602 108-62.556 108-126.445"/>
+                <path fill="#FFF" d="m177.825 165l5.675-37H148v-24.01C148 93.866 152.959 84 168.86 84H185V52.5S170.352 50 156.347 50C127.11 50 108 67.72 108 99.8V128H75.5v37H108v89.445A128.959 128.959 0 0 0 128 256a128.9 128.9 0 0 0 20-1.555V165h29.825"/>
+              </svg>
+            </a>
+            <a
+              href="https://github.com/Hachimanka/StudyTaa.git"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub"
+              className="hover:opacity-80 transition"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-6 h-6">
+                <path fill="#000000" d="M12 .297c-6.63 0-12 5.373-12 12c0 5.303 3.438 9.8 8.205 11.385c.6.113.82-.258.82-.577c0-.285-.01-1.04-.015-2.04c-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729c1.205.084 1.838 1.236 1.838 1.236c1.07 1.835 2.809 1.305 3.495.998c.108-.776.417-1.305.76-1.605c-2.665-.3-5.466-1.332-5.466-5.93c0-1.31.465-2.38 1.235-3.22c-.135-.303-.54-1.523.105-3.176c0 0 1.005-.322 3.3 1.23c.96-.267 1.98-.399 3-.405c1.02.006 2.04.138 3 .405c2.28-1.552 3.285-1.23 3.285-1.23c.645 1.653.24 2.873.12 3.176c.765.84 1.23 1.91 1.23 3.22c0 4.61-2.805 5.625-5.475 5.92c.42.36.81 1.096.81 2.22c0 1.606-.015 2.896-.015 3.286c0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+              </svg>
+            </a>
           </div>
         </div>
       </div>
       <div className="text-center text-xs text-muted mt-6">
-        © {new Date().getFullYear()} StudyTa. All rights reserved.
+        © {new Date().getFullYear()} Lemivon. All rights reserved.
       </div>
     </footer>
   </section>

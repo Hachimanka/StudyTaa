@@ -415,6 +415,13 @@
 /* When placed inside an active gradient button with white text, inherit that */
 .active .themed-icon { color: currentColor; }
 
+/* Footer title adopts active theme primary color */
+.footer-title {
+  color: var(--color-primary);
+  transition: color .25s ease;
+}
+.dark .footer-title { color: var(--color-primary); }
+
 /* Custom Scrollbar (WebKit) */
 *::-webkit-scrollbar {
   width: 10px;

@@ -422,6 +422,15 @@
 }
 .dark .footer-title { color: var(--color-primary); }
 
+/* Social icon (e.g., GitHub) theming: inherits text color for contrast */
+.social-icon {
+  display: inline-block;
+  color: var(--text);
+  transition: color .25s ease, opacity .25s ease;
+}
+.dark .social-icon { color: var(--text); }
+.social-icon:hover { opacity: .85; }
+
 /* Custom Scrollbar (WebKit) */
 *::-webkit-scrollbar {
   width: 10px;

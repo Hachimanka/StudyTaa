@@ -56,7 +56,7 @@ export default function TopNav() {
   const location = useLocation()
   const isLanding = location && location.pathname === '/'
   return (
-  <nav className={"glass-card mx-6 mt-6 px-8 py-4 animate-fadeInUp" + (isLanding ? ' topbar-landing' : '')}>
+  <nav className={"glass-card mx-6 px-8 mt-5 py-4 animate-fadeIn" + (isLanding ? ' topbar-landing' : ' mt-6') + " relative z-10"}>
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
         <div className="flex items-center space-x-3 animate-scaleIn">

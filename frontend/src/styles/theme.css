@@ -288,6 +288,20 @@
 
 .dark .settings-tab:not(.active):hover { background-color: rgba(255,255,255,0.03); }
 
+/* Settings navigation icon theming */
+.settings-tab .settings-icon { color: var(--color-primary); transition: color .25s ease, transform .25s ease; }
+.settings-tab:hover .settings-icon { color: var(--primary-600); }
+.dark .settings-tab .settings-icon { color: var(--color-primary); }
+.settings-tab.active .settings-icon { color: #ffffff; }
+.settings-tab.active:hover .settings-icon { color: #ffffff; }
+
+/* Generic themed icon utility for settings page content */
+.themed-icon { color: var(--color-primary); display: inline-block; vertical-align: middle; }
+.themed-icon.muted { color: var(--color-muted); }
+.dark .themed-icon { color: var(--color-primary); }
+/* When placed in an active gradient section with white text, inherit white */
+.settings-tab.active .themed-icon { color: currentColor; }
+
 /* Toggle switch styling */
 .toggle-switch.checked { background-color: var(--primary-500); }
 .toggle-switch:not(.checked) { background-color: rgba(0,0,0,0.06); }

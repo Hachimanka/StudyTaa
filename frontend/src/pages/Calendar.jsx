@@ -538,6 +538,164 @@ const formatOCRText = (rawText) => {
   return processedLines.join('\n');
 };
 
+// Additional image-specific OCR cleanup to fix common OCR artifacts
+const enhanceImageOCRText = (text) => {
+  if (!text) return '';
+  let t = text;
+  // Common OCR misreads: I,l -> 1 when adjacent to digits; O -> 0 in numeric contexts
+  t = t.replace(/(?<=\d)[Il](?=\d)/g, '1');
+  t = t.replace(/(?<=\b)O(?=\d)/g, '0');
+  t = t.replace(/(?<=\d)O(?=\b)/g, '0');
+
+  // Fix broken month tokens split by pipes or spaced letters: e.g. "N o v" or "N|ov"
+  t = t.replace(/\b([A-Za-z])\s+([A-Za-z])\s+([A-Za-z])\b/g, (m, a, b, c) => `${a}${b}${c}`);
+  t = t.replace(/\b([A-Za-z])\|([A-Za-z]{2,})\b/g, (m, a, rest) => `${a}${rest}`);
+
+  // Collapse sequences of single letters separated by spaces (e.g. "D e c e m b e r")
+  t = t.replace(/\b(?:[A-Za-z]\s+){2,}[A-Za-z]\b/g, (m) => m.replace(/\s+/g, ''));
+
+  // Replace multiple pipe separators with single pipe and normalize separators around dates
+  t = t.replace(/[|]{2,}/g, '|');
+  t = t.replace(/\s*\|\s*/g, ' | ');
+
+  // Normalize various dash characters to simple hyphen for date parsing
+  t = t.replace(/[–—−]/g, '-');
+
+  // Remove stray non-printables that break regexes
+  t = t.replace(/[\u200B-\u200D\uFEFF]/g, '');
+
+  // Collapse excessive whitespace but keep line breaks
+  t = t.split('\n').map(l => l.replace(/\s{2,}/g, ' ').trim()).join('\n');
+
+  return t;
+};
+
+// Extract lines like "06 End Classes" or "6 | End Classes" using a month/year header
+const extractDayEventPairs = (text, fileName) => {
+  if (!text) return [];
+  const monthMap = {
+    january: '01', february: '02', march: '03', april: '04', may: '05', june: '06',
+    july: '07', august: '08', september: '09', october: '10', november: '11', december: '12'
+  };
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let contextMonth = null;
+  let contextYear = new Date().getFullYear();
+  const events = [];
+
+  // find header like "December 2025" or "December, 2025"
+  for (const ln of lines.slice(0, 6)) {
+    const m = ln.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b\s*,?\s*(\d{4})?/i);
+    if (m) {
+      contextMonth = monthMap[m[1].toLowerCase()];
+      if (m[2]) contextYear = parseInt(m[2], 10);
+      break;
+    }
+  }
+
+  // parse each line for day + title
+  // parse each line for day + title using column-splitting heuristics to catch picture layouts
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    // normalize separators and collapse long whitespace into column markers
+    line = line.replace(/[\t]+/g, ' ');
+    // replace runs of 3+ spaces with a column marker to detect two-column layouts
+    const colLine = line.replace(/ {3,}/g, ' || ');
+
+    // If the line has a column marker, split into columns
+    if (colLine.includes('||')) {
+      const cols = colLine.split('||').map(c => c.trim()).filter(Boolean);
+      // typical: [day, title] or [day, empty, title]
+      if (cols.length >= 2) {
+        // try to find a day token in first column
+        const first = cols[0];
+        const dayMatch = first.match(/^(\d{1,2})$/) || first.match(/^(\d{1,2})\b/);
+        if (dayMatch) {
+          const day = Number(dayMatch[1]);
+          if (day >=1 && day <=31) {
+            // title may be in next non-empty column
+            let titleRaw = cols.slice(1).find(Boolean) || '';
+            titleRaw = titleRaw.replace(/^\s*[\-–:]+\s*/, '').trim();
+            const title = cleanTitle(titleRaw || 'Extracted Event');
+            const desc = cleanLabelTokens(titleRaw || line);
+            const month = contextMonth || (function(){
+              // search nearby for header
+              for (let j = Math.max(0, i-4); j <= Math.min(lines.length-1, i+4); j++){
+                const mh = lines[j].match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b\s*,?\s*(\d{4})?/i);
+                if (mh) return monthMap[mh[1].toLowerCase()];
+              }
+              return String(new Date().getMonth()+1).padStart(2,'0');
+            })();
+            const year = (function(){
+              for (let j = Math.max(0, i-4); j <= Math.min(lines.length-1, i+4); j++){
+                const mh = lines[j].match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b\s*,?\s*(\d{4})?/i);
+                if (mh && mh[2]) return parseInt(mh[2],10);
+              }
+              return contextYear || new Date().getFullYear();
+            })();
+            const iso = `${year}-${month}-${String(day).padStart(2,'0')}`;
+            events.push({ date: iso, title: title.substring(0,120), description: desc });
+            continue;
+          }
+        }
+      }
+    }
+
+    // Try patterns on the raw line: '06 | Title', '06. Title', '06 Title'
+    const p1 = line.match(/^\s*(\d{1,2})\s*[\.|\-|:]?\s+(.+)$/);
+    const p2 = line.match(/^\s*(\d{1,2})\s*\|\s*(.+)$/);
+    const p3 = line.match(/^\s*(\d{1,2})\s+(.+)$/);
+    let matched = false;
+    const pickMatch = (m) => {
+      if (!m) return false;
+      const day = Number(m[1]);
+      if (Number.isNaN(day) || day < 1 || day > 31) return false;
+      let titleRaw = (m[2] || '').replace(/^[\-–:]+/, '').trim();
+      if (!titleRaw) return false;
+      const title = cleanTitle(titleRaw);
+      const desc = cleanLabelTokens(line.replace(m[0],'').trim() || titleRaw);
+      let month = contextMonth;
+      let year = contextYear || new Date().getFullYear();
+      if (!month) {
+        for (let j = Math.max(0, i - 6); j <= Math.min(lines.length -1, i + 6); j++) {
+          const mh = lines[j].match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b\s*,?\s*(\d{4})?/i);
+          if (mh) { month = monthMap[mh[1].toLowerCase()]; if (mh[2]) year = parseInt(mh[2],10); break; }
+        }
+      }
+      if (!month) month = String(new Date().getMonth() + 1).padStart(2,'0');
+      const iso = `${year}-${month}-${String(day).padStart(2,'0')}`;
+      events.push({ date: iso, title: title.substring(0,120), description: desc });
+      return true;
+    };
+    if (pickMatch(p1) || pickMatch(p2) || pickMatch(p3)) matched = true;
+
+    // If not matched and line is a single day number, pair with next non-empty line (title)
+    if (!matched && /^\d{1,2}$/.test(line)) {
+      const day = Number(line);
+      let nextIdx = i+1;
+      while (nextIdx < lines.length && lines[nextIdx].trim() === '') nextIdx++;
+      const next = lines[nextIdx] || '';
+      if (next && !/^\d{1,2}$/.test(next)) {
+        const title = cleanTitle(next);
+        let month = contextMonth || String(new Date().getMonth() + 1).padStart(2, '0');
+        let year = contextYear || new Date().getFullYear();
+        const iso = `${year}-${month}-${String(day).padStart(2,'0')}`;
+        events.push({ date: iso, title: title.substring(0,120), description: cleanLabelTokens(next) });
+      }
+    }
+  }
+
+  // dedupe by date+title
+  const unique = [];
+  const seen = new Set();
+  for (const ev of events) {
+    const key = `${ev.date}-${normalizeTitleKey(ev.title || '')}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(ev);
+    }
+  }
+  return unique;
+};
 // Comprehensive AI text preprocessing to capture ALL dates
 const preprocessTextForAI = (text) => {
   if (!text) return '';
@@ -873,6 +1031,12 @@ export default function Calendar(){
   
   // Calendar state
   const [events, setEvents] = useState([]);
+  // Debugging states to inspect OCR/preprocessing/extraction
+  const [showOcrDebug, setShowOcrDebug] = useState(false);
+  const [lastFileText, setLastFileText] = useState('');
+  const [lastProcessedText, setLastProcessedText] = useState('');
+  const [lastEarlyEvents, setLastEarlyEvents] = useState([]);
+  const [lastAIEvents, setLastAIEvents] = useState([]);
   const { refresh: refreshGlobalReminders } = useReminders();
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -1091,6 +1255,7 @@ export default function Calendar(){
     
     try {
       let fileText = '';
+      let earlyExtractEvents = [];
       const fileName = file.name.toLowerCase();
       const fileType = file.type.toLowerCase();
 
@@ -1122,6 +1287,24 @@ export default function Calendar(){
           
           // Improve OCR text formatting for table/structured data
           fileText = formatOCRText(rawText);
+          // Additional image-specific cleanup to fix OCR artifacts
+          fileText = enhanceImageOCRText(fileText);
+          // store for debug UI
+          try { setLastFileText(fileText); } catch(_) {}
+          // Early local extraction from image text to improve recall (ranges, lists)
+          try {
+            earlyExtractEvents = extractDateRangesFromText(fileText, file.name) || [];
+            // Also extract day-number pairs like the sample image
+            const dayPairs = extractDayEventPairs(fileText, file.name) || [];
+            if (dayPairs.length) {
+              earlyExtractEvents = [...earlyExtractEvents, ...dayPairs];
+            }
+            if (DEBUG_EXTRACTION) console.log('[Calendar] earlyExtractEvents (image) count', earlyExtractEvents.length);
+            try { setLastEarlyEvents(earlyExtractEvents); } catch(_) {}
+          } catch (er) {
+            if (DEBUG_EXTRACTION) console.warn('early image extraction failed', er);
+            earlyExtractEvents = [];
+          }
         } catch (error) {
           console.warn('OCR extraction failed');
           fileText = `[Image file: ${file.name} - Text extraction not available]`;
@@ -1200,6 +1383,7 @@ export default function Calendar(){
 
       // Comprehensive text preprocessing for AI
       const processedText = preprocessTextForAI(fileText);
+      try { setLastProcessedText(processedText); } catch(_) {}
       const fullText = processedText.substring(0, 8000); // Significantly increased limit to capture ALL dates
       if (DEBUG_EXTRACTION) {
         console.log('[Calendar] Processed text length', { length: fullText.length });
@@ -1220,7 +1404,8 @@ export default function Calendar(){
       
       const hasDatePatterns = comprehensiveDatePatterns.some(pattern => pattern.test(fullText));
 
-      if (!hasDateKeywords && !hasDatePatterns) {
+      // Allow image early extractions to bypass keyword/pattern check
+      if (!hasDateKeywords && !hasDatePatterns && (!earlyExtractEvents || earlyExtractEvents.length === 0)) {
         setNotification({ message: `No calendar content detected in ${file.name}`, type: 'info' });
         setUploading(false);
         return;
@@ -1305,6 +1490,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           event.date = normalizedDate;
           return normalizedDate.match(/^\d{4}-\d{2}-\d{2}$/);
         }).slice(0, 10);
+        try { setLastAIEvents(aiEvents); } catch(_) {}
         
       } catch (e) {
         console.log('AI parsing failed, using comprehensive fallback extraction');
@@ -1498,6 +1684,13 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
       }
 
       // Always supplement with explicit range extraction to ensure coverage
+      // Merge any early image-only extraction results (higher recall for photos)
+      try {
+        if (earlyExtractEvents && earlyExtractEvents.length) {
+          aiEvents = [...aiEvents, ...earlyExtractEvents];
+        }
+      } catch (_) {}
+
       try {
         const rangeEvents = extractDateRangesFromText(fullText, file.name);
         if (Array.isArray(rangeEvents) && rangeEvents.length) {
@@ -1734,6 +1927,13 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                 className={`file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:${themeColors.light} file:${themeColors.text} hover:file:${themeColors.hover} file:cursor-pointer cursor-pointer text-sm`} 
                 title="Upload any file type - PDF, Word, Excel, images, text files, etc."
               />
+              <button
+                onClick={() => setShowOcrDebug(!showOcrDebug)}
+                className={`ml-2 px-3 py-1 rounded-lg text-xs ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'}`}
+                title="Toggle OCR debug view"
+              >
+                {showOcrDebug ? 'Hide OCR Debug' : 'Show OCR Debug'}
+              </button>
               {uploading && (
                 <div className={`flex items-center gap-2 ${themeColors.text}`}>
                   <div className={`w-4 h-4 border-2 border-${themeColors.primary}-600 border-t-transparent rounded-full animate-spin`}></div>
@@ -1743,6 +1943,29 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             </div>
           </div>
         </div>
+
+        {/* OCR Debug Panel */}
+        {showOcrDebug && (
+          <div className={`mt-4 p-3 rounded-lg ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} shadow`}>
+            <h3 className="font-medium mb-2">OCR Debug</h3>
+            <div className="mb-2">
+              <strong>Raw / Preprocessed OCR:</strong>
+              <pre className="text-xs overflow-auto max-h-40 p-2 bg-gray-100 rounded mt-1" style={{whiteSpace: 'pre-wrap'}}>{lastFileText || '(empty)'}</pre>
+            </div>
+            <div className="mb-2">
+              <strong>Processed Text for AI:</strong>
+              <pre className="text-xs overflow-auto max-h-40 p-2 bg-gray-100 rounded mt-1" style={{whiteSpace: 'pre-wrap'}}>{lastProcessedText || '(empty)'}</pre>
+            </div>
+            <div className="mb-2">
+              <strong>Early Extracted Events (ranges / day pairs):</strong>
+              <pre className="text-xs overflow-auto max-h-40 p-2 bg-gray-100 rounded mt-1">{JSON.stringify(lastEarlyEvents || [], null, 2)}</pre>
+            </div>
+            <div>
+              <strong>AI / Final Extracted Events:</strong>
+              <pre className="text-xs overflow-auto max-h-40 p-2 bg-gray-100 rounded mt-1">{JSON.stringify(lastAIEvents || [], null, 2)}</pre>
+            </div>
+          </div>
+        )}
 
         {/* Search Results Indicator */}
         {searchTerm.trim() && (

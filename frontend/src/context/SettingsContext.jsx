@@ -80,6 +80,14 @@ export const SettingsProvider = ({ children }) => {
     totalTime: 0,
     streak: 0
   })
+  const [sessionHistory, setSessionHistory] = useState(() => {
+    try {
+      const raw = localStorage.getItem('studyTaSessions')
+      return raw ? JSON.parse(raw) : []
+    } catch (e) {
+      return []
+    }
+  })
 
   // Load settings from localStorage on component mount
   useEffect(() => {
@@ -127,6 +135,11 @@ export const SettingsProvider = ({ children }) => {
       if (savedStats) {
         setStudyStats(JSON.parse(savedStats))
       }
+      // Load session history
+      try {
+        const rawSessions = localStorage.getItem('studyTaSessions')
+        if (rawSessions) setSessionHistory(JSON.parse(rawSessions))
+      } catch (e) {}
 
     } catch (error) {
       console.warn('Failed to load settings:', error)
@@ -285,6 +298,7 @@ export const SettingsProvider = ({ children }) => {
       
       localStorage.setItem('studyTaSettings', JSON.stringify(settings))
       localStorage.setItem('studyTaStats', JSON.stringify(studyStats))
+      try { localStorage.setItem('studyTaSessions', JSON.stringify(sessionHistory || [])) } catch (e) {}
       
       return true
     } catch (error) {
@@ -331,8 +345,20 @@ export const SettingsProvider = ({ children }) => {
       }
       
       localStorage.setItem('studyTaStats', JSON.stringify(updated))
+      // append to session history (timestamp + minutes)
+      try {
+        const entry = { ts: Date.now(), minutes: Number(timeSpent) || 0 }
+        const next = [entry].concat(sessionHistory || []).slice(0, 500)
+        setSessionHistory(next)
+        localStorage.setItem('studyTaSessions', JSON.stringify(next))
+      } catch (e) {}
       return updated
     })
+  }
+
+  const clearSessionHistory = () => {
+    setSessionHistory([])
+    try { localStorage.removeItem('studyTaSessions') } catch (e) {}
   }
 
   // Reset all settings to defaults
@@ -620,6 +646,8 @@ export const SettingsProvider = ({ children }) => {
     // New helpers for auth-based flows
     applyDefaultAppearance,
     loadSavedSettingsFromStorage
+    , sessionHistory,
+    clearSessionHistory
   }
 
   return (

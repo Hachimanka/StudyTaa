@@ -134,6 +134,7 @@ export const MusicProvider = ({ children }) => {
     try { window.__getGlobalAudio = () => audioRef.current } catch (e) {}
     try {
       window.playMusicDirect = (track) => {
+        try { console.log('[MusicContext] window.playMusicDirect called', track, { hasAudio: !!audioRef.current }) } catch(e){}
         if (!track || !audioRef.current) {
           return Promise.reject(new Error('No audio element or track'))
         }
@@ -527,6 +528,7 @@ export const MusicProvider = ({ children }) => {
 
 
   const playTrack = useCallback((track) => {
+    try { console.log('[MusicContext] playTrack called', track, { audioExists: !!audioRef.current, currentTrackId: currentTrack?.id }) } catch(e){}
     if (!audioRef.current || !track) return
 
     const element = audioRef.current
@@ -558,6 +560,7 @@ export const MusicProvider = ({ children }) => {
     }
 
     try {
+      try { console.log('[MusicContext] setting audio src ->', track.url) } catch(e){}
       element.muted = false
       if (element.src !== track.url) element.src = track.url
       element.currentTime = 0

@@ -181,6 +181,7 @@ export default function FileBasedStudyApp() {
   });
   const [showHistory, setShowHistory] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [savedSessionRecorded, setSavedSessionRecorded] = useState(false);
   const [viewedQuestions, setViewedQuestions] = useState(new Set());
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
   // Track which wheel indices have been answered so they can be removed/disabled
@@ -706,6 +707,41 @@ export default function FileBasedStudyApp() {
   useEffect(() => {
     if (isCompleted && content && content.length > 0 && !aiSuggestions && !aiLoading) {
       requestImprovementSuggestions(activeMode);
+    }
+  }, [isCompleted]);
+
+  // Persist completed study session summaries so Dashboard can evaluate mode-specific badges
+  useEffect(() => {
+    if (!isCompleted) return;
+    if (savedSessionRecorded) return;
+    // Only persist when there was meaningful activity
+    if (!sessionStats || sessionStats.reviewedCount <= 0) return;
+
+    try {
+      const key = 'studyModeSessions';
+      const raw = localStorage.getItem(key) || '[]';
+      const arr = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+      const entry = {
+        mode: activeMode,
+        reviewedCount: sessionStats.reviewedCount || 0,
+        correctCount: sessionStats.correctCount || 0,
+        accuracy: sessionStats.accuracy || 0,
+        timeElapsed: sessionStats.timeElapsed || 0,
+        longestStreak: sessionStats.longestStreak || 0,
+        timestamp: Date.now()
+      };
+      arr.unshift(entry);
+      // keep a reasonable history
+      const next = arr.slice(0, 500);
+      localStorage.setItem(key, JSON.stringify(next));
+      // also increment the global session tracker (minutes)
+      try {
+        const minutes = Math.round((sessionStats.timeElapsed || 0) / 60000);
+        if (typeof incrementStudySession === 'function') incrementStudySession(minutes);
+      } catch (e) {}
+      setSavedSessionRecorded(true);
+    } catch (e) {
+      console.warn('Failed to persist studyModeSessions', e);
     }
   }, [isCompleted]);
 

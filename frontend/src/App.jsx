@@ -22,6 +22,7 @@ import AuthenticatedWidget from './components/AuthenticatedWidget'
 import GlobalMusicPlayer from './components/GlobalMusicPlayer'
 import { ReminderProvider } from './context/ReminderContext'
 import FloatingTimer from './components/FloatingTimer'
+import FloatingMusic from './components/FloatingMusic'
 
 export default function App() {
   return (
@@ -53,6 +54,8 @@ export default function App() {
         <GlobalMusicPlayer />
         {/* Floating draggable focus timer */}
         <FloatingTimer />
+        {/* Floating music player */}
+        <FloatingMusic />
         </MusicProvider>
         </ReminderProvider>
       </SettingsProvider>

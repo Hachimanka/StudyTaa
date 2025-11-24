@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext'
 import focusSounds from '../data/focusSounds'
+import { useMusicPlayer } from '../context/MusicContext'
 import { useAuth } from '../context/AuthContext'
 
 export default function ChatWidget() {
@@ -15,6 +16,12 @@ export default function ChatWidget() {
   const navigate = useNavigate()
   const settings = useSettings()
   const auth = useAuth()
+  let music
+  try {
+    music = useMusicPlayer()
+  } catch (e) {
+    music = null
+  }
 
   // refs
   const recognitionRef = useRef(null)
@@ -35,7 +42,7 @@ export default function ChatWidget() {
     { phrases: ['open flashcards', 'go to flashcards', 'open the flashcards', 'flashcards'], path: '/flashcards', label: 'Flashcards' },
     { phrases: ['open library', 'go to library', 'open the library', 'library'], path: '/library', label: 'Library' },
     { phrases: ['open summarize', 'go to summarize', 'open the summarize page', 'summarize'], path: '/summarize', label: 'Summarize' },
-    { phrases: ['open music', 'go to music', 'play music', 'music'], path: '/music', label: 'Music' },
+    { phrases: ['open music', 'go to music', 'music'], path: '/music', label: 'Music' },
     { phrases: ['open settings', 'go to settings', 'open the settings', 'settings'], path: '/settings', label: 'Settings' },
   ]
 
@@ -43,6 +50,10 @@ export default function ChatWidget() {
   const darkOffPhrases = ['disable dark mode', 'turn off dark mode', 'disable darkmode', 'turn off darkmode', 'darkmode off', 'apply light mode', 'apply the light mode', 'enable light mode', 'light mode', 'go to light mode']
   const logoutPhrases = ['log out', 'logout', 'sign out', 'sign me out']
   const playPhrases = ['play music', 'play the music', 'play the song', 'play', 'play the chillbeats', 'play the chill beats', 'play chill beats']
+  // accept more natural variants
+  playPhrases.push('play a music')
+  playPhrases.push('play a song')
+  playPhrases.push('play a track')
   const playMap = [
     { phrases: ['chill beats', 'chillbeats', 'chill beat'], detail: { category: 'lofi', trackId: 6 } },
     { phrases: ['lofi hip hop', 'lofi', 'lofi hiphop'], detail: { category: 'lofi', trackId: 5 } },
@@ -50,6 +61,20 @@ export default function ChatWidget() {
     { phrases: ['ocean waves', 'ocean'], detail: { category: 'nature', trackId: 2 } },
     { phrases: ['study jazz'], detail: { category: 'lofi', trackId: 7 } },
   ]
+  // additional voice/typed command phrases
+  const nextPhrases = ['next song', 'next track', 'skip', 'skip song', 'play next', 'next']
+  const prevPhrases = ['previous', 'previous song', 'previous track', 'go back', 'play previous', 'prev']
+  const pausePhrases = ['pause music', 'pause', 'stop music', 'stop']
+  const togglePhrases = ['toggle music', 'toggle playback', 'play or pause']
+  const volumeUpPhrases = ['volume up', 'raise volume', 'increase volume']
+  const volumeDownPhrases = ['volume down', 'lower volume', 'decrease volume', 'turn down volume']
+  const themePhrasesMap = {
+    blue: ['apply blue theme', 'set theme to blue', 'use blue theme', 'blue theme'],
+    teal: ['apply teal theme', 'set theme to teal', 'use teal theme', 'teal theme'],
+    purple: ['apply purple theme', 'set theme to purple', 'use purple theme', 'purple theme'],
+    green: ['apply green theme', 'set theme to green', 'use green theme', 'green theme'],
+    pink: ['apply pink theme', 'set theme to pink', 'use pink theme', 'pink theme'],
+  }
   // helper to resolve track id to full track
   const resolveTrack = (detail) => {
     if (!detail) return null
@@ -65,6 +90,18 @@ export default function ChatWidget() {
       if (arr && arr.length) return arr[0]
     }
     return null
+  }
+
+  const pickRandomTrack = () => {
+    try {
+      const all = []
+      for (const cat of Object.keys(focusSounds)) {
+        const arr = focusSounds[cat]
+        if (arr && arr.length) all.push(...arr)
+      }
+      if (!all.length) return null
+      return all[Math.floor(Math.random() * all.length)]
+    } catch (e) { return null }
   }
 
   // textParam: string or undefined (use input)
@@ -106,6 +143,51 @@ export default function ChatWidget() {
         return
       }
 
+      // Quick music controls (typed)
+      if (nextPhrases.some(p => lc.includes(p))) {
+        try { window.dispatchEvent(new CustomEvent('musicControl', { detail: { action: 'next' } })) } catch (e) {}
+        setMessages(m => [...m, { from: 'bot', text: 'Skipping to next track' }])
+        return
+      }
+      if (prevPhrases.some(p => lc.includes(p))) {
+        try { window.dispatchEvent(new CustomEvent('musicControl', { detail: { action: 'prev' } })) } catch (e) {}
+        setMessages(m => [...m, { from: 'bot', text: 'Going to previous track' }])
+        return
+      }
+      if (pausePhrases.some(p => lc.includes(p))) {
+        try { window.dispatchEvent(new CustomEvent('musicControl', { detail: { action: 'pause' } })) } catch (e) {}
+        setMessages(m => [...m, { from: 'bot', text: 'Music paused' }])
+        return
+      }
+      if (togglePhrases.some(p => lc.includes(p))) {
+        try { window.dispatchEvent(new CustomEvent('musicControl', { detail: { action: 'toggle' } })) } catch (e) {}
+        setMessages(m => [...m, { from: 'bot', text: 'Toggled playback' }])
+        return
+      }
+      if (volumeUpPhrases.some(p => lc.includes(p))) {
+        try { window.dispatchEvent(new CustomEvent('musicControl', { detail: { action: 'setVolume', volume: 0.9 } })) } catch (e) {}
+        setMessages(m => [...m, { from: 'bot', text: 'Volume increased' }])
+        return
+      }
+      if (volumeDownPhrases.some(p => lc.includes(p))) {
+        try { window.dispatchEvent(new CustomEvent('musicControl', { detail: { action: 'setVolume', volume: 0.2 } })) } catch (e) {}
+        setMessages(m => [...m, { from: 'bot', text: 'Volume decreased' }])
+        return
+      }
+
+      // Theme color commands (typed)
+      for (const key of Object.keys(themePhrasesMap)) {
+        if (themePhrasesMap[key].some(p => lc.includes(p))) {
+          try {
+            if (settings && typeof settings.setColorTheme === 'function') {
+              settings.setColorTheme(key)
+              setMessages(m => [...m, { from: 'bot', text: `Applied ${key} theme` }])
+            }
+          } catch (e) {}
+          return
+        }
+      }
+
       // Play music commands (typed)
       for (const p of playPhrases) {
         if (lc.includes(p)) {
@@ -118,11 +200,26 @@ export default function ChatWidget() {
           for (const pm of playMap) {
             if (pm.phrases.some(ph => lc.includes(ph))) { found = pm.detail; break }
           }
-          navigate('/music')
           // resolve to full track object if possible
-          const full = resolveTrack(found)
-          try { window.dispatchEvent(new CustomEvent('playMusic', { detail: full || (found || {}) })) } catch (e) {}
-          setMessages(m => [...m, { from: 'bot', text: found ? 'Playing...' : 'Playing Music...' }])
+          let full = resolveTrack(found)
+          if (!full) full = pickRandomTrack()
+          // normalize URL so player always has a valid source (use original sourceUrl if proxy not configured)
+          if (full && !full.url && (full.sourceUrl || full.source)) {
+            full = { ...full, url: full.sourceUrl || full.source }
+          }
+          // Show floating music widget and navigate to Music page so it can start playback.
+          try {
+            const payload = full || (found || {})
+            // Ensure floating widget will be visible on the Music page
+            try { localStorage.setItem('floatingMusicVisible', 'true') } catch (e) {}
+            // Store a small flag with payload so the Music page will play the first track on arrival.
+            try { localStorage.setItem('playFirstOnNavigate', JSON.stringify({ payload })) } catch (e) {}
+            // Navigate to /music; Music page will check the flag and start playback.
+            navigate('/music')
+            setMessages(m => [...m, { from: 'bot', text: payload && payload.name ? `Opening Music and will play ${payload.name}...` : 'Opening Music and will play the first track...' }])
+          } catch (e) {
+            console.error('[ChatWidget] failed to navigate+play', e)
+          }
           return
         }
       }
@@ -285,16 +382,60 @@ export default function ChatWidget() {
           for (const pm of playMap) {
             if (pm.phrases.some(ph => lc.includes(ph))) { found = pm.detail; break }
           }
-          navigate('/music')
-          const full = resolveTrack(found)
-          try { window.dispatchEvent(new CustomEvent('playMusic', { detail: full || (found || {}) })) } catch (e) {}
-          setMessages(m => [...m, { from: 'bot', text: full ? `Playing ${full.name}...` : 'Playing Music...' }])
+          let full = resolveTrack(found)
+          if (!full) full = pickRandomTrack()
+          // For reliable behavior across browsers, navigate to the Music page and request it play the first track.
+          try {
+            const payload = full || (found || {})
+            try { localStorage.setItem('floatingMusicVisible', 'true') } catch (e) {}
+            try { localStorage.setItem('playFirstOnNavigate', JSON.stringify({ payload })) } catch (e) {}
+            navigate('/music')
+            setMessages(m => [...m, { from: 'bot', text: payload ? `Opening Music and will play ${payload.name || 'the first track'}...` : 'Opening Music and will play the first track...' }])
+          } catch (e) {
+            console.error('[ChatWidget] voice navigate+play failed', e)
+            // fallback: dispatch an event if navigation fails
+            try { window.dispatchEvent(new CustomEvent('playMusic', { detail: full || (found || {}) })) } catch (err) {}
+          }
           handledPlay = true
           break
         }
       }
 
       if (!handledPlay) {
+        // quick voice-only music controls and theme commands
+        if (nextPhrases.some(p => lc.includes(p))) {
+          try { window.dispatchEvent(new CustomEvent('musicControl', { detail: { action: 'next' } })) } catch (e) {}
+          setMessages(m => [...m, { from: 'bot', text: 'Skipping to next track' }])
+          if (voiceSendTimeoutRef.current) { clearTimeout(voiceSendTimeoutRef.current); voiceSendTimeoutRef.current = null }
+          return
+        }
+        if (prevPhrases.some(p => lc.includes(p))) {
+          try { window.dispatchEvent(new CustomEvent('musicControl', { detail: { action: 'prev' } })) } catch (e) {}
+          setMessages(m => [...m, { from: 'bot', text: 'Playing previous track' }])
+          if (voiceSendTimeoutRef.current) { clearTimeout(voiceSendTimeoutRef.current); voiceSendTimeoutRef.current = null }
+          return
+        }
+        if (pausePhrases.some(p => lc.includes(p))) {
+          try { window.dispatchEvent(new CustomEvent('musicControl', { detail: { action: 'pause' } })) } catch (e) {}
+          setMessages(m => [...m, { from: 'bot', text: 'Music paused' }])
+          if (voiceSendTimeoutRef.current) { clearTimeout(voiceSendTimeoutRef.current); voiceSendTimeoutRef.current = null }
+          return
+        }
+        if (togglePhrases.some(p => lc.includes(p))) {
+          try { window.dispatchEvent(new CustomEvent('musicControl', { detail: { action: 'toggle' } })) } catch (e) {}
+          setMessages(m => [...m, { from: 'bot', text: 'Toggled playback' }])
+          if (voiceSendTimeoutRef.current) { clearTimeout(voiceSendTimeoutRef.current); voiceSendTimeoutRef.current = null }
+          return
+        }
+        for (const key of Object.keys(themePhrasesMap)) {
+          if (themePhrasesMap[key].some(p => lc.includes(p))) {
+            try { if (settings && typeof settings.setColorTheme === 'function') settings.setColorTheme(key) } catch (e) {}
+            setMessages(m => [...m, { from: 'bot', text: `Applied ${key} theme` }])
+            if (voiceSendTimeoutRef.current) { clearTimeout(voiceSendTimeoutRef.current); voiceSendTimeoutRef.current = null }
+            return
+          }
+        }
+
         const voiceNav = navMap.find(item => item.phrases.some(p => lc.includes(p)))
         if (voiceNav) {
           navigate(voiceNav.path)

@@ -52,6 +52,81 @@ export default function Music() {
     updateTimerDuration
   } = useMusicPlayer()
 
+  // Listen for external requests to play the first track after navigation.
+  useEffect(() => {
+    const playFromDetail = (payload) => {
+      try {
+        const det = payload || {}
+        const playTrackByCandidates = (candidates) => {
+          if (!candidates || !candidates.length) return null
+          // if a specific id was provided, prefer that
+          if (det && (det.trackId || det.id)) {
+            const id = det.trackId || det.id
+            const found = candidates.find(t => String(t.id) === String(id))
+            if (found) return found
+          }
+          return candidates[0]
+        }
+
+        if (det.category) {
+          // set the selected category, then attempt to play first track from that category
+          try { setSelectedCategory(det.category) } catch (e) {}
+          // ensure floating widget is visible
+          try { localStorage.setItem('floatingMusicVisible', 'true') } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('floatingMusicVisibility', { detail: { visible: true } })) } catch (e) {}
+
+          setTimeout(() => {
+            const first = playTrackByCandidates(categoryTracks)
+            if (first) playTrack(first)
+          }, 250)
+          return
+        }
+
+        // make sure the floating widget is visible
+        try { localStorage.setItem('floatingMusicVisible', 'true') } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('floatingMusicVisibility', { detail: { visible: true } })) } catch (e) {}
+
+        // no category specified: try current categoryTracks first
+        const firstInCategory = playTrackByCandidates(categoryTracks)
+        if (firstInCategory) {
+          playTrack(firstInCategory)
+          return
+        }
+
+        // fallback: pick the very first available track across categories
+        for (const catKey of Object.keys(focusSounds)) {
+          const arr = focusSounds[catKey] || []
+          if (arr.length) {
+            const candidate = playTrackByCandidates(arr)
+            if (candidate) { playTrack(candidate); return }
+          }
+        }
+      } catch (e) { console.error('[Music] playFromDetail failed', e) }
+    }
+
+    const handler = (e) => {
+      const d = (e && e.detail) ? e.detail : null
+      playFromDetail(d)
+    }
+
+    window.addEventListener('playMusic', handler)
+
+    // Also check localStorage flag set by voice/ChatWidget when navigating
+    try {
+      const raw = localStorage.getItem('playFirstOnNavigate')
+      if (raw) {
+        localStorage.removeItem('playFirstOnNavigate')
+        const parsed = JSON.parse(raw)
+        const payload = (parsed && parsed.payload) ? parsed.payload : parsed
+        setTimeout(() => playFromDetail(payload), 250)
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+
+    return () => window.removeEventListener('playMusic', handler)
+  }, [categoryTracks, playTrack, setSelectedCategory])
+
   // NOTE: don't access or pause the global audio element here — the GlobalMusicPlayer
   // owns playback and should continue when navigating between pages.
 
@@ -166,6 +241,37 @@ export default function Music() {
           <p className={`mt-2 text-base md:text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'} page-subtitle`}>
             Pick a soundscape to stay in the zone while you study.
           </p>
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  const cur = localStorage.getItem('floatingMusicVisible')
+                  const next = !(cur === 'true')
+                  localStorage.setItem('floatingMusicVisible', next ? 'true' : 'false')
+                  window.dispatchEvent(new CustomEvent('floatingMusicVisibility', { detail: { visible: next } }))
+                } catch (e) {}
+              }}
+              className={`rounded-full px-3 py-1 text-sm font-medium ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'}`}
+            >
+              Toggle Floating Music
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  const cur = localStorage.getItem('floatingTimerVisible')
+                  const next = !(cur === 'true')
+                  localStorage.setItem('floatingTimerVisible', next ? 'true' : 'false')
+                  window.dispatchEvent(new CustomEvent('floatingTimerVisibility', { detail: { visible: next } }))
+                } catch (e) {}
+              }}
+              className={`rounded-full px-3 py-1 text-sm font-medium ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'}`}
+            >
+              Toggle Floating Timer
+            </button>
+          </div>
         </header>
 
         <div className="grid gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">

@@ -187,13 +187,13 @@ export default function Landing() {
           >
             <h2 className="text-heading text-primary mb-4">How It Works</h2>
             <p className="text-body text-muted max-w-2xl mx-auto">
-              Simple steps to start your learning journey with StudyTa
+              Simple steps to start your learning journey with Lemivon
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { step: "1", title: "Sign Up", text: "Create your free account in seconds and join the StudyTa community." },
+              { step: "1", title: "Sign Up", text: "Create your free account in seconds and join the Lemivon community." },
               { step: "2", title: "Choose Features", text: "Access quizzes, flashcards, and AI tools tailored to your subjects." },
               { step: "3", title: "Track Progress", text: "Monitor your study habits with analytics and streaks to stay motivated." },
             ].map((item, i) => (
@@ -230,7 +230,7 @@ export default function Landing() {
           >
             <h2 className="text-heading text-primary mb-4">About Us</h2>
             <p className="text-body text-muted max-w-3xl mx-auto">
-              StudyTa was created by passionate students and developers who
+              Lemivon was created by passionate students and developers who
               believe learning should be smarter, interactive, and accessible
               for everyone. We combine technology and education to empower
               learners worldwide.
@@ -243,7 +243,7 @@ export default function Landing() {
   <footer className="footer-surface text-muted py-10 mt-0">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-12">
           <div>
-            <h3 className="text-lg font-bold text-heading mb-4">StudyTa</h3>
+            <h3 className="text-lg font-bold text-heading mb-4">Lemivon</h3>
             <p className="text-sm text-muted">
               Your AI-powered study companion for smarter learning.
             </p>
@@ -267,7 +267,7 @@ export default function Landing() {
           </div>
         </div>
         <div className="text-center text-sm text-muted mt-8">
-          © {new Date().getFullYear()} StudyTa. All rights reserved.
+          © {new Date().getFullYear()} Lemivon. All rights reserved.
         </div>
       </footer>
     </div>

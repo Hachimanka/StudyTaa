@@ -469,7 +469,7 @@ export default function Settings() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Settings Navigation */}
           <div className="lg:col-span-1">
-            <div className={`p-4 rounded-xl shadow-lg ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`p-4 rounded-xl shadow-lg animate-fade-right animation-fast ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
               <nav className="space-y-2">
                 {tabs.map((tab) => (
                   <button
@@ -491,38 +491,35 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Settings Content */}
+          {/* Settings Content (fade-in re-triggers on tab change via key) */}
           <div className="lg:col-span-3">
-            {renderTabContent()}
-            
-            {/* Action buttons: Reset only on Appearance; Save on Appearance and Account */}
-            {(activeTab === 'appearance' || activeTab === 'account') && (
-              <div className="mt-8 flex justify-end gap-4">
-                {/* Show Reset only for the Appearance tab */}
-                {activeTab === 'appearance' && (
+            <div key={activeTab} className="animate-fade-in animation-fast">
+              {renderTabContent()}
+              {(activeTab === 'appearance' || activeTab === 'account') && (
+                <div className="mt-8 flex justify-end gap-4">
+                  {activeTab === 'appearance' && (
+                    <button
+                      onClick={resetAppearance}
+                      className={`${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32">
+                        <path fill="currentColor" d="M18 28A12 12 0 1 0 6 16v6.2l-3.6-3.6L1 20l6 6l6-6l-1.4-1.4L8 22.2V16a10 10 0 1 1 10 10Z"/>
+                      </svg>
+                      Reset to Defaults
+                    </button>
+                  )}
                   <button
-                    onClick={resetAppearance}
-                    className={`${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2`}
+                    onClick={saveSettings}
+                    className={`bg-gradient-to-r ${themeColors.gradient} ${themeColors.hover} text-white px-8 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2`}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32">
-                      <path fill="currentColor" d="M18 28A12 12 0 1 0 6 16v6.2l-3.6-3.6L1 20l6 6l6-6l-1.4-1.4L8 22.2V16a10 10 0 1 1 10 10Z"/>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                      <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16.25 21v-4.765a1.59 1.59 0 0 0-1.594-1.588H9.344a1.59 1.59 0 0 0-1.594 1.588V21m8.5-17.715v2.362a1.59 1.59 0 0 1-1.594 1.588H9.344A1.59 1.59 0 0 1 7.75 5.647V3m8.5.285A3.196 3.196 0 0 0 14.93 3H7.75m8.5.285c.344.156.661.374.934.645l2.382 2.375A3.17 3.17 0 0 1 20.5 8.55v9.272A3.182 3.182 0 0 1 17.312 21H6.688A3.182 3.182 0 0 1 3.5 17.823V6.176A3.182 3.182 0 0 1 6.688 3H7.75"/>
                     </svg>
-                    Reset to Defaults
+                    Save Settings
                   </button>
-                )}
-
-                {/* Save is still available for Appearance and Account */}
-                <button
-                  onClick={saveSettings}
-                  className={`bg-gradient-to-r ${themeColors.gradient} ${themeColors.hover} text-white px-8 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
-                    <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16.25 21v-4.765a1.59 1.59 0 0 0-1.594-1.588H9.344a1.59 1.59 0 0 0-1.594 1.588V21m8.5-17.715v2.362a1.59 1.59 0 0 1-1.594 1.588H9.344A1.59 1.59 0 0 1 7.75 5.647V3m8.5.285A3.196 3.196 0 0 0 14.93 3H7.75m8.5.285c.344.156.661.374.934.645l2.382 2.375A3.17 3.17 0 0 1 20.5 8.55v9.272A3.182 3.182 0 0 1 17.312 21H6.688A3.182 3.182 0 0 1 3.5 17.823V6.176A3.182 3.182 0 0 1 6.688 3H7.75"/>
-                  </svg>
-                  Save Settings
-                </button>
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>

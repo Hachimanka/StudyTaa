@@ -1959,7 +1959,7 @@ export default function FileBasedStudyApp() {
     if (!fileContent && !uploadedFile && content.length === 0) {
       return (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch ${darkMode ? '' : ''}`}>
-          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto flex flex-col justify-between overflow-auto`}>
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto flex flex-col justify-between overflow-auto animate-fade-in`}>
             <div>
               <h3 className={`text-xl font-semibold mb-2 ${cardText}`}>Ready to Study?</h3>
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>Upload your file to generate AI-powered study materials, or try a sample to preview study modes.</p>
@@ -1993,7 +1993,7 @@ export default function FileBasedStudyApp() {
             <div className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Tip: Use the sample to quickly preview how a study mode looks before uploading your own material.</div>
           </div>
 
-          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto`}> 
+          <div className={`${cardBg} rounded-xl p-6 shadow min-h-[16rem] h-auto overflow-auto animate-fade-in`}> 
             <h3 className={`text-lg font-semibold mb-3 ${cardText}`}>Study Modes</h3>
             <div className="grid grid-cols-2 gap-3">
               {studyModes.map((m) => (
@@ -2277,7 +2277,7 @@ export default function FileBasedStudyApp() {
         </div>
 
         {/* File Upload */}
-        <div className={`mb-6 ${cardBg} rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}>
+        <div className={`mb-6 ${cardBg} rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 animate-fade-up`}>
           <label className={`block text-sm font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-3`}>
             <svg className="w-5 h-5 inline mr-2" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M7 2h6l4 4v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -2369,7 +2369,7 @@ export default function FileBasedStudyApp() {
             )}
           {/* Mode Selection */}
           <div className="xl:col-span-1 lg:col-span-1">
-            <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+            <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 animate-fade-right`}>
               <h2 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                 <svg className="w-6 h-6 inline mr-2" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="12" cy="12" r="3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -2554,7 +2554,7 @@ export default function FileBasedStudyApp() {
 
           {/* Saved Study Sets History */}
           <div className="xl:col-span-1 lg:col-span-3 xl:col-start-4">
-            <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+            <div className={`${cardBg} shadow rounded-xl p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 animate-fade-left`}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   <svg className="w-5 h-5 inline mr-2" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

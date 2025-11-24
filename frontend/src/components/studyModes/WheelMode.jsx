@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 
-export default function WheelMode({ content, currentIndex, showAnswer, setShowAnswer, wheelSpinning, spinWheel, wheelRotation, onComplete, viewedQuestions, score, setScore }) {
+export default function WheelMode({ content, currentIndex, showAnswer, setShowAnswer, wheelSpinning, spinWheel, wheelRotation, onComplete, viewedQuestions, score, setScore, disabledIndices = [], onAnswered }) {
   const { darkMode } = useSettings();
   const cardBg = darkMode ? 'bg-gray-800' : 'bg-white';
   const cardText = darkMode ? 'text-gray-200' : 'text-gray-800';
@@ -12,10 +12,20 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
   const [userAnswer, setUserAnswer] = useState('');
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [hasAnswered, setHasAnswered] = useState(false);
-  const [answeredQuestions, setAnsweredQuestions] = useState(new Set());
+  // answeredIndices is now lifted to parent; derive local set from prop
+  const answeredSet = new Set(Array.isArray(disabledIndices) ? disabledIndices : []);
+
+  // Reset local answer state when wheel starts spinning
+  useEffect(() => {
+    if (wheelSpinning) {
+      setUserAnswer('');
+      setSelectedAnswer(null);
+      setHasAnswered(false);
+    }
+  }, [wheelSpinning]);
   
   // Check if all questions have been answered (completion)
-  const isCompleted = answeredQuestions.size === content.length && content.length > 0;
+  const isCompleted = answeredSet.size === content.length && content.length > 0;
   
   // Notify parent when completed
   React.useEffect(() => {
@@ -64,7 +74,7 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
           <div className={`${cardBg} rounded-xl p-6 mb-6`}>
             <h3 className={`text-lg font-semibold mb-4 ${cardText}`}>📝 Review Your Answers</h3>
             <div className="space-y-3">
-              {Array.from(answeredQuestions).map((questionIndex) => {
+              {Array.from(answeredSet).map((questionIndex) => {
                 const question = content[questionIndex];
                 const questionText = question?.label || question?.question || question?.content || 'Question not available';
                 const correctAnswer = question?.value || question?.answer || 'Answer not available';
@@ -122,34 +132,36 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
   // Offset by -90deg to match SVG top
   const selectedIndex = numQuestions > 0 ? Math.round(((360 - normalizedRotation - 90 + 360) % 360) / sliceAngle) % numQuestions : 0;
 
+  // The revealed question index is provided by parent `currentIndex` once the wheel stops.
+  // Use `revealedIndex` (null while spinning) for rendering and answer checks.
+  const revealedIndex = wheelSpinning ? null : (typeof currentIndex === 'number' ? currentIndex : null);
+
   // Helper function to check if answer is correct
   const isAnswerCorrect = (questionIndex) => {
+    if (questionIndex == null) return false;
     const question = content[questionIndex];
+    if (!question) return false;
     if (question?.options) {
-      // Multiple choice
-      const correctIndex = question.correctAnswer || question.answer || 0;
-      return selectedAnswer === correctIndex;
+      // Multiple choice - normalize indexes to numbers
+      const correctIndexRaw = question.correctAnswer ?? question.answer ?? 0;
+      const correctIndex = Number(correctIndexRaw);
+      return Number(selectedAnswer) === correctIndex;
     } else {
       // Text answer - use 'value' property for the correct answer
-      const correctAnswer = question?.value || question?.answer || question?.correctAnswer || question?.back || '';
-      return userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
+      const correctAnswer = (question?.value || question?.answer || question?.correctAnswer || question?.back || '').toString();
+      return userAnswer.toString().toLowerCase().trim() === correctAnswer.toLowerCase().trim();
     }
   };
 
   // Handle answer submission
   const handleSubmitAnswer = () => {
+    // Use revealedIndex for checking the current question (parent-controlled)
+    if (revealedIndex == null) return;
     if (!hasAnswered && (userAnswer.trim() || selectedAnswer !== null)) {
       setHasAnswered(true);
-      
-      // Check if answer is correct and update score
-      if (isAnswerCorrect(selectedIndex)) {
-        setScore(score + 1);
-      }
-      
-      // Mark this question as answered
-      const newAnsweredQuestions = new Set(answeredQuestions);
-      newAnsweredQuestions.add(selectedIndex);
-      setAnsweredQuestions(newAnsweredQuestions);
+      const correct = isAnswerCorrect(revealedIndex);
+      // Let parent know this question was answered so it can remove/disable the slice
+      if (onAnswered) onAnswered(revealedIndex, correct);
     }
   };
 
@@ -178,13 +190,16 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
             const y1 = center + radius * Math.sin(startRad);
             const x2 = center + radius * Math.cos(endRad);
             const y2 = center + radius * Math.sin(endRad);
-            // Highlight selected slice (the one at the top)
-            const isSelected = i === selectedIndex;
+            // Highlight selected slice (the one at the top) unless it's already answered
+            const isDisabled = answeredSet.has(i);
+            const isSelected = !isDisabled && i === selectedIndex;
+            const fillColor = isDisabled ? (darkMode ? '#374151' : '#e5e7eb') : (isSelected ? '#14b8a6' : `hsl(${(i * 360) / numQuestions}, 70%, 80%)`);
+            const textColor = isDisabled ? (darkMode ? '#9ca3af' : '#9ca3af') : (isSelected ? '#fff' : '#333');
             return (
               <g key={i}>
                 <path
                   d={`M${center},${center} L${x1},${y1} A${radius},${radius} 0 ${largeArc} 1 ${x2},${y2} Z`}
-                  fill={isSelected ? '#14b8a6' : `hsl(${(i * 360) / numQuestions}, 70%, 80%)`}
+                  fill={fillColor}
                   stroke="#fff"
                   strokeWidth={2}
                 />
@@ -195,27 +210,28 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
                   textAnchor="middle"
                   alignmentBaseline="middle"
                   fontSize={isSelected ? 18 : 13}
-                  fill={isSelected ? '#fff' : '#333'}
+                  fill={textColor}
                   style={{ fontWeight: isSelected ? 'bold' : 'normal', pointerEvents: 'none' }}
                 >
-                  {i + 1}
+                  {isDisabled ? '✓' : String(i + 1)}
                 </text>
               </g>
             );
           })}
         </svg>
-        {/* Large wheel pointer */}
+        {/* Large wheel pointer (adjusted to point at wheel edge) */}
         <div
           className="absolute left-1/2"
           style={{
-            top: -32,
+            top: -12,
             transform: 'translateX(-50%)',
             zIndex: 2,
+            pointerEvents: 'none'
           }}
         >
-          <svg width="48" height="48" viewBox="0 0 48 48">
-            <polygon points="24,0 40,32 8,32" fill="#14b8a6" stroke="#0f766e" strokeWidth="2" />
-            <circle cx="24" cy="36" r="6" fill="#fff" stroke="#0f766e" strokeWidth="2" />
+          <svg width="56" height="44" viewBox="0 0 56 44">
+            <polygon points="28,2 52,36 4,36" fill="#14b8a6" stroke="#0f766e" strokeWidth="2" />
+            <circle cx="28" cy="36" r="4" fill="#fff" stroke="#0f766e" strokeWidth="2" />
           </svg>
         </div>
       </div>
@@ -230,32 +246,43 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
       >
         {wheelSpinning ? 'Spinning...' : 'Spin the Wheel'}
       </button>
-      {content.length > 0 && selectedIndex < content.length && (
+      {content.length > 0 && (
         <div className={`${cardBg} rounded-xl p-6 shadow`}>
           <h3 className={`text-xl font-semibold mb-4 ${cardText}`}>🎡 Wheel Question:</h3>
-          
-          {/* Question Display */}
-          <div className="mb-6">
-            <p className={`text-lg font-medium mb-4 ${cardText}`}>
-              {content[selectedIndex]?.label || content[selectedIndex]?.question || content[selectedIndex]?.content || content[selectedIndex]?.title || content[selectedIndex]?.topic || content[selectedIndex]?.front || content[selectedIndex]?.statement || 'Question not found'}
-            </p>
-          </div>
+          {/* If spinning, show spinner text; if no revealed index, prompt to spin; else show question */}
+          {wheelSpinning ? (
+            <div className="mb-6 text-center py-8">
+              <div className="text-lg font-medium mb-2">Spinning...</div>
+              <div className="text-sm text-gray-500">The question will appear after the wheel stops.</div>
+            </div>
+          ) : revealedIndex === null ? (
+            <div className="mb-6 text-center py-8">
+              <div className="text-lg font-medium mb-2">Spin the wheel to reveal a question</div>
+              <div className="text-sm text-gray-500">Click "Spin the Wheel" to get a randomized question.</div>
+            </div>
+          ) : (
+            <div className="mb-6">
+              <p className={`text-lg font-medium mb-4 ${cardText}`}>
+                {content[revealedIndex]?.label || content[revealedIndex]?.question || content[revealedIndex]?.content || content[revealedIndex]?.title || content[revealedIndex]?.topic || content[revealedIndex]?.front || content[revealedIndex]?.statement || 'Question not found'}
+              </p>
+            </div>
+          )}
 
           {/* Answer Section */}
           {!hasAnswered ? (
             <div className="space-y-4">
               {/* Check if it's a multiple choice question */}
-              {content[selectedIndex]?.options && Array.isArray(content[selectedIndex].options) ? (
+              {content[revealedIndex]?.options && Array.isArray(content[revealedIndex]?.options) ? (
                 <div className="space-y-3">
                   <p className={`${darkMode ? 'text-gray-300' : 'font-medium text-gray-700'}`}>Choose your answer:</p>
-                  {content[selectedIndex].options.map((option, index) => (
+                  {content[revealedIndex].options.map((option, index) => (
                     <button
                       key={index}
                       onClick={() => setSelectedAnswer(index)}
                       className={`w-full p-3 text-left rounded-lg border-2 transition-all duration-200 ${
                         selectedAnswer === index
                           ? 'border-teal-500 bg-teal-50 text-teal-800'
-                          : 'border-gray-200 hover:border-teal-300 hover:bg-teal-25'
+                          : 'border-gray-200 hover:border-teal-300 hover:bg-teal-50'
                       }`}
                     >
                       <span className="font-medium">{String.fromCharCode(65 + index)}.</span> {option}
@@ -296,33 +323,36 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
           ) : (
             /* Show result after answering */
             <div className="space-y-4">
-              {content[selectedIndex]?.options ? (
+              {content[revealedIndex]?.options ? (
                 <div className="space-y-3">
                   <p className={`${darkMode ? 'text-gray-300' : 'font-medium text-gray-700'}`}>Your answer vs. Correct answer:</p>
-                  {content[selectedIndex].options.map((option, index) => (
-                    <div
-                      key={index}
-                      className={`p-3 rounded-lg border-2 flex items-center justify-between ${
-                        index === (content[selectedIndex].correctAnswer || content[selectedIndex].answer || 0)
-                          ? 'border-green-500 bg-green-50'
-                          : index === selectedAnswer
-                          ? 'border-red-500 bg-red-50'
-                          : 'border-gray-200 bg-gray-50'
-                      }`}
-                    >
-                      <span>
-                        <span className="font-medium">{String.fromCharCode(65 + index)}.</span> {option}
-                      </span>
-                      <div className="flex space-x-2">
-                        {index === selectedAnswer && (
-                          <span className="text-blue-600 font-bold">👤 Your Choice</span>
-                        )}
-                        {index === (content[selectedIndex].correctAnswer || content[selectedIndex].answer || 0) && (
-                          <span className="text-green-600 font-bold">✅ Correct</span>
-                        )}
+                  {content[revealedIndex].options.map((option, index) => {
+                    const correctIdx = Number(content[revealedIndex].correctAnswer ?? content[revealedIndex].answer ?? 0);
+                    return (
+                      <div
+                        key={index}
+                        className={`p-3 rounded-lg border-2 flex items-center justify-between ${
+                          index === correctIdx
+                            ? 'border-green-500 bg-green-50'
+                            : index === selectedAnswer
+                            ? 'border-red-500 bg-red-50'
+                            : 'border-gray-200 bg-gray-50'
+                        }`}
+                      >
+                        <span>
+                          <span className="font-medium">{String.fromCharCode(65 + index)}.</span> {option}
+                        </span>
+                        <div className="flex space-x-2">
+                          {index === selectedAnswer && (
+                            <span className="text-blue-600 font-bold">👤 Your Choice</span>
+                          )}
+                          {index === correctIdx && (
+                            <span className="text-green-600 font-bold">✅ Correct</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -330,17 +360,17 @@ export default function WheelMode({ content, currentIndex, showAnswer, setShowAn
                     <p className={`${darkMode ? 'text-blue-200' : 'text-blue-800'}`}><strong>Your Answer:</strong> {userAnswer}</p>
                   </div>
                   <div className={`${darkMode ? 'bg-green-900 border-green-800 text-green-200 p-4' : 'p-4 bg-green-50 border border-green-200'} rounded-lg`}>
-                    <p className={`${darkMode ? 'text-green-200' : 'text-green-800'}`}><strong>Correct Answer:</strong> {content[selectedIndex]?.value || content[selectedIndex]?.answer || content[selectedIndex]?.correctAnswer || content[selectedIndex]?.back || 'Answer not available'}</p>
+                    <p className={`${darkMode ? 'text-green-200' : 'text-green-800'}`}><strong>Correct Answer:</strong> {content[revealedIndex]?.value || content[revealedIndex]?.answer || content[revealedIndex]?.correctAnswer || content[revealedIndex]?.back || 'Answer not available'}</p>
                   </div>
                 </div>
               )}
               
               <div className={`p-4 rounded-lg text-center font-semibold ${
-                isAnswerCorrect(selectedIndex) 
+                isAnswerCorrect(revealedIndex) 
                   ? 'bg-green-50 border border-green-200 text-green-800' 
                   : 'bg-red-50 border border-red-200 text-red-800'
               }`}>
-                {isAnswerCorrect(selectedIndex) ? '🎉 Correct!' : '❌ Incorrect'}
+                {isAnswerCorrect(revealedIndex) ? '🎉 Correct!' : '❌ Incorrect'}
               </div>
 
               <button

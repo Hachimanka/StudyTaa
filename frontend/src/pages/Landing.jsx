@@ -149,7 +149,7 @@ export default function Landing() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-heading text-primary mb-4">
+            <h2 className="text-heading text-primary mb-4 text-3xl">
               Interactive Learning Experience
             </h2>
             <p className="text-body text-muted max-w-2xl mx-auto">
@@ -187,16 +187,16 @@ export default function Landing() {
                 viewport={{ once: true }}
                 whileHover={{ scale: 1.05, y: -8, boxShadow: "0 12px 24px rgba(0,0,0,0.15)", transition: { type: "spring", stiffness: 300 } }}
                 
-                className="glass-card p-8 interactive cursor-pointer"
+                className="glass-card p-8 interactive cursor-pointer flex flex-col items-center text-center"
               >
                 <div className="w-16 h-16 rounded-3xl flex items-center justify-center mb-6 gradient-primary">
                   {item.icon}
                 </div>
                 <h3 className="text-subheading text-primary mb-4">{item.title}</h3>
                 <p className="text-body text-muted mb-6">{item.text}</p>
-                <button className="btn-modern btn-secondary text-caption">
+                <Link to="/login" className="btn-modern btn-secondary text-caption">
                   {item.btn}
-                </button>
+                </Link>
               </motion.div>
             ))}
           </div>
@@ -216,7 +216,7 @@ export default function Landing() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-heading text-primary mb-4">
+            <h2 className="text-heading text-primary mb-4 text-3xl">
               Powerful Study Features
             </h2>
             <p className="text-body text-muted max-w-2xl mx-auto">
@@ -262,7 +262,7 @@ export default function Landing() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-heading text-primary mb-4">How It Works</h2>
+            <h2 className="text-heading text-primary mb-4 text-3xl">How It Works</h2>
             <p className="text-body text-muted max-w-2xl mx-auto">
               Simple steps to start your learning journey with StudyTa
             </p>
@@ -308,7 +308,7 @@ export default function Landing() {
         transition={{ duration: 0.8 }}
         viewport={{ once: true }}
       >
-        <h2 className="text-heading text-primary mb-4">About Us</h2>
+        <h2 className="text-heading text-primary mb-4 text-3xl">About Us</h2>
         <p className="text-body text-muted max-w-3xl mx-auto">
           StudyTa was created by passionate students and developers who
           believe learning should be smarter, interactive, and accessible for

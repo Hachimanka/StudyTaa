@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Sidebar from '../components/Sidebar'
 import ChatWidget from '../components/ChatWidget'
 import { useSettings } from '../context/SettingsContext'
@@ -57,6 +57,8 @@ export default function Music() {
 
   const [showTimer, setShowTimer] = useState(false)
   const [showControls, setShowControls] = useState(true)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const MIN_TIMER_MINUTES = 5
   const MAX_TIMER_MINUTES = 120
@@ -73,6 +75,22 @@ export default function Music() {
 
     // no-op: keep audio playing state as managed by GlobalMusicPlayer
   }, [])
+
+  // debounce search input to avoid excessive re-computation
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250)
+    return () => clearTimeout(t)
+  }, [search])
+
+  const filteredTracks = useMemo(() => {
+    if (!debouncedSearch) return categoryTracks
+    const q = debouncedSearch.toLowerCase()
+    return categoryTracks.filter((t) => {
+      const name = (t.name || '').toLowerCase()
+      const artist = (t.artist || '').toLowerCase()
+      return name.includes(q) || artist.includes(q)
+    })
+  }, [categoryTracks, debouncedSearch])
 
   const formatTime = (seconds) => {
     const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0
@@ -153,7 +171,29 @@ export default function Music() {
             )}
 
             <div className="grid gap-4 sm:grid-cols-2">
-              {categoryTracks.map((track) => {
+              <div className="col-span-full mb-2 flex items-center gap-3">
+                <input
+                  aria-label="Search tracks"
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search tracks or artists..."
+                  className="w-full md:w-64 px-3 py-2 rounded-lg border bg-white text-sm"
+                  style={{ borderColor: themeColors.primary || '#0C969C' }}
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="text-sm px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200"
+                    aria-label="Clear search"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {filteredTracks.map((track) => {
                 const selected = currentTrack?.id === track.id
                 return (
                   <article

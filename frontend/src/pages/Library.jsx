@@ -13,6 +13,8 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
   const [showFolderInput, setShowFolderInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [folderUploadLoading, setFolderUploadLoading] = useState(false);
+  const [folderCreateLoading, setFolderCreateLoading] = useState(false);
 
   const getFileIcon = (fileName) => {
     const extension = fileName.split('.').pop()?.toLowerCase();
@@ -309,6 +311,8 @@ const ConfirmModal = memo(function ConfirmModal({
   cancelText = 'Cancel',
   onConfirm,
   onCancel,
+  loading = false,
+  loadingText = 'Processing...',
 }) {
   const [show, setShow] = useState(false);
 
@@ -345,15 +349,17 @@ const ConfirmModal = memo(function ConfirmModal({
             onClick={onCancel}
             className="px-4 py-2 rounded-lg transition-colors"
             style={{ background: 'transparent', color: theme.primaryHex, border: `1px solid ${theme.primaryHex}` }}
+            disabled={loading}
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg transition-colors"
+            className="px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ background: theme.gradientCss, color: '#fff' }}
+            disabled={loading}
           >
-            {confirmText}
+            {loading ? loadingText : confirmText}
           </button>
         </div>
       </div>
@@ -375,6 +381,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
   const [confirmState, setConfirmState] = useState({ open: false, message: '', action: null });
   const openConfirm = (message, action) => setConfirmState({ open: true, message, action });
   const closeConfirm = () => setConfirmState({ open: false, message: '', action: null });
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     if (!contextMenu.visible) return;
@@ -484,12 +491,16 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
         {showFileInput && (
           <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
             <h3 className="text-lg font-medium text-gray-900 mb-3">Upload File</h3>
-            <form onSubmit={e => { 
+            <form onSubmit={async (e) => { 
               e.preventDefault(); 
-              if (selectedFile) {
-                onAddFile(folder.id, selectedFile); 
-                setShowFileInput(false); 
-                setSelectedFile(null); 
+              if (!selectedFile) return;
+              try {
+                setFolderUploadLoading(true);
+                await onAddFile(folder.id, selectedFile);
+                setShowFileInput(false);
+                setSelectedFile(null);
+              } finally {
+                setFolderUploadLoading(false);
               }
             }}>
               <div className="mb-4">
@@ -504,15 +515,16 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                 <button
                   type="submit"
                   className="px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!selectedFile}
+                  disabled={!selectedFile || folderUploadLoading}
                   style={{ background: theme.gradientCss, color: '#fff' }}
                 >
-                  Upload
+                  {folderUploadLoading ? 'Uploading...' : 'Upload'}
                 </button>
                 <button 
                   type="button"
                   className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
                   onClick={() => { setShowFileInput(false); setSelectedFile(null); }}
+                  disabled={folderUploadLoading}
                 >
                   Cancel
                 </button>
@@ -524,12 +536,16 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
         {showFolderInput && (
           <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
             <h3 className="text-lg font-medium text-gray-900 mb-3">Create New Folder</h3>
-            <form onSubmit={e => { 
+            <form onSubmit={async (e) => { 
               e.preventDefault(); 
-              if (newFolderName.trim()) {
-                onAddFolder(folder.id, newFolderName.trim()); 
+              if (!newFolderName.trim()) return;
+              try {
+                setFolderCreateLoading(true);
+                await onAddFolder(folder.id, newFolderName.trim());
                 setNewFolderName(''); 
-                setShowFolderInput(false); 
+                setShowFolderInput(false);
+              } finally {
+                setFolderCreateLoading(false);
               }
             }}>
               <div className="mb-4">
@@ -546,15 +562,16 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                 <button
                   type="submit"
                   className="px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!newFolderName.trim()}
+                  disabled={!newFolderName.trim() || folderCreateLoading}
                   style={{ background: theme.gradientCss, color: '#fff' }}
                 >
-                  Create
+                  {folderCreateLoading ? 'Creating...' : 'Create'}
                 </button>
                 <button 
                   type="button"
                   className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
                   onClick={() => { setShowFolderInput(false); setNewFolderName(''); }}
+                  disabled={folderCreateLoading}
                 >
                   Cancel
                 </button>
@@ -694,8 +711,21 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
         message={confirmState.message}
         confirmText="Delete"
         cancelText="Cancel"
-        onCancel={closeConfirm}
-        onConfirm={() => { const fn = confirmState.action; closeConfirm(); if (typeof fn === 'function') fn(); }}
+        onCancel={() => { if (confirmLoading) return; closeConfirm(); }}
+        onConfirm={async () => {
+          if (!confirmState.action) return;
+          try {
+            setConfirmLoading(true);
+            await confirmState.action();
+            closeConfirm();
+          } catch (err) {
+            console.error('Error executing confirmed action:', err);
+          } finally {
+            setConfirmLoading(false);
+          }
+        }}
+        loading={confirmLoading}
+        loadingText="Deleting..."
       />
     </div>
   );
@@ -706,6 +736,9 @@ export default function Library() {
   const { getThemeColors } = useSettings();
   const theme = getThemeColors();
   const API_BASE = import.meta.env.VITE_API_BASE || '';
+  const [createLoading, setCreateLoading] = useState(false);
+  const [renameLoading, setRenameLoading] = useState(false);
+  const [quickUploadLoading, setQuickUploadLoading] = useState(false);
   const [root, setRoot] = useState({
     id: 'root',
     name: 'My Library',
@@ -1086,6 +1119,7 @@ export default function Library() {
       : `${API_BASE}/api/library/folders/${renameTarget.id}`;
 
     try {
+      setRenameLoading(true);
       const response = await fetch(endpoint, {
         method: 'PATCH',
         headers: {
@@ -1113,6 +1147,8 @@ export default function Library() {
     } catch (err) {
       console.error('Rename error:', err);
       setError(err.message || 'Failed to rename item. Please try again.');
+    } finally {
+      setRenameLoading(false);
     }
   };
 
@@ -1172,18 +1208,28 @@ export default function Library() {
 
   const handleQuickUploadSubmit = useCallback(async () => {
     if (quickUploadFile) {
-      await handleAddFile(currentFolderId || 'root', quickUploadFile);
-      setQuickUploadFile(null);
-      setShowQuickUpload(false);
+      try {
+        setQuickUploadLoading(true);
+        await handleAddFile(currentFolderId || 'root', quickUploadFile);
+        setQuickUploadFile(null);
+        setShowQuickUpload(false);
+      } finally {
+        setQuickUploadLoading(false);
+      }
     }
   }, [quickUploadFile, handleAddFile, currentFolderId]);
 
   const handleCreateFolderSubmit = useCallback(async () => {
     const name = createFolderName.trim();
     if (!name) return;
-    await handleAddFolder(currentFolderId || 'root', name);
-    setCreateFolderName('');
-    setCreateFolderOpen(false);
+    try {
+      setCreateLoading(true);
+      await handleAddFolder(currentFolderId || 'root', name);
+      setCreateFolderName('');
+      setCreateFolderOpen(false);
+    } finally {
+      setCreateLoading(false);
+    }
   }, [createFolderName, handleAddFolder, currentFolderId]);
 
   // Import from Drive functionality (placeholder)
@@ -1554,16 +1600,19 @@ export default function Library() {
                       setShowQuickUpload(false);
                       setQuickUploadFile(null);
                     }}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="px-4 py-2 rounded-lg transition-colors"
+                    style={{ background: 'transparent', color: theme.primaryHex, border: `1px solid ${theme.primaryHex}` }}
+                    disabled={quickUploadLoading}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleQuickUploadSubmit}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!quickUploadFile}
+                    className="px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: theme.gradientCss, color: '#fff' }}
+                    disabled={!quickUploadFile || quickUploadLoading}
                   >
-                    Upload
+                    {quickUploadLoading ? 'Uploading...' : 'Upload'}
                   </button>
                 </div>
               </div>
@@ -1597,16 +1646,19 @@ export default function Library() {
                 <div className="flex gap-3 justify-end mt-4">
                   <button
                     onClick={() => { setCreateFolderOpen(false); setCreateFolderName(''); }}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="px-4 py-2 rounded-lg transition-colors"
+                    style={{ background: 'transparent', color: theme.primaryHex, border: `1px solid ${theme.primaryHex}` }}
+                    disabled={createLoading}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreateFolderSubmit}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!createFolderName.trim()}
+                    className="px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: theme.gradientCss, color: '#fff' }}
+                    disabled={!createFolderName.trim() || createLoading}
                   >
-                    Create
+                    {createLoading ? 'Creating...' : 'Create'}
                   </button>
                 </div>
               </div>
@@ -1638,15 +1690,19 @@ export default function Library() {
                 <div className="flex gap-3 justify-end mt-4">
                   <button
                     onClick={closeRenameModal}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="px-4 py-2 rounded-lg transition-colors"
+                    style={{ background: 'transparent', color: theme.primaryHex, border: `1px solid ${theme.primaryHex}` }}
+                    disabled={renameLoading}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitRename}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 rounded-lg transition-colors"
+                    style={{ background: theme.gradientCss, color: '#fff' }}
+                    disabled={renameLoading}
                   >
-                    Rename
+                    {renameLoading ? 'Renaming...' : 'Rename'}
                   </button>
                 </div>
               </div>

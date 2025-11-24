@@ -388,7 +388,7 @@ export default function Home() {
             <div className="space-y-4">
               <Link to="/summarize">
                 <button
-                  className="flex items-center w-full rounded-xl p-4 transition-colors hover-bounce"
+                  className="flex items-start justify-start gap-4 w-full rounded-xl p-4 transition-colors hover-bounce"
                   style={{
                     backgroundColor: darkMode 
                       ? `${themeColors.primary}20`
@@ -406,7 +406,7 @@ export default function Home() {
                       : `${themeColors.primary}15`;
                   }}
                 >
-                  <div className="quick-icon mr-1" style={{ color: themeColors.primary }}>
+                  <div className="quick-icon w-10 h-10 flex-none flex items-start justify-start rounded-md" style={{ color: themeColors.primary }}>
                     {/* Document / summary icon (simple, aesthetic) */}
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -414,9 +414,9 @@ export default function Home() {
                       <path d="M8 12h8M8 16h8" strokeOpacity="0.9"></path>
                     </svg>
                   </div>
-                  <div>
-                    <p className="font-semibold">Create Summary</p>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="font-semibold m-0 leading-tight">Create Summary</p>
+                    <p className={`text-sm m-0 leading-tight ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                       Summarize a new content
                     </p>
                   </div>
@@ -425,7 +425,7 @@ export default function Home() {
 
               <Link to="/flashcards">
                 <button
-                  className="flex items-center w-full rounded-xl p-4 transition-colors hover-bounce"
+                  className="flex items-start justify-start gap-4 w-full rounded-xl p-4 transition-colors hover-bounce"
                   style={{
                     backgroundColor: darkMode ? `${themeColors.primary}20` : `${themeColors.primary}15`,
                     border: `1px solid ${themeColors.primary}33`
@@ -437,7 +437,7 @@ export default function Home() {
                     e.currentTarget.style.backgroundColor = darkMode ? `${themeColors.primary}20` : `${themeColors.primary}15`;
                   }}
                 >
-                  <div className="quick-icon mr-1" style={{ color: themeColors.primary }}>
+                  <div className="quick-icon w-10 h-10 flex-none flex items-center justify-center rounded-md" style={{ color: themeColors.primary }}>
                     {/* Stack of cards icon */}
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="7" width="14" height="12" rx="2"></rect>
@@ -445,9 +445,9 @@ export default function Home() {
                       <rect x="7" y="3" width="14" height="12" rx="2" opacity="0.06"></rect>
                     </svg>
                   </div>
-                  <div>
-                    <p className="font-semibold">Make Flashcards</p>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="font-semibold m-0 leading-tight">Make Flashcards</p>
+                    <p className={`text-sm m-0 leading-tight ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                       Generate study cards
                     </p>
                   </div>
@@ -456,7 +456,7 @@ export default function Home() {
 
               <Link to="/library">
                 <button
-                  className="flex items-center w-full rounded-xl p-4 transition-colors hover-bounce"
+                  className="flex items-start justify-start gap-4 w-full rounded-xl p-4 transition-colors hover-bounce"
                   style={{
                     backgroundColor: darkMode 
                       ? `${themeColors.primary}20`
@@ -474,15 +474,15 @@ export default function Home() {
                       : `${themeColors.primary}15`;
                   }}
                 >
-                  <div className="quick-icon mr-1" style={{ color: themeColors.primary }}>
+                  <div className="quick-icon w-10 h-10 flex-none flex items-center justify-center rounded-md" style={{ color: themeColors.primary }}>
                     {/* Folder icon */}
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                     </svg>
                   </div>
-                  <div>
-                    <p className="font-semibold">Browse Library</p>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="font-semibold m-0 leading-tight">Browse Library</p>
+                    <p className={`text-sm m-0 leading-tight ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                       Access your files
                     </p>
                   </div>

@@ -39,14 +39,11 @@ export const SettingsProvider = ({ children }) => {
       return 'medium'
     }
   })
-  // Color theme should persist only for the current open site session (tab/window)
-  // so we use sessionStorage instead of localStorage. It resets to default 'teal'
-  // on a full browser close/reopen, matching the requirement: first visit gets default.
   const [colorTheme, setColorTheme] = useState(() => {
     try {
-      const session = sessionStorage.getItem('studyTaSessionSettings')
-      if (session) {
-        const s = JSON.parse(session)
+      const saved = localStorage.getItem('studyTaSettings')
+      if (saved) {
+        const s = JSON.parse(saved)
         if (s && typeof s.colorTheme === 'string') return s.colorTheme
       }
       return 'teal'
@@ -82,6 +79,14 @@ export const SettingsProvider = ({ children }) => {
     dailySessions: 0,
     totalTime: 0,
     streak: 0
+  })
+  const [sessionHistory, setSessionHistory] = useState(() => {
+    try {
+      const raw = localStorage.getItem('studyTaSessions')
+      return raw ? JSON.parse(raw) : []
+    } catch (e) {
+      return []
+    }
   })
 
   // Load settings from localStorage on component mount
@@ -130,6 +135,11 @@ export const SettingsProvider = ({ children }) => {
       if (savedStats) {
         setStudyStats(JSON.parse(savedStats))
       }
+      // Load session history
+      try {
+        const rawSessions = localStorage.getItem('studyTaSessions')
+        if (rawSessions) setSessionHistory(JSON.parse(rawSessions))
+      } catch (e) {}
 
     } catch (error) {
       console.warn('Failed to load settings:', error)
@@ -220,17 +230,26 @@ export const SettingsProvider = ({ children }) => {
     }
   }, [fontSize])
 
-  // Apply color theme to document for the current session.
-  // No path-based overriding so the chosen theme remains after logout within the same session.
+  // Apply color theme to document
   useEffect(() => {
     const root = document.documentElement
-    const applyTheme = () => {
+    const applyThemeForPath = () => {
+      const path = window.location.pathname.toLowerCase()
+      const excluded = new Set(['/', '/landing', '/login', '/register', '/forgot-password'])
+      // Always reset existing theme classes
       root.classList.remove('theme-teal', 'theme-blue', 'theme-purple', 'theme-green', 'theme-pink')
-      root.classList.add(`theme-${colorTheme}`)
+      if (excluded.has(path)) {
+        // Force default (teal) theme on auth/landing pages, independent of user selection
+        root.classList.add('theme-teal')
+      } else {
+        root.classList.add(`theme-${colorTheme}`)
+      }
     }
-    applyTheme()
-    const handleLocationChange = () => applyTheme()
+    applyThemeForPath()
+    // Listen for route changes (history navigation)
+    const handleLocationChange = () => applyThemeForPath()
     window.addEventListener('popstate', handleLocationChange)
+    // Patch pushState/replaceState to catch SPA navigations
     const originalPush = history.pushState
     const originalReplace = history.replaceState
     history.pushState = function(...args) { originalPush.apply(this, args); handleLocationChange() }
@@ -242,15 +261,15 @@ export const SettingsProvider = ({ children }) => {
     }
   }, [colorTheme])
 
-  // Persist selected colorTheme only for this session (not across browser restarts)
+  // Persist selected colorTheme to studyTaSettings so it survives reloads
   useEffect(() => {
     try {
-      const existing = sessionStorage.getItem('studyTaSessionSettings')
-      const sessionSettings = existing ? JSON.parse(existing) : {}
-      sessionSettings.colorTheme = colorTheme
-      sessionStorage.setItem('studyTaSessionSettings', JSON.stringify(sessionSettings))
+      const saved = localStorage.getItem('studyTaSettings')
+      const settings = saved ? JSON.parse(saved) : {}
+      settings.colorTheme = colorTheme
+      localStorage.setItem('studyTaSettings', JSON.stringify(settings))
     } catch (err) {
-      console.warn('Failed to persist session colorTheme:', err)
+      console.warn('Failed to persist colorTheme:', err)
     }
   }, [colorTheme])
   
@@ -260,7 +279,7 @@ export const SettingsProvider = ({ children }) => {
       const settings = {
         darkMode,
         fontSize,
-        // Do NOT persist colorTheme to localStorage; theme is session-scoped.
+        colorTheme,
         emailNotifications,
         pushNotifications,
         studyReminders,
@@ -279,6 +298,7 @@ export const SettingsProvider = ({ children }) => {
       
       localStorage.setItem('studyTaSettings', JSON.stringify(settings))
       localStorage.setItem('studyTaStats', JSON.stringify(studyStats))
+      try { localStorage.setItem('studyTaSessions', JSON.stringify(sessionHistory || [])) } catch (e) {}
       
       return true
     } catch (error) {
@@ -325,8 +345,20 @@ export const SettingsProvider = ({ children }) => {
       }
       
       localStorage.setItem('studyTaStats', JSON.stringify(updated))
+      // append to session history (timestamp + minutes)
+      try {
+        const entry = { ts: Date.now(), minutes: Number(timeSpent) || 0 }
+        const next = [entry].concat(sessionHistory || []).slice(0, 500)
+        setSessionHistory(next)
+        localStorage.setItem('studyTaSessions', JSON.stringify(next))
+      } catch (e) {}
       return updated
     })
+  }
+
+  const clearSessionHistory = () => {
+    setSessionHistory([])
+    try { localStorage.removeItem('studyTaSessions') } catch (e) {}
   }
 
   // Reset all settings to defaults
@@ -399,20 +431,16 @@ export const SettingsProvider = ({ children }) => {
   // selected theme/font-size.
   const loadSavedSettingsFromStorage = () => {
     try {
-      // First prefer sessionStorage (same-tab continuity) for colorTheme
-      const session = sessionStorage.getItem('studyTaSessionSettings')
-      if (session) {
-        const s = JSON.parse(session)
-        if (s && typeof s.colorTheme === 'string') {
-          setColorTheme(s.colorTheme)
-        }
-      }
-      // Legacy/localStorage values only used for darkMode/fontSize (persistent) now.
       const savedSettings = localStorage.getItem('studyTaSettings')
+      console.debug('[Settings] loadSavedSettingsFromStorage: found', savedSettings)
       if (savedSettings) {
         const settings = JSON.parse(savedSettings)
+        console.debug('[Settings] loadSavedSettingsFromStorage: parsed', settings)
         if (typeof settings.darkMode === 'boolean') setDarkMode(settings.darkMode)
         if (settings.fontSize) setFontSize(settings.fontSize)
+        if (settings.colorTheme) setColorTheme(settings.colorTheme)
+      } else {
+        console.debug('[Settings] loadSavedSettingsFromStorage: no saved settings found')
       }
     } catch (err) {
       console.warn('Failed to load saved settings on auth change', err)
@@ -542,11 +570,15 @@ export const SettingsProvider = ({ children }) => {
       try {
         const isAuth = localStorage.getItem('stuyta_auth') === '1' || !!localStorage.getItem('token') || !!localStorage.getItem('user')
         console.debug('[Settings] authChanged event, isAuth=', isAuth)
-        // On login we can still attempt to load legacy saved settings (backward compatibility)
         if (isAuth) {
+          // User logged in -> restore saved appearance
+          console.debug('[Settings] authChanged -> loading saved appearance')
           loadSavedSettingsFromStorage()
+        } else {
+          // User logged out -> apply default landing appearance
+          console.debug('[Settings] authChanged -> applying default appearance')
+          applyDefaultAppearance()
         }
-        // On logout: do nothing so session theme remains until tab is closed.
       } catch (err) {
         console.warn('Error handling authChanged in SettingsContext', err)
       }
@@ -614,6 +646,8 @@ export const SettingsProvider = ({ children }) => {
     // New helpers for auth-based flows
     applyDefaultAppearance,
     loadSavedSettingsFromStorage
+    , sessionHistory,
+    clearSessionHistory
   }
 
   return (

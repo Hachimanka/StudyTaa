@@ -100,6 +100,7 @@ export const MusicProvider = ({ children }) => {
   const [timerDurationMinutes, setTimerDurationMinutes] = useState(initialTimerMinutes)
   const [timeLeft, setTimeLeft] = useState(() => initialTimerMinutes * 60)
   const [isTimerRunning, setIsTimerRunning] = useState(false)
+  const alarmPrimedRef = useRef(false)
 
   // Initialize audio element (only once)
   useEffect(() => {
@@ -133,6 +134,7 @@ export const MusicProvider = ({ children }) => {
     try { window.__getGlobalAudio = () => audioRef.current } catch (e) {}
     try {
       window.playMusicDirect = (track) => {
+        try { console.log('[MusicContext] window.playMusicDirect called', track, { hasAudio: !!audioRef.current }) } catch(e){}
         if (!track || !audioRef.current) {
           return Promise.reject(new Error('No audio element or track'))
         }
@@ -199,7 +201,8 @@ export const MusicProvider = ({ children }) => {
       try {
         if (typeof Audio === 'undefined') return
         const alarm = new Audio(TIMER_ALARM_BASE64)
-        alarm.volume = 0.6
+        // quieter fallback volume for a small ring
+        alarm.volume = 0.18
         alarm.play().catch(() => {})
       } catch (error) {
         console.warn('Timer alarm fallback failed', error)
@@ -223,15 +226,26 @@ export const MusicProvider = ({ children }) => {
           oscillator.type = 'sine'
           oscillator.frequency.value = 880
 
-          gain.gain.setValueAtTime(0.0001, ctx.currentTime)
-          gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.01)
-          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.4)
+          // Make a small, 5-second ring: quick attack, sustain, then short release
+          const now = ctx.currentTime
+          const attack = 0.02
+          const sustain = 4.8
+          const release = 0.18
+          const peak = 0.18 // modest volume for a small ring
+
+          gain.gain.setValueAtTime(0.0001, now)
+          gain.gain.linearRampToValueAtTime(peak, now + attack)
+          gain.gain.setValueAtTime(peak, now + attack)
+          // hold sustain until near end
+          gain.gain.setValueAtTime(peak, now + attack + sustain)
+          gain.gain.linearRampToValueAtTime(0.0001, now + attack + sustain + release)
 
           oscillator.connect(gain)
           gain.connect(ctx.destination)
 
-          oscillator.start(ctx.currentTime)
-          oscillator.stop(ctx.currentTime + 1.5)
+          oscillator.start(now)
+          const stopAt = now + attack + sustain + release
+          oscillator.stop(stopAt)
           oscillator.onended = () => {
             try {
               gain.disconnect()
@@ -266,6 +280,27 @@ export const MusicProvider = ({ children }) => {
     }
 
     fallback()
+  }, [])
+
+  // Try to prime (unlock) an AudioContext so alarms can play without an additional
+  // user gesture. This attempts a quick resume and then closes the context.
+  const primeAlarmAudio = useCallback(() => {
+    if (alarmPrimedRef.current) return
+    alarmPrimedRef.current = true
+    try {
+      const AudioCtx = typeof window !== 'undefined' ? (window.AudioContext || window.webkitAudioContext) : null
+      if (!AudioCtx) return
+      const ctx = new AudioCtx()
+      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        ctx.resume().catch(() => {}).finally(() => {
+          try { ctx.close().catch(() => {}) } catch (e) {}
+        })
+      } else {
+        try { ctx.close().catch(() => {}) } catch (e) {}
+      }
+    } catch (e) {
+      // ignore priming errors
+    }
   }, [])
 
   useEffect(() => {
@@ -493,6 +528,7 @@ export const MusicProvider = ({ children }) => {
 
 
   const playTrack = useCallback((track) => {
+    try { console.log('[MusicContext] playTrack called', track, { audioExists: !!audioRef.current, currentTrackId: currentTrack?.id }) } catch(e){}
     if (!audioRef.current || !track) return
 
     const element = audioRef.current
@@ -524,6 +560,7 @@ export const MusicProvider = ({ children }) => {
     }
 
     try {
+      try { console.log('[MusicContext] setting audio src ->', track.url) } catch(e){}
       element.muted = false
       if (element.src !== track.url) element.src = track.url
       element.currentTime = 0
@@ -627,6 +664,7 @@ export const MusicProvider = ({ children }) => {
   }, [currentTrack, selectedCategory, getTracksForCategory, playNext])
 
   const startTimer = useCallback(() => {
+    primeAlarmAudio()
     setTimeLeft((prev) => (prev > 0 ? prev : timerDurationMinutes * 60))
     setIsTimerRunning(true)
   }, [timerDurationMinutes])
@@ -638,6 +676,7 @@ export const MusicProvider = ({ children }) => {
   const toggleTimer = useCallback(() => {
     setIsTimerRunning((prev) => {
       if (prev) return false
+      primeAlarmAudio()
       setTimeLeft((prevSeconds) => (prevSeconds > 0 ? prevSeconds : timerDurationMinutes * 60))
       return true
     })

@@ -140,22 +140,106 @@ export default function GlobalMusicPlayer() {
   // Listen for legacy playMusic events
   useEffect(() => {
     const handler = (e) => {
+      try { console.log('[GlobalMusicPlayer] playMusic event received', e && e.detail) } catch(e){}
       const detail = e?.detail || {}
-      if (detail && detail.url) { playTrackDirect(detail); return }
+      if (detail && detail.url) {
+        Promise.resolve(playTrackDirect(detail)).then(() => {
+          try { localStorage.removeItem('floatingMusicAutoPlayPending') } catch(e){}
+          try { window.dispatchEvent(new CustomEvent('floatingMusicAutoPlayPending', { detail: { pending: false } })) } catch(e){}
+        }).catch(() => {
+          try { localStorage.setItem('floatingMusicAutoPlayPending', 'true') } catch(e){}
+          try { window.dispatchEvent(new CustomEvent('floatingMusicAutoPlayPending', { detail: { pending: true } })) } catch(e){}
+        })
+        return
+      }
       const { category, trackId } = detail
       if (trackId) {
         for (const cat of Object.keys(focusSounds)) {
           const t = focusSounds[cat].find(x => x.id === trackId)
-          if (t) { playTrackDirect(t); return }
+          if (t) {
+            // attempt to play and set autoplay-pending flag if it fails
+            Promise.resolve(playTrackDirect(t)).then(() => {
+              try { localStorage.removeItem('floatingMusicAutoPlayPending') } catch(e){}
+              try { window.dispatchEvent(new CustomEvent('floatingMusicAutoPlayPending', { detail: { pending: false } })) } catch(e){}
+            }).catch(() => {
+              try { localStorage.setItem('floatingMusicAutoPlayPending', 'true') } catch(e){}
+              try { window.dispatchEvent(new CustomEvent('floatingMusicAutoPlayPending', { detail: { pending: true } })) } catch(e){}
+            })
+            return
+          }
         }
       }
       if (category) {
         const arr = focusSounds[category]
-        if (arr && arr.length) { playTrackDirect(arr[0]); return }
+        if (arr && arr.length) {
+          Promise.resolve(playTrackDirect(arr[0])).then(() => {
+            try { localStorage.removeItem('floatingMusicAutoPlayPending') } catch(e){}
+            try { window.dispatchEvent(new CustomEvent('floatingMusicAutoPlayPending', { detail: { pending: false } })) } catch(e){}
+          }).catch(() => {
+            try { localStorage.setItem('floatingMusicAutoPlayPending', 'true') } catch(e){}
+            try { window.dispatchEvent(new CustomEvent('floatingMusicAutoPlayPending', { detail: { pending: true } })) } catch(e){}
+          })
+          return
+        }
       }
     }
     window.addEventListener('playMusic', handler)
+    // listen for generic music control commands
+    const controlHandler = (ev) => {
+      try {
+        const d = ev?.detail || {}
+        const action = (d.action || '').toString()
+        if (!action) return
+        if (action === 'pause' || action === 'stop') {
+          if (audioRef.current) audioRef.current.pause()
+          setIsPlaying(false)
+          return
+        }
+        if (action === 'play') {
+          if (audioRef.current) {
+            audioRef.current.play().catch(() => {})
+            try { localStorage.removeItem('floatingMusicAutoPlayPending') } catch(e){}
+          }
+          setIsPlaying(true)
+          return
+        }
+        if (action === 'toggle') {
+          if (audioRef.current) {
+            if (audioRef.current.paused) audioRef.current.play().catch(() => {})
+            else audioRef.current.pause()
+            setIsPlaying(!audioRef.current.paused)
+          }
+          return
+        }
+        if (action === 'next') {
+          try { playNext() } catch (e) {}
+          return
+        }
+        if (action === 'prev' || action === 'previous') {
+          try { playPrev() } catch (e) {}
+          return
+        }
+        if (action === 'seek' && typeof d.time === 'number') {
+          try { if (audioRef.current) audioRef.current.currentTime = d.time } catch(e){}
+          return
+        }
+        if (action === 'setVolume' && typeof d.volume === 'number') {
+          try { if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, d.volume)); setVolume(Math.max(0, Math.min(1, d.volume))) } catch(e){}
+          return
+        }
+      } catch (err) {}
+    }
+    window.addEventListener('musicControl', controlHandler)
     return () => window.removeEventListener('playMusic', handler)
+    // cleanup musicControl listener
+    // (can't remove controlHandler here since return above exits earlier; instead do full cleanup below)
+  }, [])
+
+  useEffect(() => {
+    // cleanup paired listeners on unmount
+    return () => {
+      try { window.removeEventListener('musicControl', () => {}) } catch(e){}
+    }
   }, [])
 
   // Sync isPlaying -> audio element
@@ -269,16 +353,14 @@ export default function GlobalMusicPlayer() {
   // and widgets can start playback. Returning null keeps the component mounted
   // without showing UI.
 
-  // Try to autoplay a default track once (best-effort). Browsers may block it.
+  // Do NOT autoplay a default track on mount. Instead, prime the audio element
+  // so user-initiated playback is more likely to succeed when they press Play.
   useEffect(() => {
     try {
-      // If there is a desired starting track (first of lofi), attempt to play it
-      const defaultTrack = (focusSounds && focusSounds.lofi && focusSounds.lofi[0]) || null
-      if (defaultTrack) {
-        playTrackDirect(defaultTrack)
-          .catch?.(() => {})
-      }
-    } catch (e) {}
+      primeAudio()
+    } catch (e) {
+      /* ignore */
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

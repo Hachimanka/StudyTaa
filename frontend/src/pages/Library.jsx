@@ -2,21 +2,26 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import Sidebar from '../components/Sidebar';
 import ChatWidget from '../components/ChatWidget';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 
 // File Modal Component
 const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload }) {
   if (!isOpen || !file) return null;
+  const { getThemeColors } = useSettings();
+  const theme = getThemeColors();
   const [showFileInput, setShowFileInput] = useState(false);
   const [showFolderInput, setShowFolderInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [folderUploadLoading, setFolderUploadLoading] = useState(false);
+  const [folderCreateLoading, setFolderCreateLoading] = useState(false);
 
   const getFileIcon = (fileName) => {
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'pdf':
         return (
-          <svg width="24" height="24" fill="currentColor" viewBox="0 0 16 16" className="text-red-600">
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 16 16" style={{ color: theme.primaryHex }}>
             <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
             <path d="M4.603 12.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.568.897-.787a7.68 7.68 0 0 1 1.482-.645 19.701 19.701 0 0 0 1.062-2.227 7.269 7.269 0 0 1-.43-1.295c-.086-.4-.119-.796-.046-1.136.075-.354.274-.672.65-.823.192-.077.4-.12.602-.077a.7.7 0 0 1 .477.365c.088.164.12.356.127.538.007.187-.012.395-.047.614-.084.51-.27 1.134-.52 1.794a10.954 10.954 0 0 0 .98 1.686 5.753 5.753 0 0 1 1.334.05c.364.065.734.195.96.465.12.144.193.32.2.518.007.192-.047.382-.138.563a1.04 1.04 0 0 1-.354.416.856.856 0 0 1-.51.138c-.331-.014-.654-.196-.933-.417a5.716 5.716 0 0 1-.911-.95 11.642 11.642 0 0 0-1.997.406 11.311 11.311 0 0 1-1.021 1.51c-.29.35-.608.655-.926.787a.793.793 0 0 1-.58.029z"/>
           </svg>
@@ -26,7 +31,7 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
       case 'png':
       case 'gif':
         return (
-          <svg width="24" height="24" fill="currentColor" viewBox="0 0 16 16" className="text-green-600">
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 16 16" style={{ color: theme.primaryHex }}>
             <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
             <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
           </svg>
@@ -34,20 +39,20 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
       case 'doc':
       case 'docx':
         return (
-          <svg width="24" height="24" fill="currentColor" viewBox="0 0 16 16" className="text-blue-600">
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 16 16" style={{ color: theme.primaryHex }}>
             <path d="M14 4.5V11h-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5L14 4.5ZM1.6 11.85H0v3.999h.791v-1.342h.803c.287 0 .531-.057.732-.172.203-.118.358-.276.463-.474a1.42 1.42 0 0 0 .161-.677c0-.25-.053-.476-.158-.677a1.176 1.176 0 0 0-.46-.477c-.2-.12-.443-.179-.732-.179Zm.545 1.333a.795.795 0 0 1-.085.38.574.574 0 0 1-.238.241.794.794 0 0 1-.375.082H.788V12.48h.66c.218 0 .389.06.512.181.123.122.185.296.185.522Z"/>
           </svg>
         );
       case 'txt':
         return (
-          <svg width="24" height="24" fill="currentColor" viewBox="0 0 16 16" className="text-gray-600">
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 16 16" style={{ color: theme.primaryHex }}>
             <path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5z"/>
             <path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5L9.5 0zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5z"/>
           </svg>
         );
       default:
         return (
-          <svg width="24" height="24" fill="currentColor" viewBox="0 0 16 16" className="text-gray-600">
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 16 16" style={{ color: theme.primaryHex }}>
             <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
           </svg>
         );
@@ -79,13 +84,13 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col" style={{ color: theme.primaryHex }}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3">
             {getFileIcon(file.name)}
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">{file.name}</h2>
+              <h2 className="text-xl font-semibold" style={{ color: theme.primaryHex }}>{file.name}</h2>
               <p className="text-sm text-gray-500">
                 {formatFileSize(file.size)} • {formatDate(file.uploadDate)}
               </p>
@@ -94,6 +99,7 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+            style={{ color: theme.primaryHex }}
           >
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
               <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
@@ -144,7 +150,8 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
                           const url = file.viewUrl || file.dataUrl || file.downloadUrl;
                           window.open(url, '_blank');
                         }}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                        className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                        style={{ background: theme.gradientCss, color: '#fff' }}
                       >
                         <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                           <path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
@@ -166,7 +173,8 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
                             a.click();
                           }
                         }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                        style={{ background: theme.gradientCss, color: '#fff' }}
                       >
                         <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                           <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
@@ -188,15 +196,15 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
                 {file.name.match(/\.(pdf)$/i) && (
                   <div className="text-center">
                     <div className="bg-gradient-to-br from-red-50 to-red-100 p-8 rounded-lg border-2 border-red-200">
-                      <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16" className="mx-auto mb-4 text-red-600">
+                      <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16" className="mx-auto mb-4" style={{ color: theme.primaryHex }}>
                         <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
                         <path d="M4.603 12.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.568.897-.787a7.68 7.68 0 0 1 1.482-.645 19.701 19.701 0 0 0 1.062-2.227 7.269 7.269 0 0 1-.43-1.295c-.086-.4-.119-.796-.046-1.136.075-.354.274-.672.65-.823.192-.077.4-.12.602-.077a.7.7 0 0 1 .477.365c.088.164.12.356.127.538.007.187-.012.395-.047.614-.084.51-.27 1.134-.52 1.794a10.954 10.954 0 0 0 .98 1.686 5.753 5.753 0 0 1 1.334.05c.364.065.734.195.96.465.12.144.193.32.2.518.007.192-.047.382-.138.563a1.04 1.04 0 0 1-.354.416.856.856 0 0 1-.51.138c-.331-.014-.654-.196-.933-.417a5.716 5.716 0 0 1-.911-.95 11.642 11.642 0 0 0-1.997.406 11.311 11.311 0 0 1-1.021 1.51c-.29.35-.608.655-.926.787a.793.793 0 0 1-.58.029z"/>
                       </svg>
-                      <h4 className="text-lg font-semibold text-red-800 mb-2">PDF Document</h4>
-                      <p className="text-red-700 mb-4">
+                      <h4 className="text-lg font-semibold mb-2" style={{ color: theme.primaryHex }}>PDF Document</h4>
+                      <p className="mb-4" style={{ color: theme.primaryHex }}>
                         {file.name}
                       </p>
-                      <p className="text-sm text-red-600 mb-4">
+                      <p className="text-sm mb-4" style={{ color: theme.primaryHex }}>
                         For security reasons, PDF preview is not available in the browser.
                         Use the buttons below to view or download the document.
                       </p>
@@ -207,7 +215,8 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
                               const url = file.viewUrl || file.dataUrl || file.downloadUrl;
                               window.open(url, '_blank');
                             }}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                            className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                            style={{ background: theme.gradientCss, color: '#fff' }}
                           >
                             <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                               <path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
@@ -231,7 +240,8 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
                               a.click();
                             }
                           }}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                          className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                          style={{ background: theme.gradientCss, color: '#fff' }}
                         >
                           <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
@@ -253,7 +263,8 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
           <div className="flex gap-3 justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              className="px-4 py-2 rounded-lg transition-colors"
+              style={{ background: 'transparent', color: theme.primaryHex, border: `1px solid ${theme.primaryHex}` }}
             >
               Close
             </button>
@@ -263,7 +274,8 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
                   const url = file.viewUrl || file.dataUrl || file.downloadUrl;
                   window.open(url, '_blank');
                 }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                style={{ background: theme.gradientCss, color: '#fff' }}
               >
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                   <path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
@@ -274,7 +286,8 @@ const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload })
             )}
             <button
               onClick={() => onDownload(file)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              style={{ background: theme.gradientCss, color: '#fff' }}
             >
               <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
@@ -298,6 +311,8 @@ const ConfirmModal = memo(function ConfirmModal({
   cancelText = 'Cancel',
   onConfirm,
   onCancel,
+  loading = false,
+  loadingText = 'Processing...',
 }) {
   const [show, setShow] = useState(false);
 
@@ -311,6 +326,8 @@ const ConfirmModal = memo(function ConfirmModal({
   }, [isOpen]);
 
   if (!isOpen) return null;
+  const { getThemeColors } = useSettings();
+  const theme = getThemeColors();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -330,15 +347,19 @@ const ConfirmModal = memo(function ConfirmModal({
         <div className="p-4 border-t border-gray-200 flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
+            className="px-4 py-2 rounded-lg transition-colors"
+            style={{ background: 'transparent', color: theme.primaryHex, border: `1px solid ${theme.primaryHex}` }}
+            disabled={loading}
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+            className="px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: theme.gradientCss, color: '#fff' }}
+            disabled={loading}
           >
-            {confirmText}
+            {loading ? loadingText : confirmText}
           </button>
         </div>
       </div>
@@ -360,6 +381,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
   const [confirmState, setConfirmState] = useState({ open: false, message: '', action: null });
   const openConfirm = (message, action) => setConfirmState({ open: true, message, action });
   const closeConfirm = () => setConfirmState({ open: false, message: '', action: null });
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     if (!contextMenu.visible) return;
@@ -378,11 +400,14 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
   // Keep folder rows aligned with file rows (no extra indent)
   const indentPx = 0;
 
+  const { getThemeColors } = useSettings();
+  const theme = getThemeColors();
+
   return (
     <div className={hideHeader ? "mb-3" : ""} style={{ marginLeft: indentPx }}>
       <div className={hideHeader
-        ? "bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
-        : "bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 hover:bg-gray-100 transition-colors"}>
+        ? "bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow animate-fade-left"
+        : "bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 hover:bg-gray-100 transition-colors animate-fade-left"}>
         {!hideHeader && (
         <div
           className="flex items-center justify-between"
@@ -394,7 +419,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
           }}
         >
           <button 
-            className="flex items-center gap-2 text-gray-700 hover:text-gray-900"
+            className="flex items-center gap-2"
             onClick={(e) => { e.preventDefault(); if (onOpenFolder) onOpenFolder(folder.id); }}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -403,7 +428,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
               setContextMenu({ visible: true, x: e.clientX, y: e.clientY, type: 'folder', payload: folder });
             }}
           >
-            <div className="p-1 text-blue-600">
+            <div className="p-1" style={{ color: theme.primaryHex }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
               </svg>
@@ -415,7 +440,8 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
             <button
               title="Upload File"
               onClick={() => setShowFileInput(true)}
-              className="p-1.5 text-slate-600 hover:text-slate-900 rounded bg-white border border-transparent hover:border-slate-100"
+              className="p-1.5 rounded bg-white border border-transparent hover:border-slate-100"
+              style={{ color: theme.primaryHex }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -427,7 +453,8 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
             <button
               title="New Folder"
               onClick={() => setShowFolderInput(true)}
-              className="p-1.5 text-slate-600 hover:text-slate-900 rounded bg-white border border-transparent hover:border-slate-100"
+              className="p-1.5 rounded bg-white border border-transparent hover:border-slate-100"
+              style={{ color: theme.primaryHex }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <path d="M10 4H4a2 2 0 0 0-2 2v2"></path>
@@ -446,7 +473,8 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                     () => onDeleteFolder(folder.id)
                   );
                 }}
-                className="p-1.5 text-red-500 hover:text-red-700 rounded bg-white border border-transparent hover:border-red-100"
+                className="p-1.5 rounded bg-white border border-transparent hover:border-red-100"
+                style={{ color: theme.primaryHex }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                   <polyline points="3 6 5 6 21 6"></polyline>
@@ -463,12 +491,16 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
         {showFileInput && (
           <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
             <h3 className="text-lg font-medium text-gray-900 mb-3">Upload File</h3>
-            <form onSubmit={e => { 
+            <form onSubmit={async (e) => { 
               e.preventDefault(); 
-              if (selectedFile) {
-                onAddFile(folder.id, selectedFile); 
-                setShowFileInput(false); 
-                setSelectedFile(null); 
+              if (!selectedFile) return;
+              try {
+                setFolderUploadLoading(true);
+                await onAddFile(folder.id, selectedFile);
+                setShowFileInput(false);
+                setSelectedFile(null);
+              } finally {
+                setFolderUploadLoading(false);
               }
             }}>
               <div className="mb-4">
@@ -482,15 +514,17 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!selectedFile}
+                  className="px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!selectedFile || folderUploadLoading}
+                  style={{ background: theme.gradientCss, color: '#fff' }}
                 >
-                  Upload
+                  {folderUploadLoading ? 'Uploading...' : 'Upload'}
                 </button>
                 <button 
                   type="button"
                   className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
                   onClick={() => { setShowFileInput(false); setSelectedFile(null); }}
+                  disabled={folderUploadLoading}
                 >
                   Cancel
                 </button>
@@ -502,12 +536,16 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
         {showFolderInput && (
           <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
             <h3 className="text-lg font-medium text-gray-900 mb-3">Create New Folder</h3>
-            <form onSubmit={e => { 
+            <form onSubmit={async (e) => { 
               e.preventDefault(); 
-              if (newFolderName.trim()) {
-                onAddFolder(folder.id, newFolderName.trim()); 
+              if (!newFolderName.trim()) return;
+              try {
+                setFolderCreateLoading(true);
+                await onAddFolder(folder.id, newFolderName.trim());
                 setNewFolderName(''); 
-                setShowFolderInput(false); 
+                setShowFolderInput(false);
+              } finally {
+                setFolderCreateLoading(false);
               }
             }}>
               <div className="mb-4">
@@ -523,15 +561,17 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!newFolderName.trim()}
+                  className="px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!newFolderName.trim() || folderCreateLoading}
+                  style={{ background: theme.gradientCss, color: '#fff' }}
                 >
-                  Create
+                  {folderCreateLoading ? 'Creating...' : 'Create'}
                 </button>
                 <button 
                   type="button"
                   className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
                   onClick={() => { setShowFolderInput(false); setNewFolderName(''); }}
+                  disabled={folderCreateLoading}
                 >
                   Cancel
                 </button>
@@ -547,12 +587,12 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                 {folder.files.map((file, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group cursor-pointer"
+                    className="flex items-center justify-between py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group cursor-pointer animate-fade-left"
                     onClick={() => onViewFile(file)}
                     onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY, type: 'file', payload: { file, folderId: folder.id, fileIndex: idx } }); }}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-1 text-gray-600">
+                      <div className="p-1" style={{ color: theme.primaryHex }}>
                         <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                           <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
                         </svg>
@@ -631,7 +671,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                 ))}
               </div>
             ) : (
-              <div className="p-4 text-center text-gray-500 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+              <div className="p-4 text-center text-gray-500 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg animate-fade-left">
                 <p className="text-sm">This folder is empty</p>
                 <p className="text-xs mt-1">Upload files or create subfolders to get started</p>
               </div>
@@ -650,7 +690,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
               <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { onViewFile(contextMenu.payload.file); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>View</button>
               <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { if (onRename) onRename(contextMenu.payload.file, 'file'); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Rename</button>
               <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { if (onDownload) onDownload(contextMenu.payload.file); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Download</button>
-              <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={() => { setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); openConfirm(`Delete "${contextMenu.payload.file.name}"? This cannot be undone.`, () => onDeleteFile(contextMenu.payload.folderId, contextMenu.payload.fileIndex)); }}>Delete</button>
+              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" style={{ color: theme.primaryHex }} onClick={() => { setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); openConfirm(`Delete "${contextMenu.payload.file.name}"? This cannot be undone.`, () => onDeleteFile(contextMenu.payload.folderId, contextMenu.payload.fileIndex)); }}>Delete</button>
             </div>
           )}
           {contextMenu.type === 'folder' && (
@@ -659,7 +699,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
               <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setShowFolderInput(true); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>New Folder</button>
               <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { if (onRename) onRename(contextMenu.payload, 'folder'); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Rename Folder</button>
               {level > 0 && (
-                <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-100" onClick={() => { setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); openConfirm(`Delete folder "${folder.name}" and all contents?`, () => onDeleteFolder(folder.id)); }}>Delete Folder</button>
+                <button className="w-full text-left px-3 py-2 hover:bg-gray-100" style={{ color: theme.primaryHex }} onClick={() => { setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); openConfirm(`Delete folder "${folder.name}" and all contents?`, () => onDeleteFolder(folder.id)); }}>Delete Folder</button>
               )}
             </div>
           )}
@@ -671,8 +711,21 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
         message={confirmState.message}
         confirmText="Delete"
         cancelText="Cancel"
-        onCancel={closeConfirm}
-        onConfirm={() => { const fn = confirmState.action; closeConfirm(); if (typeof fn === 'function') fn(); }}
+        onCancel={() => { if (confirmLoading) return; closeConfirm(); }}
+        onConfirm={async () => {
+          if (!confirmState.action) return;
+          try {
+            setConfirmLoading(true);
+            await confirmState.action();
+            closeConfirm();
+          } catch (err) {
+            console.error('Error executing confirmed action:', err);
+          } finally {
+            setConfirmLoading(false);
+          }
+        }}
+        loading={confirmLoading}
+        loadingText="Deleting..."
       />
     </div>
   );
@@ -680,7 +733,12 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
 
 export default function Library() {
   const { user } = useAuth();
+  const { getThemeColors } = useSettings();
+  const theme = getThemeColors();
   const API_BASE = import.meta.env.VITE_API_BASE || '';
+  const [createLoading, setCreateLoading] = useState(false);
+  const [renameLoading, setRenameLoading] = useState(false);
+  const [quickUploadLoading, setQuickUploadLoading] = useState(false);
   const [root, setRoot] = useState({
     id: 'root',
     name: 'My Library',
@@ -1061,6 +1119,7 @@ export default function Library() {
       : `${API_BASE}/api/library/folders/${renameTarget.id}`;
 
     try {
+      setRenameLoading(true);
       const response = await fetch(endpoint, {
         method: 'PATCH',
         headers: {
@@ -1088,6 +1147,8 @@ export default function Library() {
     } catch (err) {
       console.error('Rename error:', err);
       setError(err.message || 'Failed to rename item. Please try again.');
+    } finally {
+      setRenameLoading(false);
     }
   };
 
@@ -1147,18 +1208,28 @@ export default function Library() {
 
   const handleQuickUploadSubmit = useCallback(async () => {
     if (quickUploadFile) {
-      await handleAddFile(currentFolderId || 'root', quickUploadFile);
-      setQuickUploadFile(null);
-      setShowQuickUpload(false);
+      try {
+        setQuickUploadLoading(true);
+        await handleAddFile(currentFolderId || 'root', quickUploadFile);
+        setQuickUploadFile(null);
+        setShowQuickUpload(false);
+      } finally {
+        setQuickUploadLoading(false);
+      }
     }
   }, [quickUploadFile, handleAddFile, currentFolderId]);
 
   const handleCreateFolderSubmit = useCallback(async () => {
     const name = createFolderName.trim();
     if (!name) return;
-    await handleAddFolder(currentFolderId || 'root', name);
-    setCreateFolderName('');
-    setCreateFolderOpen(false);
+    try {
+      setCreateLoading(true);
+      await handleAddFolder(currentFolderId || 'root', name);
+      setCreateFolderName('');
+      setCreateFolderOpen(false);
+    } finally {
+      setCreateLoading(false);
+    }
   }, [createFolderName, handleAddFolder, currentFolderId]);
 
   // Import from Drive functionality (placeholder)
@@ -1184,11 +1255,11 @@ export default function Library() {
     return (
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-12 ml-20 md:ml-30">
+        <main className="flex-1 p-12 ml-20 md:ml-30 animate-fade-left">
           <ChatWidget />
 
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-8 animate-fade-left">
             <div className="h-8 w-40 bg-gray-200 rounded mb-2 animate-pulse"></div>
             <div className="h-4 w-80 bg-gray-200 rounded animate-pulse"></div>
           </div>
@@ -1196,7 +1267,7 @@ export default function Library() {
           {/* Stats skeleton */}
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             {[1,2,3].map((i) => (
-              <div key={i} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+              <div key={i} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm animate-fade-left">
                 <div className="flex items-center gap-4">
                   <div className="flex-shrink-0">
                     <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
@@ -1211,7 +1282,7 @@ export default function Library() {
           </div>
 
           {/* Toolbar skeleton (search + actions) */}
-          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 animate-fade-left">
             <div className="h-10 bg-gray-200 rounded w-full md:w-80 animate-pulse"></div>
             <div className="flex items-center gap-3">
               <div className="h-10 w-28 bg-gray-200 rounded animate-pulse"></div>
@@ -1220,7 +1291,7 @@ export default function Library() {
           </div>
 
           {/* Library Content skeleton */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 animate-fade-left">
             {/* Breadcrumbs skeleton */}
             <div className="mb-4 flex items-center gap-2">
               <div className="h-4 w-20 bg-gray-200 rounded animate-pulse"></div>
@@ -1262,7 +1333,7 @@ export default function Library() {
         
         {/* Error Message */}
         {error && (
-          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded animate-fade-left">
             {error}
             <button 
               onClick={() => setError(null)}
@@ -1282,11 +1353,11 @@ export default function Library() {
 
         {/* Stats */}
         <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg">
+          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg animate-fade-left">
             <div className="flex items-center gap-4">
               <div className="flex-shrink-0">
                 <div className="p-3 bg-blue-50 rounded-full">
-                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-blue-600 w-5 h-5">
+                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="w-5 h-5" style={{ color: theme.primaryHex }}>
                     <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
                   </svg>
                 </div>
@@ -1298,7 +1369,7 @@ export default function Library() {
             </div>
           </div>
           
-          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg">
+          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg animate-fade-left">
             <div className="flex items-center gap-4">
               <div className="flex-shrink-0">
                 <div className="p-3 bg-emerald-50 rounded-full">
@@ -1314,7 +1385,7 @@ export default function Library() {
             </div>
           </div>
           
-          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg">
+          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg animate-fade-left">
             <div className="flex items-center gap-4">
               <div className="flex-shrink-0">
                 <div className="p-3 bg-purple-50 rounded-full">
@@ -1367,8 +1438,9 @@ export default function Library() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowQuickUpload(true)}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg"
               title="Upload file to current folder"
+              style={{ background: theme.gradientCss, color: '#fff' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -1379,8 +1451,9 @@ export default function Library() {
             </button>
             <button
               onClick={() => setCreateFolderOpen(true)}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg"
               title="Create folder in current folder"
+              style={{ background: theme.gradientCss, color: '#fff' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <path d="M10 4H4a2 2 0 0 0-2 2v2" />
@@ -1395,7 +1468,7 @@ export default function Library() {
 
         {/* Search Results Info */}
         {searchTerm && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg animate-fade-left">
             <p className="text-blue-800 text-sm">
               <strong>Searching for:</strong> "{searchTerm}"
               {(() => {
@@ -1403,9 +1476,9 @@ export default function Library() {
                 const resultFiles = countFiles(searchResults);
                 const resultFolders = countFolders(searchResults);
                 if (resultFiles === 0 && resultFolders === 0) {
-                  return <span className="text-red-600 ml-2">No results found</span>;
+                  return <span className="ml-2" style={{ color: theme.primaryHex }}>No results found</span>;
                 } else {
-                  return <span className="text-green-600 ml-2">Found {resultFiles} files in {resultFolders + (searchResults.name.toLowerCase().includes(searchTerm.toLowerCase()) ? 1 : 0)} folders</span>;
+                  return <span className="ml-2" style={{ color: theme.primaryHex }}>Found {resultFiles} files in {resultFolders + (searchResults.name.toLowerCase().includes(searchTerm.toLowerCase()) ? 1 : 0)} folders</span>;
                 }
               })()}
             </p>
@@ -1414,7 +1487,7 @@ export default function Library() {
 
         {/* Library Content */}
         <div
-          className="bg-white border border-gray-200 rounded-lg p-6"
+          className="bg-white border border-gray-200 rounded-lg p-6 animate-fade-left"
           onContextMenu={(e) => {
             e.preventDefault();
             window.dispatchEvent(new Event('closeAllContextMenus'));
@@ -1432,7 +1505,8 @@ export default function Library() {
                     <span key={seg.id} className="flex items-center">
                       <button
                         onClick={() => navigateToFolder(seg.id)}
-                        className="text-blue-600 hover:underline"
+                        className="hover:underline"
+                        style={{ color: theme.primaryHex }}
                       >
                         {idx === 0 ? 'My Library' : seg.name}
                       </button>
@@ -1481,7 +1555,7 @@ export default function Library() {
         {/* Quick Upload Modal */}
         {showQuickUpload && (
           <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-fade-left">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-900">Upload File</h2>
@@ -1526,16 +1600,19 @@ export default function Library() {
                       setShowQuickUpload(false);
                       setQuickUploadFile(null);
                     }}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="px-4 py-2 rounded-lg transition-colors"
+                    style={{ background: 'transparent', color: theme.primaryHex, border: `1px solid ${theme.primaryHex}` }}
+                    disabled={quickUploadLoading}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleQuickUploadSubmit}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!quickUploadFile}
+                    className="px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: theme.gradientCss, color: '#fff' }}
+                    disabled={!quickUploadFile || quickUploadLoading}
                   >
-                    Upload
+                    {quickUploadLoading ? 'Uploading...' : 'Upload'}
                   </button>
                 </div>
               </div>
@@ -1546,7 +1623,7 @@ export default function Library() {
         {/* Create Folder Modal */}
         {createFolderOpen && (
           <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-fade-left">
               <div className="p-6 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900">New Folder</h2>
                 <button
@@ -1569,16 +1646,19 @@ export default function Library() {
                 <div className="flex gap-3 justify-end mt-4">
                   <button
                     onClick={() => { setCreateFolderOpen(false); setCreateFolderName(''); }}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="px-4 py-2 rounded-lg transition-colors"
+                    style={{ background: 'transparent', color: theme.primaryHex, border: `1px solid ${theme.primaryHex}` }}
+                    disabled={createLoading}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreateFolderSubmit}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!createFolderName.trim()}
+                    className="px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: theme.gradientCss, color: '#fff' }}
+                    disabled={!createFolderName.trim() || createLoading}
                   >
-                    Create
+                    {createLoading ? 'Creating...' : 'Create'}
                   </button>
                 </div>
               </div>
@@ -1589,7 +1669,7 @@ export default function Library() {
         {/* Rename Modal */}
         {renameModalOpen && (
           <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-fade-left">
               <div className="p-6 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900">Rename File</h2>
                 <button
@@ -1610,15 +1690,19 @@ export default function Library() {
                 <div className="flex gap-3 justify-end mt-4">
                   <button
                     onClick={closeRenameModal}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="px-4 py-2 rounded-lg transition-colors"
+                    style={{ background: 'transparent', color: theme.primaryHex, border: `1px solid ${theme.primaryHex}` }}
+                    disabled={renameLoading}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitRename}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 rounded-lg transition-colors"
+                    style={{ background: theme.gradientCss, color: '#fff' }}
+                    disabled={renameLoading}
                   >
-                    Rename
+                    {renameLoading ? 'Renaming...' : 'Rename'}
                   </button>
                 </div>
               </div>

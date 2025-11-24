@@ -269,16 +269,14 @@ export default function GlobalMusicPlayer() {
   // and widgets can start playback. Returning null keeps the component mounted
   // without showing UI.
 
-  // Try to autoplay a default track once (best-effort). Browsers may block it.
+  // Do NOT autoplay a default track on mount. Instead, prime the audio element
+  // so user-initiated playback is more likely to succeed when they press Play.
   useEffect(() => {
     try {
-      // If there is a desired starting track (first of lofi), attempt to play it
-      const defaultTrack = (focusSounds && focusSounds.lofi && focusSounds.lofi[0]) || null
-      if (defaultTrack) {
-        playTrackDirect(defaultTrack)
-          .catch?.(() => {})
-      }
-    } catch (e) {}
+      primeAudio()
+    } catch (e) {
+      /* ignore */
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

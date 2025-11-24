@@ -52,6 +52,9 @@ export default function Music() {
     updateTimerDuration
   } = useMusicPlayer()
 
+  // NOTE: don't access or pause the global audio element here — the GlobalMusicPlayer
+  // owns playback and should continue when navigating between pages.
+
   const [showTimer, setShowTimer] = useState(false)
   const [showControls, setShowControls] = useState(true)
 
@@ -67,6 +70,8 @@ export default function Music() {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {})
     }
+
+    // no-op: keep audio playing state as managed by GlobalMusicPlayer
   }, [])
 
   const formatTime = (seconds) => {

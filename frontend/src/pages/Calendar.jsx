@@ -307,7 +307,7 @@ function ConfirmModal({ open, onCancel, onConfirm, title = 'Confirm', descriptio
 }
 
 // Modal to choose one of multiple events on a date
-function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, darkMode, themeColors }) {
+function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, onDeleteAll, darkMode, themeColors }) {
   if (!isOpen) return null;
   const dayLabel = date ? date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '';
   return (
@@ -357,6 +357,12 @@ function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, dar
               style={{ background: 'var(--color-primary)' }}
             >
               Add New Event
+            </button>
+            <button
+              onClick={() => onDeleteAll && onDeleteAll(date)}
+              className={`px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium`}
+            >
+              Delete All
             </button>
             <button
               onClick={onClose}
@@ -880,6 +886,7 @@ export default function Calendar(){
   const [isListModalOpen, setIsListModalOpen] = useState(false); // Multiple events list
   const [notification, setNotification] = useState(null); // {message,type}
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmDeleteDate, setConfirmDeleteDate] = useState(null);
 
   // Prevent background scroll when any modal is open
   useEffect(() => {
@@ -911,6 +918,8 @@ export default function Calendar(){
   const [uploading, setUploading] = useState(false);
   const [view, setView] = useState('month'); // month, week, day
   const [searchTerm, setSearchTerm] = useState('');
+  // Ref for improved upload box (choose file)
+  const uploadInputRef = useRef(null);
 
   // Helper: auth header for backend persistence
   const getAuthHeaders = () => {
@@ -1050,6 +1059,42 @@ export default function Calendar(){
       window.dispatchEvent(new Event('eventsChanged'));
       refreshGlobalReminders();
     }
+  };
+
+  const performDeleteAllForDate = async (dateObj) => {
+    if (!dateObj) return;
+    // Find events matching the date
+    const matches = events.filter(ev => {
+      const d = new Date(ev.date);
+      return d.getFullYear() === dateObj.getFullYear() && d.getMonth() === dateObj.getMonth() && d.getDate() === dateObj.getDate();
+    });
+    if (matches.length === 0) {
+      setNotification({ message: 'No events found for that date.', type: 'nonevents' });
+      return;
+    }
+
+    // Delete them sequentially to avoid hammering the API
+    for (const ev of matches) {
+      try {
+        // call existing deletion which updates state
+        // If performDeleteEvent expects server id, it will handle it
+        // eslint-disable-next-line no-await-in-loop
+        await performDeleteEvent(ev.id);
+      } catch (err) {
+        console.warn('Failed to delete event during bulk delete:', err?.message || err);
+      }
+    }
+    // Ensure local state is refreshed to remove any remaining matching events
+    setEvents(prev => prev.filter(ev => {
+      const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
+      return !(d.getFullYear() === dateObj.getFullYear() && d.getMonth() === dateObj.getMonth() && d.getDate() === dateObj.getDate());
+    }));
+    // Trigger global refresh and notifications
+    window.dispatchEvent(new Event('eventsChanged'));
+    refreshGlobalReminders();
+    setNotification({ message: `Deleted ${matches.length} event${matches.length !== 1 ? 's' : ''}.`, type: 'eventsfound' });
+    setConfirmDeleteDate(null);
+    setIsListModalOpen(false);
   };
 
   const handleDeleteEvent = (eventId) => {
@@ -1725,15 +1770,37 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
               )}
             </div>
             
-            <div className="flex items-center gap-2">
-              <label className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Upload Any File:</label>
-              <input 
-                type="file" 
-                accept="*/*" 
-                onChange={handleCalendarUpload} 
-                className={`file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:${themeColors.light} file:${themeColors.text} hover:file:${themeColors.hover} file:cursor-pointer cursor-pointer text-sm`} 
-                title="Upload any file type - PDF, Word, Excel, images, text files, etc."
-              />
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div
+                className={`group relative w-full md:w-72 rounded-lg border border-dashed p-2 flex items-center gap-2 justify-center cursor-pointer transition-colors ${darkMode ? 'bg-gray-700 border-gray-600 hover:border-gray-400' : 'bg-white border-gray-300 hover:border-gray-400'}`}
+                onClick={(e) => {
+                  // Prevent double dialog: only trigger programmatic click if the native input wasn't the direct target
+                  if (e.target === uploadInputRef.current) return;
+                  uploadInputRef.current?.click();
+                }}
+                role="button"
+                aria-label="Click to choose a file to upload"
+              >
+                <div className="pointer-events-none select-none flex items-center gap-2">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={`${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 5 17 10" />
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                  </svg>
+                  <p className={`text-xs font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                    Choose file
+                    <span className={`ml-1 text-[11px] font-normal ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>images or docs</span>
+                  </p>
+                </div>
+                <input
+                  ref={uploadInputRef}
+                  type="file"
+                  accept="*/*"
+                  onChange={handleCalendarUpload}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  title="Upload any file type - PDF, Word, Excel, images, text files, etc."
+                />
+              </div>
               {uploading && (
                 <div className={`flex items-center gap-2 ${themeColors.text}`}>
                   <div className={`w-4 h-4 border-2 border-${themeColors.primary}-600 border-t-transparent rounded-full animate-spin`}></div>
@@ -2018,8 +2085,18 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           date={selectedDate}
           onSelect={(ev) => { setSelectedEvent(ev); setIsModalOpen(true); setIsListModalOpen(false); }}
           onAddNew={() => { setSelectedEvent(null); setIsModalOpen(true); setIsListModalOpen(false); }}
+          onDeleteAll={(date) => setConfirmDeleteDate(date)}
           darkMode={darkMode}
           themeColors={themeColors}
+        />
+        <ConfirmModal
+          open={!!confirmDeleteDate}
+          title="Delete All Events"
+          description={confirmDeleteDate ? `Delete all events on ${confirmDeleteDate.toLocaleDateString()}? This cannot be undone.` : 'Delete all events on this date?'}
+          confirmLabel="Delete All"
+          onCancel={() => setConfirmDeleteDate(null)}
+          onConfirm={() => { performDeleteAllForDate(confirmDeleteDate); }}
+          darkMode={darkMode}
         />
         {/* Event Modal (add/edit) */}
         <EventModal

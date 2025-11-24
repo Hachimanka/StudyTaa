@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Sidebar from '../components/Sidebar'
 import TopNav from '../components/TopNav'
 import ChatWidget from '../components/ChatWidget'
@@ -712,6 +712,12 @@ export default function Calendar(){
   } = useSettings();
   
   const themeColors = getThemeColors();
+
+  // Animation refs & visibility state for scroll-triggered sections
+  const upcomingRef = useRef(null);
+  const statsRef = useRef(null);
+  const [upcomingVisible, setUpcomingVisible] = useState(false);
+  const [statsVisible, setStatsVisible] = useState(false);
   
   // Calendar state
   const [events, setEvents] = useState([]);
@@ -1425,6 +1431,22 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
            today.getDate() === day;
   };
 
+  // IntersectionObserver to trigger fade-up animations when cards enter viewport
+  useEffect(() => {
+    const options = { threshold: 0.15 };
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          if (entry.target === upcomingRef.current) setUpcomingVisible(true);
+          if (entry.target === statsRef.current) setStatsVisible(true);
+        }
+      });
+    }, options);
+    if (upcomingRef.current) observer.observe(upcomingRef.current);
+    if (statsRef.current) observer.observe(statsRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className={`flex min-h-screen ${darkMode ? 'bg-gray-900' : ''}`}>
       <Sidebar />
@@ -1519,7 +1541,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         )}
 
         {/* Calendar grid with year/month selectors */}
-        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 mb-8`}>
+        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 mb-8 animate-fade-up`}>
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
               <button 
@@ -1650,7 +1672,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         {/* Upcoming Events and Statistics */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Upcoming Events */}
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6`}>
+          <div ref={upcomingRef} className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 ${upcomingVisible ? 'animate-fade-up duration-1500' : 'opacity-0 translate-y-4'}`}>
             <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : ''}`}>
               <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className={`${themeColors.text}`}>
                 <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
@@ -1696,7 +1718,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           </div>
 
           {/* Calendar Statistics */}
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6`}>
+          <div ref={statsRef} className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 ${statsVisible ? 'animate-fade-up duration-1500' : 'opacity-0 translate-y-4'}`}>
             <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : ''}`}>
               <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className={`${themeColors.text}`}>
                 <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5v12h-2V2h2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zM1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>

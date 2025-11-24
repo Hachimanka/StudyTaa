@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Sidebar from '../components/Sidebar'
 import ChatWidget from '../components/ChatWidget'
 import { useSettings } from '../context/SettingsContext'
@@ -108,6 +108,37 @@ export default function Music() {
     handleTimerDurationChange(timerDurationMinutes + delta)
   }
 
+  // Scroll-trigger animation state for music track cards
+  const trackRefs = useRef({})
+  const [visibleTracks, setVisibleTracks] = useState(new Set())
+
+  useEffect(() => {
+    // Observe newly rendered track cards
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.getAttribute('data-track-id')
+            if (id) {
+              setVisibleTracks((prev) => {
+                if (prev.has(id)) return prev
+                const next = new Set(prev)
+                next.add(id)
+                return next
+              })
+            }
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.15 }
+    )
+    Object.values(trackRefs.current).forEach((el) => {
+      if (el) observer.observe(el)
+    })
+    return () => observer.disconnect()
+  }, [categoryTracks])
+
   return (
     <div className={`flex min-h-screen transition-colors duration-300 ${pageBackground}`}>
       <Sidebar />
@@ -155,9 +186,12 @@ export default function Music() {
             <div className="grid gap-4 sm:grid-cols-2">
               {categoryTracks.map((track) => {
                 const selected = currentTrack?.id === track.id
+                const isVisible = visibleTracks.has(String(track.id))
                 return (
                   <article
                     key={track.id}
+                    ref={(el) => { trackRefs.current[track.id] = el }}
+                    data-track-id={track.id}
                     onClick={() => playTrack(track)}
                     className={`cursor-pointer rounded-2xl border-2 p-5 transition-transform hover:-translate-y-1 hover:shadow-lg ${
                       selected
@@ -165,7 +199,7 @@ export default function Music() {
                         : darkMode
                           ? 'bg-gray-900 border-gray-700 text-gray-100'
                           : 'bg-white border-gray-200 text-gray-800'
-                    }`}
+                    } ${isVisible ? 'animate-fade-up duration-1000' : 'opacity-0 translate-y-4'}`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -304,7 +338,7 @@ export default function Music() {
           </section>
 
           <aside className="space-y-6">
-            <section className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-200 text-gray-800'}`}>
+            <section className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-200 text-gray-800'} animate-fade-left`}>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Focus Timer</h3>
                 <button
@@ -379,7 +413,7 @@ export default function Music() {
               )}
             </section>
 
-            <section className={`rounded-2xl p-6 text-white shadow-xl bg-gradient-to-br ${themeColors.gradient}`}>
+            <section className={`rounded-2xl p-6 text-white shadow-xl bg-gradient-to-br ${themeColors.gradient} animate-fade-left`}>
               <h3 className="text-lg font-semibold">Focus Tips</h3>
               <ul className="mt-4 space-y-2 text-sm">
                 {tipList.map((tip) => (

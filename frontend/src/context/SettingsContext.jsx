@@ -255,19 +255,11 @@ export const SettingsProvider = ({ children }) => {
     const root = document.documentElement
     const applyThemeForPath = () => {
       const path = window.location.pathname.toLowerCase()
-      // Keep auth screens (login/register/forgot) on default theme but allow
-      // the main landing page to use the user's selected colorTheme.
-      const excluded = new Set(['/login', '/register', '/forgot-password'])
-      // Always reset existing theme classes
+      // Apply the user's selected colorTheme everywhere, including auth pages.
+      // Always reset existing theme classes first.
       root.classList.remove('theme-teal', 'theme-blue', 'theme-purple', 'theme-green', 'theme-pink')
-      if (excluded.has(path)) {
-        // Force default (teal) theme on auth/landing pages, independent of user selection
-        root.classList.add('theme-teal')
-        console.debug('[Settings] applyThemeForPath -> excluded path, applied theme-teal', { path, colorTheme, classes: Array.from(root.classList) })
-      } else {
-        root.classList.add(`theme-${colorTheme}`)
-        console.debug('[Settings] applyThemeForPath -> applied', `theme-${colorTheme}`, { path, classes: Array.from(root.classList) })
-      }
+      root.classList.add(`theme-${colorTheme}`)
+      console.debug('[Settings] applyThemeForPath -> applied', `theme-${colorTheme}`, { path, classes: Array.from(root.classList) })
     }
     applyThemeForPath()
     // Listen for route changes (history navigation)

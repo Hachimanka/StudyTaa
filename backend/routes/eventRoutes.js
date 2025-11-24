@@ -116,4 +116,68 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Bulk delete events by ids and/or dates
+// Body: { eventIds?: string[], dates?: string[] } where dates are ISO yyyy-mm-dd (date portion only)
+router.post('/bulk-delete', async (req, res) => {
+  try {
+    const { eventIds = [], dates = [] } = req.body || {};
+    const validIds = Array.isArray(eventIds)
+      ? eventIds.filter(id => mongoose.Types.ObjectId.isValid(id))
+      : [];
+    const dateSet = new Set();
+    if (Array.isArray(dates)) {
+      dates.forEach(d => {
+        if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+          // Normalize to midnight local; stored dates appear to be date-only
+          const [y, m, da] = d.split('-').map(Number);
+          dateSet.add(new Date(y, m - 1, da).toISOString().substring(0, 10));
+        }
+      });
+    }
+
+    if (!validIds.length && !dateSet.size) {
+      return res.status(400).json({ error: 'Provide eventIds or dates for bulk deletion' });
+    }
+
+    // Fetch matching events first to return which were deleted
+    const dateMatchQuery = dateSet.size
+      ? {
+          $expr: {
+            $in: [
+              {
+                $dateToString: { format: '%Y-%m-%d', date: '$date' }
+              },
+              Array.from(dateSet)
+            ]
+          }
+        }
+      : null;
+
+    const orClauses = [];
+    if (validIds.length) orClauses.push({ _id: { $in: validIds } });
+    if (dateMatchQuery) orClauses.push(dateMatchQuery);
+
+    const matchFilter = {
+      userId: req.userId,
+      ...(orClauses.length === 1 ? orClauses[0] : { $or: orClauses })
+    };
+
+    const toDelete = await Event.find(matchFilter).select('_id date');
+    if (!toDelete.length) {
+      return res.json({ deleted: 0, deletedIds: [], datesMatched: Array.from(dateSet) });
+    }
+
+    const idsToDelete = toDelete.map(d => d._id);
+    const deleteResult = await Event.deleteMany({ userId: req.userId, _id: { $in: idsToDelete } });
+    res.json({
+      deleted: deleteResult.deletedCount || 0,
+      deletedIds: idsToDelete,
+      datesMatched: Array.from(dateSet)
+    });
+  } catch (err) {
+    console.error('Bulk delete events error', err);
+    res.status(500).json({ error: 'Failed bulk delete', details: err.message });
+  }
+});
+
 export default router;

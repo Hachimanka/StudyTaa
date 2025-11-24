@@ -349,9 +349,36 @@ function ConfirmModal({ open, onCancel, onConfirm, title = 'Confirm', descriptio
 }
 
 // Modal to choose one of multiple events on a date
-function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, darkMode, themeColors }) {
+function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, darkMode, themeColors, onRequestBulkDelete }) {
+  const [multiSelect, setMultiSelect] = React.useState(false);
+  const [selectedIds, setSelectedIds] = React.useState(() => new Set());
+  React.useEffect(() => {
+    if (!isOpen) {
+      setMultiSelect(false);
+      setSelectedIds(new Set());
+    } else {
+      // Reset when opening
+      setSelectedIds(new Set());
+    }
+  }, [isOpen]);
   if (!isOpen) return null;
   const dayLabel = date ? date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  const toggleId = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const allSelected = selectedIds.size === events.length && events.length > 0;
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(events.map(e => e.id)));
+  };
+  const initiateDelete = () => {
+    if (!selectedIds.size) return;
+    onRequestBulkDelete && onRequestBulkDelete(Array.from(selectedIds));
+  };
   return (
     <div className="fixed inset-0 backdrop-blur-md backdrop-brightness-75 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
@@ -364,21 +391,50 @@ function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, dar
             <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>
               {dayLabel}: {events.length} Events
             </h2>
-            <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: 'transparent' }}>
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              {events.length > 1 && (
+                <button
+                  onClick={() => setMultiSelect(!multiSelect)}
+                  className={`px-2 py-1 rounded text-xs font-medium ${multiSelect ? 'bg-yellow-600 text-white' : darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-700'} hover:opacity-90`}
+                >
+                  {multiSelect ? 'Cancel' : 'Select'}
+                </button>
+              )}
+              <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: 'transparent' }}>
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                </svg>
+              </button>
+            </div>
           </div>
+          {multiSelect && events.length > 0 && (
+            <div className="flex items-center justify-between mb-3 text-xs">
+              <button
+                onClick={toggleAll}
+                className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'} hover:opacity-90`}
+              >
+                {allSelected ? 'Unselect All' : 'Select All'}
+              </button>
+              <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedIds.size} selected</span>
+            </div>
+          )}
           <div className="space-y-2">
             {events.map(ev => (
-              <button
+              <div
                 key={ev.id}
-                onClick={() => onSelect(ev)}
-                className={`w-full text-left p-3 rounded-lg border transition-colors ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'}`}
+                className={`w-full p-3 rounded-lg border transition-colors ${darkMode ? 'border-gray-600' : 'border-gray-200'} ${multiSelect ? (selectedIds.has(ev.id) ? (darkMode ? 'bg-gray-700' : 'bg-gray-100') : '') : (darkMode ? 'hover:bg-gray-700 cursor-pointer' : 'hover:bg-gray-50 cursor-pointer')}`}
+                onClick={() => { if (!multiSelect) onSelect(ev); else toggleId(ev.id); }}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
+                    {multiSelect && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(ev.id)}
+                        onChange={(e) => { e.stopPropagation(); toggleId(ev.id); }}
+                        className="h-4 w-4"
+                      />
+                    )}
                     <span>{ev.priority === 'high' ? '🔴' : ev.priority === 'medium' ? '🟡' : '🟢'}</span>
                     <span className={`font-medium truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{ev.title}</span>
                     {ev.time && <span className="text-xs opacity-70 whitespace-nowrap">{ev.time}</span>}
@@ -386,13 +442,13 @@ function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, dar
                   <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${ev.category === 'exam' ? 'bg-red-200 text-red-800' : ev.category === 'assignment' ? 'bg-yellow-200 text-yellow-800' : ev.category === 'meeting' ? 'bg-purple-200 text-purple-800' : ev.category === 'personal' ? 'bg-green-200 text-green-800' : ev.category === 'study' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-800'}`}>{ev.category}</span>
                 </div>
                 {ev.description && <p className={`mt-1 text-xs line-clamp-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{ev.description}</p>}
-              </button>
+              </div>
             ))}
             {events.length === 0 && (
               <div className={`text-center py-12 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No events</div>
             )}
           </div>
-          <div className="flex gap-2 mt-5">
+          <div className="flex flex-wrap gap-2 mt-5">
             <button
               onClick={onAddNew}
               className={`flex-1 px-3 py-2 text-white rounded-lg transition-colors text-sm font-medium`}
@@ -400,6 +456,14 @@ function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, dar
             >
               Add New Event
             </button>
+            {multiSelect && selectedIds.size > 0 && (
+              <button
+                onClick={initiateDelete}
+                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+              >
+                Delete Selected ({selectedIds.size})
+              </button>
+            )}
             <button
               onClick={onClose}
               className={`px-3 py-2 ${darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} rounded-lg transition-colors text-sm font-medium`}
@@ -748,6 +812,12 @@ export default function Calendar(){
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [notification, setNotification] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmModalEventIds, setConfirmModalEventIds] = useState(null); // for list modal selection
+  // Bulk selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDates, setSelectedDates] = useState(() => new Set()); // stores ISO yyyy-mm-dd
+  const [selectedEventIds, setSelectedEventIds] = useState(() => new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   useEffect(() => {
     const anyOpen = isModalOpen || isListModalOpen;
@@ -912,12 +982,112 @@ export default function Calendar(){
     }
   };
 
+  // Helpers for bulk selection
+  const dateToISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      // Exiting selection mode clears selections
+      setSelectedDates(new Set());
+      setSelectedEventIds(new Set());
+    }
+    setSelectionMode(!selectionMode);
+  };
+  const toggleDateSelected = (dateObj) => {
+    const iso = dateToISO(dateObj);
+    setSelectedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(iso)) next.delete(iso); else next.add(iso);
+      return next;
+    });
+  };
+  const toggleEventSelected = (eventId) => {
+    setSelectedEventIds(prev => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId); else next.add(eventId);
+      return next;
+    });
+  };
+  const effectiveBulkEventIds = () => {
+    const ids = new Set(selectedEventIds);
+    if (selectedDates.size) {
+      events.forEach(ev => {
+        const iso = dateToISO(ev.date);
+        if (selectedDates.has(iso)) ids.add(ev.id);
+      });
+    }
+    return Array.from(ids);
+  };
+  const bulkSelectedCounts = () => {
+    const dateCount = selectedDates.size;
+    const explicitEventCount = selectedEventIds.size;
+    const totalEventIds = effectiveBulkEventIds().length;
+    return { dateCount, explicitEventCount, totalEventIds };
+  };
+  const initiateBulkDelete = () => {
+    const { totalEventIds } = bulkSelectedCounts();
+    if (!totalEventIds) return;
+    setConfirmBulkDelete(true);
+  };
+  const performBulkDelete = async () => {
+    const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+    const datesArr = Array.from(selectedDates);
+    const eventIdsArr = effectiveBulkEventIds();
+    try {
+      if ((datesArr.length || eventIdsArr.length) && headers.Authorization) {
+        await axios.post('/api/events/bulk-delete', { dates: datesArr, eventIds: eventIdsArr }, { headers });
+      }
+    } catch (err) {
+      console.warn('Bulk delete API failed, applying local filter only:', err?.message || err);
+    } finally {
+      const dateSet = new Set(datesArr);
+      const eventIdSet = new Set(eventIdsArr);
+      setEvents(events.filter(ev => !eventIdSet.has(ev.id) && !dateSet.has(dateToISO(ev.date))));
+      setNotification({ message: `Deleted ${eventIdsArr.length} event(s).`, type: 'info' });
+      setConfirmBulkDelete(false);
+      setSelectionMode(false);
+      setSelectedDates(new Set());
+      setSelectedEventIds(new Set());
+      window.dispatchEvent(new Event('eventsChanged'));
+      refreshGlobalReminders();
+    }
+  };
+
+  // Bulk delete specifically from EventListModal selection
+  const bulkDeleteSpecific = async (ids) => {
+    if (!Array.isArray(ids) || !ids.length) return;
+    setConfirmModalEventIds(ids);
+  };
+  const confirmBulkDeleteSpecific = async () => {
+    const ids = confirmModalEventIds || [];
+    const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+    try {
+      if (ids.length && headers.Authorization) {
+        await axios.post('/api/events/bulk-delete', { eventIds: ids }, { headers });
+      }
+    } catch (err) {
+      console.warn('Modal bulk delete API failed, removing locally only:', err?.message || err);
+    } finally {
+      const idSet = new Set(ids);
+      setEvents(events.filter(ev => !idSet.has(ev.id)));
+      setNotification({ message: `Deleted ${ids.length} event(s).`, type: 'info' });
+      setConfirmModalEventIds(null);
+      setIsListModalOpen(false);
+      window.dispatchEvent(new Event('eventsChanged'));
+      refreshGlobalReminders();
+    }
+  };
+
   const handleDeleteEvent = (eventId) => {
     setConfirmDeleteId(eventId);
   };
 
   const handleDateClick = (day) => {
     const clickedDate = new Date(viewYear, viewMonth, day);
+    // In selection mode: just toggle date selection, never open any modals
+    if (selectionMode) {
+      toggleDateSelected(clickedDate);
+      return;
+    }
     const dayEvents = getEventsForDay(day);
     setSelectedDate(clickedDate);
     if (dayEvents.length === 0) {
@@ -934,6 +1104,8 @@ export default function Calendar(){
 
   const handleEventClick = (event, e) => {
     e.stopPropagation();
+    // Prevent opening event modal while in selection mode
+    if (selectionMode) return;
     setSelectedEvent(event);
     setSelectedDate(event.date);
     setIsModalOpen(true);
@@ -1237,6 +1409,22 @@ export default function Calendar(){
               </svg>
               Quick Add
             </button>
+            <button
+              onClick={toggleSelectionMode}
+              className={`px-4 py-2 ${selectionMode ? 'bg-yellow-600 hover:bg-yellow-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} rounded-lg transition-colors text-sm font-medium`}
+            >
+              {selectionMode ? 'Exit Select Mode' : 'Select Mode'}
+            </button>
+            {selectionMode && (bulkSelectedCounts().totalEventIds > 0) && (
+              <button
+                onClick={initiateBulkDelete}
+                className={`px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium`}
+              >
+                {selectedEventIds.size === 0 && selectedDates.size > 0
+                  ? `Delete Selected Dates (${bulkSelectedCounts().totalEventIds} events)`
+                  : `Delete Selected (${bulkSelectedCounts().totalEventIds})`}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1394,7 +1582,7 @@ export default function Calendar(){
               return (
                 <div 
                   key={wi + '-' + di} 
-                  className={`h-20 flex flex-col border rounded-lg cursor-pointer transition-all p-1 ${
+                  className={`relative h-20 flex flex-col border rounded-lg cursor-pointer transition-all p-1 ${
                     d ? `hover:${themeColors.light} hover:shadow-md` : `${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`
                   } ${
                     isToday(d) ? `ring-2 ring-${themeColors.primary}-500 ${themeColors.light}` : `${darkMode ? 'border-gray-600' : 'border-gray-200'}`
@@ -1422,6 +1610,17 @@ export default function Calendar(){
                       </span>
                     )}
                   </div>
+                  {selectionMode && d && (
+                    <div className="absolute top-1 left-1">
+                      <input
+                        type="checkbox"
+                        onClick={(e) => e.stopPropagation()}
+                        checked={selectedDates.has(dateToISO(new Date(viewYear, viewMonth, d)))}
+                        onChange={(e) => { e.stopPropagation(); toggleDateSelected(new Date(viewYear, viewMonth, d)); }}
+                        className="h-4 w-4"
+                      />
+                    </div>
+                  )}
                   
                   <div className="flex-1 overflow-hidden">
                     {d && dayEvents.slice(0, 2).map((ev, i) => (
@@ -1434,6 +1633,7 @@ export default function Calendar(){
                         title={`${ev.title}${ev.time ? ` at ${ev.time}` : ''}`}
                       >
                         <div className="flex items-center gap-1 truncate">
+                          {/* Event-level selection checkboxes hidden per requirement; selection limited to dates */}
                           <span className="text-xs">{getPriorityIndicator(ev.priority)}</span>
                           <span className="truncate">{ev.title}</span>
                         </div>
@@ -1557,6 +1757,7 @@ export default function Calendar(){
           onAddNew={() => { setSelectedEvent(null); setIsModalOpen(true); setIsListModalOpen(false); }}
           darkMode={darkMode}
           themeColors={themeColors}
+          onRequestBulkDelete={(ids) => bulkDeleteSpecific(ids)}
         />
         <EventModal
           isOpen={isModalOpen}
@@ -1583,6 +1784,27 @@ export default function Calendar(){
           confirmLabel="Delete"
           onCancel={() => setConfirmDeleteId(null)}
           onConfirm={() => { performDeleteEvent(confirmDeleteId); setConfirmDeleteId(null); setIsModalOpen(false); setSelectedEvent(null); }}
+          darkMode={darkMode}
+        />
+        <ConfirmModal
+          open={Array.isArray(confirmModalEventIds) && confirmModalEventIds.length > 0}
+          title="Delete Selected Events"
+          description={`Delete ${confirmModalEventIds?.length || 0} event(s) from this date? This cannot be undone.`}
+          confirmLabel="Delete"
+          onCancel={() => setConfirmModalEventIds(null)}
+          onConfirm={confirmBulkDeleteSpecific}
+          darkMode={darkMode}
+        />
+        <ConfirmModal
+          open={confirmBulkDelete}
+          title="Delete Selected Events"
+          description={() => {
+            const { dateCount, explicitEventCount, totalEventIds } = bulkSelectedCounts();
+            return `You are about to delete ${totalEventIds} event(s) from ${dateCount} date(s) and ${explicitEventCount} individually selected event(s). This cannot be undone.`;
+          }}
+          confirmLabel="Delete"
+          onCancel={() => setConfirmBulkDelete(false)}
+          onConfirm={() => performBulkDelete()}
           darkMode={darkMode}
         />
       </main>

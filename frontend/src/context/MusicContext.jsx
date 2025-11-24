@@ -360,6 +360,50 @@ export const MusicProvider = ({ children }) => {
     }
   }, [isTimerRunning, timerDurationMinutes, incrementStudySession, playSound, sendNotification, playTimerAlarm])
 
+  // When auth changes, stop music and timer on logout so public landing is quiet
+  useEffect(() => {
+    const handler = () => {
+      try {
+        const isAuth = localStorage.getItem('stuyta_auth') === '1' || !!localStorage.getItem('token') || !!localStorage.getItem('user')
+        if (!isAuth) {
+          // User logged out -> stop playback and timers
+          console.debug('[MusicContext] authChanged -> user logged out, stopping music and timer')
+          try {
+            setIsPlaying(false)
+          } catch (e) {}
+          try {
+            if (audioRef.current) {
+              audioRef.current.pause()
+              try { audioRef.current.currentTime = 0 } catch (e) {}
+            }
+          } catch (e) {}
+          try { setCurrentTrack(null) } catch (e) {}
+
+          try {
+            setIsTimerRunning(false)
+            if (timerRef.current) {
+              clearInterval(timerRef.current)
+              timerRef.current = null
+            }
+            setTimeLeft(timerDurationMinutes * 60)
+          } catch (e) {}
+          // Hide floating UI elements (music/timer) so landing is clean
+          try { localStorage.setItem('floatingMusicVisible', 'false') } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('floatingMusicVisibility', { detail: { visible: false } })) } catch (e) {}
+          try { localStorage.setItem('floatingTimerVisible', 'false') } catch (e) {}
+          try { window.dispatchEvent(new CustomEvent('floatingTimerVisibility', { detail: { visible: false } })) } catch (e) {}
+        }
+      } catch (err) {
+        console.warn('[MusicContext] authChanged handler failed', err)
+      }
+    }
+
+    window.addEventListener('authChanged', handler)
+    // run once to apply immediate state
+    handler()
+    return () => window.removeEventListener('authChanged', handler)
+  }, [timerDurationMinutes])
+
   useEffect(() => () => {
     if (timerRef.current) {
       clearInterval(timerRef.current)

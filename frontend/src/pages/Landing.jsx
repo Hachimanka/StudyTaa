@@ -333,7 +333,7 @@ export default function Landing() {
           </p>
         </div>
         <div className="flex flex-col items-center justify-center">
-          <h4 className="font-semibold text-heading mb-3">Quick Links</h4>
+          <h4 className="font-semibold text-primary text-heading mb-3">Quick Links</h4>
           <ul className="space-y-2 text-sm">
             <li><a href="#features" className="hover:text-heading transition">Features</a></li>
             <li><a href="#how-it-works" className="hover:text-heading transition">How It Works</a></li>
@@ -342,7 +342,7 @@ export default function Landing() {
           </ul>
         </div>
         <div className="flex flex-col items-center">
-          <h4 className="font-semibold text-heading mb-3">Follow Us</h4>
+          <h4 className="font-semibold text-primary text-heading mb-3">Follow Us</h4>
           <div className="flex space-x-4 items-center justify-center">
             <a
               href="https://www.facebook.com/forrosueloleonard.lape"

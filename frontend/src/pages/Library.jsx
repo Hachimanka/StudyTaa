@@ -406,8 +406,8 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
   return (
     <div className={hideHeader ? "mb-3" : ""} style={{ marginLeft: indentPx }}>
       <div className={hideHeader
-        ? "bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
-        : "bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 hover:bg-gray-100 transition-colors"}>
+        ? "bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow animate-fade-left"
+        : "bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 hover:bg-gray-100 transition-colors animate-fade-left"}>
         {!hideHeader && (
         <div
           className="flex items-center justify-between"
@@ -587,7 +587,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                 {folder.files.map((file, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group cursor-pointer"
+                    className="flex items-center justify-between py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group cursor-pointer animate-fade-left"
                     onClick={() => onViewFile(file)}
                     onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY, type: 'file', payload: { file, folderId: folder.id, fileIndex: idx } }); }}
                   >
@@ -671,7 +671,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                 ))}
               </div>
             ) : (
-              <div className="p-4 text-center text-gray-500 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+              <div className="p-4 text-center text-gray-500 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg animate-fade-left">
                 <p className="text-sm">This folder is empty</p>
                 <p className="text-xs mt-1">Upload files or create subfolders to get started</p>
               </div>
@@ -1255,11 +1255,11 @@ export default function Library() {
     return (
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-12 ml-20 md:ml-30">
+        <main className="flex-1 p-12 ml-20 md:ml-30 animate-fade-left">
           <ChatWidget />
 
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-8 animate-fade-left">
             <div className="h-8 w-40 bg-gray-200 rounded mb-2 animate-pulse"></div>
             <div className="h-4 w-80 bg-gray-200 rounded animate-pulse"></div>
           </div>
@@ -1267,7 +1267,7 @@ export default function Library() {
           {/* Stats skeleton */}
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             {[1,2,3].map((i) => (
-              <div key={i} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+              <div key={i} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm animate-fade-left">
                 <div className="flex items-center gap-4">
                   <div className="flex-shrink-0">
                     <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
@@ -1282,7 +1282,7 @@ export default function Library() {
           </div>
 
           {/* Toolbar skeleton (search + actions) */}
-          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 animate-fade-left">
             <div className="h-10 bg-gray-200 rounded w-full md:w-80 animate-pulse"></div>
             <div className="flex items-center gap-3">
               <div className="h-10 w-28 bg-gray-200 rounded animate-pulse"></div>
@@ -1291,7 +1291,7 @@ export default function Library() {
           </div>
 
           {/* Library Content skeleton */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 animate-fade-left">
             {/* Breadcrumbs skeleton */}
             <div className="mb-4 flex items-center gap-2">
               <div className="h-4 w-20 bg-gray-200 rounded animate-pulse"></div>
@@ -1333,7 +1333,7 @@ export default function Library() {
         
         {/* Error Message */}
         {error && (
-          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded animate-fade-left">
             {error}
             <button 
               onClick={() => setError(null)}
@@ -1353,7 +1353,7 @@ export default function Library() {
 
         {/* Stats */}
         <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg">
+          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg animate-fade-left">
             <div className="flex items-center gap-4">
               <div className="flex-shrink-0">
                 <div className="p-3 bg-blue-50 rounded-full">
@@ -1369,7 +1369,7 @@ export default function Library() {
             </div>
           </div>
           
-          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg">
+          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg animate-fade-left">
             <div className="flex items-center gap-4">
               <div className="flex-shrink-0">
                 <div className="p-3 bg-emerald-50 rounded-full">
@@ -1385,7 +1385,7 @@ export default function Library() {
             </div>
           </div>
           
-          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg">
+          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm transform transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-lg animate-fade-left">
             <div className="flex items-center gap-4">
               <div className="flex-shrink-0">
                 <div className="p-3 bg-purple-50 rounded-full">
@@ -1468,7 +1468,7 @@ export default function Library() {
 
         {/* Search Results Info */}
         {searchTerm && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg animate-fade-left">
             <p className="text-blue-800 text-sm">
               <strong>Searching for:</strong> "{searchTerm}"
               {(() => {
@@ -1487,7 +1487,7 @@ export default function Library() {
 
         {/* Library Content */}
         <div
-          className="bg-white border border-gray-200 rounded-lg p-6"
+          className="bg-white border border-gray-200 rounded-lg p-6 animate-fade-left"
           onContextMenu={(e) => {
             e.preventDefault();
             window.dispatchEvent(new Event('closeAllContextMenus'));
@@ -1555,7 +1555,7 @@ export default function Library() {
         {/* Quick Upload Modal */}
         {showQuickUpload && (
           <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-fade-left">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-900">Upload File</h2>
@@ -1623,7 +1623,7 @@ export default function Library() {
         {/* Create Folder Modal */}
         {createFolderOpen && (
           <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-fade-left">
               <div className="p-6 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900">New Folder</h2>
                 <button
@@ -1669,7 +1669,7 @@ export default function Library() {
         {/* Rename Modal */}
         {renameModalOpen && (
           <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-fade-left">
               <div className="p-6 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900">Rename File</h2>
                 <button

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import Sidebar from '../components/Sidebar'
 import ChatWidget from '../components/ChatWidget'
 import { useSettings } from '../context/SettingsContext'
@@ -59,6 +59,8 @@ export default function Music() {
   const [showControls, setShowControls] = useState(true)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const trackRefs = useRef(new Map())
+  const [visibleTrackIds, setVisibleTrackIds] = useState(new Set())
 
   const MIN_TIMER_MINUTES = 5
   const MAX_TIMER_MINUTES = 120
@@ -125,6 +127,33 @@ export default function Music() {
   const handleTimerStep = (delta) => {
     handleTimerDurationChange(timerDurationMinutes + delta)
   }
+
+  // Scroll-trigger fade-up for track cards
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            for (const [id, el] of trackRefs.current.entries()) {
+              if (el === entry.target) {
+                setVisibleTrackIds((prev) => {
+                  if (prev.has(id)) return prev
+                  const next = new Set(prev)
+                  next.add(id)
+                  return next
+                })
+                observer.unobserve(entry.target)
+                break
+              }
+            }
+          }
+        })
+      },
+      { threshold: 0.25, rootMargin: '0px 0px -10% 0px' }
+    )
+    trackRefs.current.forEach((el) => { if (el) observer.observe(el) })
+    return () => observer.disconnect()
+  }, [filteredTracks])
 
   return (
     <div className={`flex min-h-screen transition-colors duration-300 ${pageBackground}`}>
@@ -198,8 +227,9 @@ export default function Music() {
                 return (
                   <article
                     key={track.id}
+                    ref={(el) => { if (el) trackRefs.current.set(track.id, el) }}
                     onClick={() => playTrack(track)}
-                    className={`cursor-pointer rounded-2xl border-2 p-5 transition-transform hover:-translate-y-1 hover:shadow-lg ${
+                    className={`cursor-pointer rounded-2xl border-2 p-5 transition-transform hover:-translate-y-1 hover:shadow-lg ${visibleTrackIds.has(track.id) ? 'animate-fade-up duration-700' : 'opacity-0 translate-y-5'} ${
                       selected
                         ? `bg-gradient-to-br ${themeColors.gradient} text-white border-white/30`
                         : darkMode
@@ -344,7 +374,7 @@ export default function Music() {
           </section>
 
           <aside className="space-y-6">
-            <section className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-200 text-gray-800'}`}>
+            <section className={`rounded-2xl border p-6 animate-fade-left ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-200 text-gray-800'}`}>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Focus Timer</h3>
                 <button
@@ -419,7 +449,7 @@ export default function Music() {
               )}
             </section>
 
-            <section className={`rounded-2xl p-6 text-white shadow-xl bg-gradient-to-br ${themeColors.gradient}`}>
+            <section className={`rounded-2xl p-6 text-white shadow-xl bg-gradient-to-br animate-fade-left ${themeColors.gradient}`}>
               <h3 className="text-lg font-semibold">Focus Tips</h3>
               <ul className="mt-4 space-y-2 text-sm">
                 {tipList.map((tip) => (

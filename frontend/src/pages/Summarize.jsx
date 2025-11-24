@@ -321,7 +321,7 @@ export default function Summarize() {
         {/* Content Wrapper */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-8">
           {/* Input Section (smaller) */}
-          <div className={`xl:col-span-1 shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col xl:h-[720px]`} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
+          <div className={`xl:col-span-1 shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col xl:h-[720px] animate-fade-in`} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} flex items-center`}>
                 <svg className="w-5 h-5 mr-2" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -540,7 +540,7 @@ export default function Summarize() {
 
           {/* Enhanced Summary Results Section (expanded) */}
           <div className="xl:col-span-2 space-y-6">
-            <div className={`shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
+            <div className={`shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 animate-fade-left`} style={{ background: 'var(--surface)', color: 'var(--text)' }}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} flex items-center`}>
                   <svg className="w-5 h-5 mr-2" style={{ color: themeColors.primaryHex || undefined }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -670,7 +670,7 @@ export default function Summarize() {
                 </h3>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {summaryHistory.map((item) => (
-                    <div key={item.id} className={`p-4 border ${darkMode ? 'border-gray-600 hover:border-' + themeColors.primary + '-400 hover:bg-gray-700' : 'border-gray-200 hover:border-' + themeColors.primary + '-300 hover:' + themeColors.light} rounded-lg transition-all duration-200`}>
+                    <div key={item.id} className={`p-4 border ${darkMode ? 'border-gray-600 hover:border-' + themeColors.primary + '-400 hover:bg-gray-700' : 'border-gray-200 hover:border-' + themeColors.primary + '-300 hover:' + themeColors.light} rounded-lg transition-all duration-200 animate-fade-left`}>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h4 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'} text-sm mb-1`}>{item.title}</h4>
@@ -839,7 +839,7 @@ export default function Summarize() {
             )}
 
             {/* Saved Summaries (always visible) */}
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 mt-6`}> 
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 hover:shadow-xl transition-all duration-300 mt-6 animate-fade-left`}> 
               <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4 flex items-center`}>
                 <svg
                   className={`w-5 h-5 mr-2 ${themeColors.primary ? 'text-' + themeColors.primary + '-500' : 'text-teal-500'}`}
@@ -858,8 +858,12 @@ export default function Summarize() {
                 <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No saved summaries yet. Save a summary to see it here.</div>
               ) : (
                 <div className="space-y-3">
-                  {summaryHistory.map((item) => (
-                    <div key={`saved-${item.id}`} className={`p-3 border ${darkMode ? 'border-gray-600' : 'border-gray-200'} rounded-lg flex items-start justify-between`}>
+                  {summaryHistory.map((item, i) => (
+                    <div
+                      key={`saved-${item.id}`}
+                      className={`p-3 border ${darkMode ? 'border-gray-600' : 'border-gray-200'} rounded-lg flex items-start justify-between animate-fade-left`}
+                      style={{ animationDelay: `${Math.min(i * 80, 480)}ms` }}
+                    >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <h4 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'} text-sm truncate`}>{item.title}</h4>

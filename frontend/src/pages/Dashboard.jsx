@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+﻿﻿import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import Sidebar from "../components/Sidebar";
@@ -211,12 +211,7 @@ export default function Home() {
             {fullName ? `Here's your learning progress overview, ${fullName}` : "Here's your learning progress overview"}
           </p>
           
-          {loading && (
-            <div className="flex items-center mt-4">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-              <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Loading your data...</span>
-            </div>
-          )}
+          {/* Removed loading indicator per request */}
         </div>
 
         {/* Stats Section */}
@@ -268,7 +263,7 @@ export default function Home() {
             }
           ].map((stat, i) => (
             loading ? (
-              <div key={i} className={`p-6 flex items-center justify-between rounded-2xl shadow transition-transform hover:scale-105 ${darkMode ? "bg-gray-800" : "bg-white"}`}>
+              <div key={i} className={`p-6 flex items-center justify-between rounded-2xl shadow transition-transform hover:scale-105 ${darkMode ? "bg-gray-800" : "bg-white"} animate-fade-up duration-700`}>
                 <div className="mx-auto w-full max-w-sm rounded-md p-2">
                   <div className="flex animate-pulse space-x-4">
                     <div className="w-10 h-10 rounded-full bg-gray-200"></div>
@@ -286,7 +281,7 @@ export default function Home() {
                 key={i}
                 className={`p-6 flex items-center justify-between rounded-2xl shadow transition-transform hover:scale-105 ${
                   darkMode ? "bg-gray-800" : "bg-white"
-                }`}
+                } animate-fade-up duration-700`}
               >
                 <div>
                   <p
@@ -315,7 +310,7 @@ export default function Home() {
           <div
             className={`p-6 rounded-2xl shadow ${
               darkMode ? "bg-gray-800" : "bg-white"
-            }`}
+            } animate-fade-up duration-1000`}
           >
             <h3 className="text-2xl font-semibold mb-4">Recent Activity</h3>
             {loading ? (
@@ -382,7 +377,7 @@ export default function Home() {
           <div
             className={`p-6 rounded-2xl shadow ${
               darkMode ? "bg-gray-800" : "bg-white"
-            }`}
+            } animate-fade-up duration-1000`}
           >
             <h3 className="text-2xl font-semibold mb-4">Quick Actions</h3>
             <div className="space-y-4">
@@ -496,9 +491,9 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
           {/* Weekly Progress */}
           <div
-            className={`p-6 rounded-2xl shadow animate-fade-up animate-fade-up-slow ${
+            className={`p-6 rounded-2xl shadow ${
               darkMode ? "bg-gray-800" : "bg-white"
-            }`}
+            } animate-fade-up duration-1500`}
           >
             <h3 className="text-2xl font-semibold mb-4">This Week's Progress</h3>
             <div className="space-y-3">
@@ -555,7 +550,7 @@ export default function Home() {
           <div
             className={`p-6 rounded-2xl shadow ${
               darkMode ? "bg-gray-800" : "bg-white"
-            }`}
+            } animate-fade-up duration-1500`}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-2xl font-semibold">Recent Files</h3>

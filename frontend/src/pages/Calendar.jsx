@@ -9,6 +9,50 @@ import { useReminders } from '../context/ReminderContext'
 // Debug toggle: set true to log extraction details
 const DEBUG_EXTRACTION = false;
 
+// =============================================================================
+// AI INSTRUCTIONS FOR IMAGE SCANNING & CALENDAR EXTRACTION
+// =============================================================================
+
+const ENHANCED_OCR_PROMPT = `
+CRITICAL: Extract EVERY SINGLE DATE from this academic calendar. Be extremely thorough.
+
+IMPORTANT: You MUST find ALL these date formats:
+1. Day-only numbers: "02", "06", "12" (use month context)
+2. Date ranges: "01 - 06", "03-05", "24-26" (expand to individual days)
+3. Full dates: "November 20, 2025", "Dec 8, 2025"
+4. Month headers: "December 2025" (use as context for day-only dates)
+5. Bullet lists with dates
+6. Any number that could be a day of month (1-31)
+
+SPECIFIC INSTRUCTIONS:
+- If you see "December 2025" and then "02" below it, that's 2025-12-02
+- If you see "01 - 06", create events for Dec 1, 2, 3, 4, 5, 6
+- Extract ALL numbers that could be days, don't miss any
+- For bullet lists, match dates with their corresponding events
+- Look for event names in nearby lines and previous lines
+- Don't filter out potential dates - be inclusive
+
+COMMON EVENT TYPES IN THESE IMAGES:
+- Examinations: Prelim, Midterm, Pre-Final, Final
+- Deadlines: Grade submissions, project deadlines  
+- Holidays: Christmas, Rizal Day, Founder's Day, Immaculate Conception
+- Academic: End Classes, Commencement, Special Days
+- Events: World Children's Day, Founder's Day
+
+OUTPUT FORMAT:
+Return ONLY valid JSON array. Include ALL dates you find:
+[
+  {
+    "date": "YYYY-MM-DD",
+    "title": "ACTUAL_EVENT_NAME_FROM_CONTEXT",
+    "description": "Source context"
+  }
+]
+
+CALENDAR TEXT:
+{{OCR_TEXT}}
+`;
+
 // Event Modal Component
 function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, themeColors, onRequestNew }) {
   const [formData, setFormData] = useState({
@@ -189,7 +233,6 @@ function EventModal({ isOpen, onClose, event, onSave, onDelete, date, darkMode, 
                   onChange={(e) => setFormData({
                     ...formData,
                     reminder: e.target.checked,
-                    // reset offset if newly checked
                     reminderOffsetMinutes: e.target.checked ? formData.reminderOffsetMinutes ?? 15 : formData.reminderOffsetMinutes
                   })}
                   className={`mr-2 h-4 w-4 rounded`}
@@ -260,7 +303,6 @@ function NotificationModal({ open, onClose, message, type = 'info', darkMode }) 
   const ref = useRef(null);
   useEffect(() => { if (open && ref.current) ref.current.focus(); }, [open]);
   if (!open) return null;
-  // Unified accent color logic: red when no events found, blue otherwise, override for errors
   const accent = type === 'error' ? 'bg-red-600' : type === 'nonevents' ? 'bg-red-600' : type === 'eventsfound' ? 'bg-blue-600' : 'bg-blue-600';
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true" role="dialog">
@@ -307,9 +349,36 @@ function ConfirmModal({ open, onCancel, onConfirm, title = 'Confirm', descriptio
 }
 
 // Modal to choose one of multiple events on a date
-function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, darkMode, themeColors }) {
+function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, darkMode, themeColors, onRequestBulkDelete }) {
+  const [multiSelect, setMultiSelect] = React.useState(false);
+  const [selectedIds, setSelectedIds] = React.useState(() => new Set());
+  React.useEffect(() => {
+    if (!isOpen) {
+      setMultiSelect(false);
+      setSelectedIds(new Set());
+    } else {
+      // Reset when opening
+      setSelectedIds(new Set());
+    }
+  }, [isOpen]);
   if (!isOpen) return null;
   const dayLabel = date ? date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  const toggleId = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const allSelected = selectedIds.size === events.length && events.length > 0;
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(events.map(e => e.id)));
+  };
+  const initiateDelete = () => {
+    if (!selectedIds.size) return;
+    onRequestBulkDelete && onRequestBulkDelete(Array.from(selectedIds));
+  };
   return (
     <div className="fixed inset-0 backdrop-blur-md backdrop-brightness-75 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
@@ -322,21 +391,50 @@ function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, dar
             <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>
               {dayLabel}: {events.length} Events
             </h2>
-            <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: 'transparent' }}>
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              {events.length > 1 && (
+                <button
+                  onClick={() => setMultiSelect(!multiSelect)}
+                  className={`px-2 py-1 rounded text-xs font-medium ${multiSelect ? 'bg-yellow-600 text-white' : darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-700'} hover:opacity-90`}
+                >
+                  {multiSelect ? 'Cancel' : 'Select'}
+                </button>
+              )}
+              <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: 'transparent' }}>
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                </svg>
+              </button>
+            </div>
           </div>
+          {multiSelect && events.length > 0 && (
+            <div className="flex items-center justify-between mb-3 text-xs">
+              <button
+                onClick={toggleAll}
+                className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'} hover:opacity-90`}
+              >
+                {allSelected ? 'Unselect All' : 'Select All'}
+              </button>
+              <span className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedIds.size} selected</span>
+            </div>
+          )}
           <div className="space-y-2">
             {events.map(ev => (
-              <button
+              <div
                 key={ev.id}
-                onClick={() => onSelect(ev)}
-                className={`w-full text-left p-3 rounded-lg border transition-colors ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'}`}
+                className={`w-full p-3 rounded-lg border transition-colors ${darkMode ? 'border-gray-600' : 'border-gray-200'} ${multiSelect ? (selectedIds.has(ev.id) ? (darkMode ? 'bg-gray-700' : 'bg-gray-100') : '') : (darkMode ? 'hover:bg-gray-700 cursor-pointer' : 'hover:bg-gray-50 cursor-pointer')}`}
+                onClick={() => { if (!multiSelect) onSelect(ev); else toggleId(ev.id); }}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
+                    {multiSelect && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(ev.id)}
+                        onChange={(e) => { e.stopPropagation(); toggleId(ev.id); }}
+                        className="h-4 w-4"
+                      />
+                    )}
                     <span>{ev.priority === 'high' ? '🔴' : ev.priority === 'medium' ? '🟡' : '🟢'}</span>
                     <span className={`font-medium truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{ev.title}</span>
                     {ev.time && <span className="text-xs opacity-70 whitespace-nowrap">{ev.time}</span>}
@@ -344,13 +442,13 @@ function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, dar
                   <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${ev.category === 'exam' ? 'bg-red-200 text-red-800' : ev.category === 'assignment' ? 'bg-yellow-200 text-yellow-800' : ev.category === 'meeting' ? 'bg-purple-200 text-purple-800' : ev.category === 'personal' ? 'bg-green-200 text-green-800' : ev.category === 'study' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-800'}`}>{ev.category}</span>
                 </div>
                 {ev.description && <p className={`mt-1 text-xs line-clamp-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{ev.description}</p>}
-              </button>
+              </div>
             ))}
             {events.length === 0 && (
               <div className={`text-center py-12 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No events</div>
             )}
           </div>
-          <div className="flex gap-2 mt-5">
+          <div className="flex flex-wrap gap-2 mt-5">
             <button
               onClick={onAddNew}
               className={`flex-1 px-3 py-2 text-white rounded-lg transition-colors text-sm font-medium`}
@@ -358,6 +456,14 @@ function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, dar
             >
               Add New Event
             </button>
+            {multiSelect && selectedIds.size > 0 && (
+              <button
+                onClick={initiateDelete}
+                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+              >
+                Delete Selected ({selectedIds.size})
+              </button>
+            )}
             <button
               onClick={onClose}
               className={`px-3 py-2 ${darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} rounded-lg transition-colors text-sm font-medium`}
@@ -371,48 +477,10 @@ function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, dar
   );
 }
 
-// Helper functions for file reading
-const readFileAsText = (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.onerror = () => reject(new Error('Failed to read file as text'));
-    reader.readAsText(file, 'UTF-8');
-  });
-};
-
-const readFileAsBase64 = (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.onerror = () => reject(new Error('Failed to read file as base64'));
-    reader.readAsDataURL(file);
-  });
-};
-
-const readExcelFile = async (file) => {
-  try {
-    const text = await readFileAsText(file);
-    return text;
-  } catch (error) {
-    return `[Excel file: ${file.name} - Spreadsheet content requires special processing]`;
-  }
-};
-
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
 // Utility: clean noisy labels and normalize titles for display/dedup
 const cleanLabelTokens = (text) => {
   let t = (text || '');
-  // Remove "Extracted from <filename> - " and optional leading quote
   t = t.replace(/Extracted from\s+[^\n\r"]+?\s+-\s*"?/gi, '');
-  // Remove common label prefixes anywhere (more permissive)
   t = t.replace(/\bDate\s*Entry\s*\d+\s*:/gi, ' ');
   t = t.replace(/\bLine\s*:\s*/gi, ' ');
   t = t.replace(/EVENT[\s_\-]*CONTEXT\s*:\s*/gi, ' ');
@@ -420,16 +488,12 @@ const cleanLabelTokens = (text) => {
   t = t.replace(/TABLE[\s_\-]*ROW\s*:\s*/gi, ' ');
   t = t.replace(/TIME[\s_\-]*INFO\s*:\s*/gi, ' ');
   t = t.replace(/\bTEXT\s*:\s*/gi, ' ');
-  // Remove remaining leading/trailing quotes
-  t = t.replace(/^["'“”]+/g, '');
-  t = t.replace(/["'“”]+$/g, '');
-  // Replace various dash/minus types and box drawing
-  t = t.replace(/[\u2010-\u2015\u2212]/g, ' '); // hyphen to horizontal bar and minus
-  t = t.replace(/[\u2500-\u257F]/g, ' '); // box-drawing
-  // Replace bars and collapse punctuation runs
+  t = t.replace(/^["'""]+/g, '');
+  t = t.replace(/["'""]+$/g, '');
+  t = t.replace(/[\u2010-\u2015\u2212]/g, ' ');
+  t = t.replace(/[\u2500-\u257F]/g, ' ');
   t = t.replace(/[|]+/g, ' ');
   t = t.replace(/[\-_]{2,}/g, ' ');
-  // Collapse whitespace
   t = t.replace(/\s{2,}/g, ' ');
   return t.trim();
 };
@@ -449,23 +513,6 @@ const normalizeTitleKey = (title) => cleanLabelTokens(title)
   .replace(/\s{2,}/g, ' ')
   .trim();
 
-// Choose one best event per unique date
-const collapseEventsByDate = (list) => {
-  const byDate = new Map();
-  list.forEach(ev => {
-    if (!ev?.date || !/^\d{4}-\d{2}-\d{2}$/.test(ev.date)) return;
-    const cleanedTitle = cleanTitle(ev.title || '');
-    const cleanedDesc = cleanLabelTokens(ev.description || '');
-    const hasMeaning = cleanedTitle && cleanedTitle.toLowerCase() !== 'extracted event';
-    const score = (hasMeaning ? 1000 : 0) + (cleanedTitle ? cleanedTitle.length : 0) + (cleanedDesc ? Math.min(cleanedDesc.length, 50) : 0);
-    const prev = byDate.get(ev.date);
-    if (!prev || score > prev._score) {
-      byDate.set(ev.date, { ...ev, title: cleanedTitle, description: cleanedDesc, _score: score });
-    }
-  });
-  return Array.from(byDate.values()).map(({ _score, ...rest }) => rest);
-};
-
 // Parse ISO YYYY-MM-DD to a local Date to avoid UTC shift issues
 const parseISODateLocal = (iso) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
@@ -476,67 +523,63 @@ const parseISODateLocal = (iso) => {
   return new Date(y, mo - 1, d);
 };
 
-// Enhanced OCR text formatting for comprehensive date extraction
+// Enhanced OCR text formatting for complex academic calendars
 const formatOCRText = (rawText) => {
   if (!rawText) return '';
   
-  let formattedText = rawText;
+  console.log('[OCR] Raw text received:', rawText.substring(0, 500));
   
-  // Step 1: Preserve all potential date information
-  formattedText = formattedText
-    .replace(/[|┃│]/g, ' | ')  // Replace table borders with pipe separators
-    .replace(/[─┬┼┴┌┐└┘├┤]/g, ' ')  // Replace table lines with spaces (don't break lines)
-    .replace(/\s{2,}/g, ' | ')  // Replace multiple spaces with pipe separator
-    .replace(/^\s+|\s+$/gm, '')  // Trim whitespace from each line
+  let formattedText = rawText
+    .replace(/[|┃│]/g, ' | ')
+    .replace(/[─┬┼┴┌┐└┘├┤┼═║╔╗╚╝╠╣╦╩╬]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^\s+|\s+$/gm, '')
     .trim();
-  
-  // Step 2: Enhanced pattern detection with better context preservation
+
   const lines = formattedText.split('\n');
   const processedLines = [];
-  const allDatePatterns = [
-    /\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b/g,  // MM/DD/YYYY, MM-DD-YYYY, MM.DD.YYYY
-    /\b\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}\b/g,    // YYYY/MM/DD, YYYY-MM-DD
-    /\b\d{1,2}(st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4}\b/gi, // 1st January 2024
-    /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(st|nd|rd|th)?\s*,?\s*\d{2,4}\b/gi, // January 1st, 2024
-    /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\b/gi, // Aug 19, Sep 2
-    /\b\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b/gi, // 25 December
-    /\b\d{1,2}-[A-Z][a-z]{2}-\d{2}\b/gi, // 14-Jun-25
-  ];
   
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
-    let hasDate = false;
-    
-    // Check for any date pattern
-    for (let pattern of allDatePatterns) {
-      if (pattern.test(line)) {
-        hasDate = true;
-        break;
-      }
+  let currentMonth = null;
+  let currentYear = new Date().getFullYear();
+
+  lines.forEach(line => {
+    const monthYearMatch = line.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i);
+    if (monthYearMatch) {
+      currentMonth = monthYearMatch[1].toLowerCase();
+      currentYear = parseInt(monthYearMatch[2], 10);
+      processedLines.push(`MONTH_CONTEXT: ${currentMonth} ${currentYear}`);
     }
+  });
+
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) return;
+
+    processedLines.push(`LINE_${index}: ${trimmedLine}`);
     
-    if (hasDate) {
-      // Preserve the entire line context for better event name extraction
-      processedLines.push('DATE_CONTENT: ' + line);
+    if (currentMonth && currentYear) {
+      processedLines.push(`CONTEXT: Current context is ${currentMonth} ${currentYear}`);
+    }
+
+    const dateIndicators = [
+      /\b(\d{1,2})\b/,
+      /\b(\d{1,2})\s*[\-–]\s*(\d{1,2})\b/,
+      /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i,
+      /\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*/i,
+      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/i
+    ];
+
+    const hasDateIndicator = dateIndicators.some(pattern => pattern.test(trimmedLine));
+    
+    if (hasDateIndicator) {
+      processedLines.push(`POTENTIAL_DATE: ${trimmedLine}`);
       
-      // Also capture surrounding context for event names
-      if (i > 0 && lines[i-1].trim() && !lines[i-1].match(/\d{1,2}[\/\-\.]\d{1,2}/)) {
-        processedLines.push('EVENT_CONTEXT: ' + lines[i-1]);
+      for (let i = Math.max(0, index - 2); i <= Math.min(lines.length - 1, index + 2); i++) {
+        if (i !== index && lines[i].trim()) {
+          processedLines.push(`NEARBY_${i - index}: ${lines[i].trim()}`);
+        }
       }
-      if (i < lines.length - 1 && lines[i+1].trim() && !lines[i+1].match(/\d{1,2}[\/\-\.]\d{1,2}/)) {
-        processedLines.push('EVENT_CONTEXT: ' + lines[i+1]);
-      }
-    } else if (line.includes('|') || /\w+\s*\|\s*\w+/.test(line)) {
-      processedLines.push('TABLE_ROW: ' + line);
-    } else if (/\b\d{1,2}:\d{2}\s*(AM|PM|am|pm)?\b/.test(line)) {
-      processedLines.push('TIME_INFO: ' + line);
-    } else if (line.trim()) {
-      processedLines.push('TEXT: ' + line);
     }
-  }
-  
-  return processedLines.join('\n');
-};
 
 // Additional image-specific OCR cleanup to fix common OCR artifacts
 const enhanceImageOCRText = (text) => {
@@ -722,297 +765,210 @@ const preprocessTextForAI = (text) => {
       structuredData.textLines.push(line.trim());
     }
   });
-  
-  // Build comprehensive text for AI with emphasis on ALL dates
-  let processedText = 'COMPREHENSIVE CALENDAR DATA EXTRACTION:\n\n';
-  
-  if (structuredData.dateContent.length > 0) {
-    processedText += 'ALL DATE CONTENT (EXTRACT EVERY SINGLE DATE):\n';
-    structuredData.dateContent.forEach((content, i) => {
-      processedText += `Date Entry ${i + 1}: ${content}\n`;
-    });
-    processedText += '\n';
-  }
-  
-  if (structuredData.tableRows.length > 0) {
-    processedText += 'TABLE DATA (CHECK EACH ROW FOR DATES/EVENTS):\n';
-    structuredData.tableRows.forEach((row, i) => {
-      processedText += `Table Row ${i + 1}: ${row}\n`;
-    });
-    processedText += '\n';
-  }
-  
-  if (structuredData.timeInfo.length > 0) {
-    processedText += 'TIME INFORMATION:\n';
-    structuredData.timeInfo.forEach((time, i) => {
-      processedText += `Time ${i + 1}: ${time}\n`;
-    });
-    processedText += '\n';
-  }
-  
-  if (structuredData.textLines.length > 0) {
-    processedText += 'ADDITIONAL TEXT (SCAN FOR MISSED DATES):\n';
-    processedText += structuredData.textLines.join(' ') + '\n\n';
-  }
-  
-  // Add raw text as backup
-  processedText += 'RAW TEXT BACKUP:\n' + text;
-  
-  return processedText;
+
+  const result = processedLines.join('\n');
+  console.log('[OCR] Processed text for AI:', result.substring(0, 1000));
+  return result;
 };
 
-// Extract date ranges like "November 6–9" or "10th–15th of December" and expand
-const extractDateRangesFromText = (text, fileName) => {
+// Comprehensive fallback extraction that catches ALL dates
+const comprehensiveDateExtraction = (text, fileName) => {
   if (!text) return [];
+  
+  console.log('[Extraction] Starting comprehensive extraction for:', fileName);
+  
   const lines = text.split('\n');
-  const monthMap = {
-    january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
-    july: 7, august: 8, september: 9, october: 10, november: 11, december: 12
-  };
-  const currentYear = new Date().getFullYear();
   const events = [];
-  // Track contextual month/year from headers like "November 2025" or "DATE_CONTENT: November 2025"
-  let contextMonth = null; // 1-12
-  let contextYear = null;
-
-  const patterns = [
-    // November 6–9, 2025 or November 6-9
-    /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?\s*[\-–]\s*(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/gi,
-    // 10th–15th of December 2025
-    /\b(\d{1,2})(?:st|nd|rd|th)?\s*[\-–]\s*(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)(?:\s*,?\s*(\d{4}))?\b/gi,
-    // Nov 28 – Dec 2, 2025
-    /\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})\s*[\-–]\s*(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})(?:\s*,?\s*(\d{4}))?\b/gi,
-    // 11/6–9 or 11-06 – 09 (assume same month)
-    /\b(\d{1,2})[\/\.\-](\d{1,2})\s*[\-–]\s*(\d{1,2})(?:\s*,?\s*(\d{4}))?\b/g,
-    // 11/28–12/2 or 11-28 - 12-02 (optionally with /2025 at end)
-    /\b(\d{1,2})[\/\.\-](\d{1,2})\s*[\-–]\s*(\d{1,2})[\/\.\-](\d{1,2})(?:[\/\.\-](\d{2,4}))?\b/g,
-    // 11/28/2025–12/02/2025 (year on both sides)
-    /\b(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})\s*[\-–]\s*(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})\b/g,
-    // 6–9 Nov 2025 or 6-9 Nov (day-before-month range)
-    /\b(\d{1,2})(?:st|nd|rd|th)?\s*[\-–]\s*(\d{1,2})(?:st|nd|rd|th)?\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s*,?\s*(\d{4}))?\b/gi
-  ];
-
-  const monthShortToLong = (m) => {
-    const lower = m.toLowerCase();
-    if (lower.length <= 3) {
-      for (const full in monthMap) {
-        if (full.startsWith(lower)) return full;
-      }
-    }
-    return lower;
+  const monthMap = {
+    january: 1, jan: 1,
+    february: 2, feb: 2,
+    march: 3, mar: 3,
+    april: 4, apr: 4,
+    may: 5,
+    june: 6, jun: 6,
+    july: 7, jul: 7,
+    august: 8, aug: 8,
+    september: 9, sep: 9, sept: 9,
+    october: 10, oct: 10,
+    november: 11, nov: 11,
+    december: 12, dec: 12
   };
 
-  const pushRange = (startY, startM, startD, endY, endM, endD, contextLine) => {
-    const startDate = new Date(startY, startM - 1, startD);
-    const endDate = new Date(endY, endM - 1, endD);
-    if (endDate < startDate) return;
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const da = String(d.getDate()).padStart(2, '0');
-      const iso = `${y}-${m}-${da}`;
-      // Extract a cleaner title from the context line excluding dates and labels
-      let title = (contextLine || '')
-        .replace(/\b\d{1,2}(?:st|nd|rd|th)?\b/g, ' ')
-        .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\b/gi, ' ');
-      title = cleanTitle(title);
-      const desc = contextLine ? cleanLabelTokens(contextLine).trim() : '';
-      events.push({
-        date: iso,
-        title: title.substring(0, 60),
-        description: desc
-      });
-    }
-  };
+  let currentMonth = null;
+  let currentYear = new Date().getFullYear();
+  const foundDates = new Set();
 
-  lines.forEach((line) => {
-    // Update month/year context headers
-    const headerMatch = line.match(/(?:DATE_CONTENT:\s*)?\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i);
-    if (headerMatch) {
-      contextMonth = monthMap[headerMatch[1].toLowerCase()];
-      contextYear = parseInt(headerMatch[2], 10);
+  lines.forEach(line => {
+    const monthYearMatch = line.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+('?\d{4})\b/i);
+    if (monthYearMatch) {
+      const monthName = monthYearMatch[1].toLowerCase();
+      currentMonth = monthMap[monthName];
+      currentYear = parseInt(monthYearMatch[2].replace("'", ""), 10);
+      console.log('[Extraction] Found context:', currentMonth, currentYear);
     }
-    let matched = false;
-    for (const pattern of patterns) {
-      pattern.lastIndex = 0;
-      let m;
-      while ((m = pattern.exec(line)) !== null) {
-        matched = true;
-        if (pattern === patterns[0]) {
-          const month = monthMap[m[1].toLowerCase()];
-          const d1 = parseInt(m[2], 10);
-          const d2 = parseInt(m[3], 10);
-          const y = m[4] ? parseInt(m[4], 10) : currentYear;
-          pushRange(y, month, d1, y, month, d2, line);
-        } else if (pattern === patterns[1]) {
-          const d1 = parseInt(m[1], 10);
-          const d2 = parseInt(m[2], 10);
-          const month = monthMap[m[3].toLowerCase()];
-          const y = m[4] ? parseInt(m[4], 10) : currentYear;
-          pushRange(y, month, d1, y, month, d2, line);
-        } else if (pattern === patterns[2]) {
-          const m1 = monthMap[monthShortToLong(m[1])];
-          const d1 = parseInt(m[2], 10);
-          const m2 = monthMap[monthShortToLong(m[3])];
-          const d2 = parseInt(m[4], 10);
-          const y = m[5] ? parseInt(m[5], 10) : currentYear;
-          // Handle potential year rollover if Dec -> Jan and no explicit year
-          let startY = y;
-          let endY = y;
-          if (!m[5] && m1 === 12 && m2 === 1) {
-            endY = y + 1;
-          }
-          pushRange(startY, m1, d1, endY, m2, d2, line);
-        } else if (pattern === patterns[3]) {
-          // Numeric month/day start to day end (same month)
-          const month = parseInt(m[1], 10);
-          const d1 = parseInt(m[2], 10);
-          const d2 = parseInt(m[3], 10);
-          const y = m[4] ? parseInt(m[4], 10) : currentYear;
-          pushRange(y, month, d1, y, month, d2, line);
-        } else if (pattern === patterns[4]) {
-          // Numeric cross-month: mm/dd – mm/dd (optional year at end)
-          const m1 = parseInt(m[1], 10);
-          const d1 = parseInt(m[2], 10);
-          const m2 = parseInt(m[3], 10);
-          const d2 = parseInt(m[4], 10);
-          let y = m[5] ? parseInt(m[5].length === 2 ? '20' + m[5] : m[5], 10) : currentYear;
-          let startY = y;
-          let endY = y;
-          if (!m[5] && m1 === 12 && m2 === 1) {
-            endY = y + 1;
-          }
-          pushRange(startY, m1, d1, endY, m2, d2, line);
-        } else if (pattern === patterns[5]) {
-          // Numeric with year on both sides: mm/dd/yyyy – mm/dd/yyyy
-          const m1 = parseInt(m[1], 10);
-          const d1 = parseInt(m[2], 10);
-          const y1 = parseInt(m[3].length === 2 ? '20' + m[3] : m[3], 10);
-          const m2 = parseInt(m[4], 10);
-          const d2 = parseInt(m[5], 10);
-          const y2 = parseInt(m[6].length === 2 ? '20' + m[6] : m[6], 10);
-          pushRange(y1, m1, d1, y2, m2, d2, line);
-        } else if (pattern === patterns[6]) {
-          // Day-before-month range e.g., 6–9 Nov 2025
-          const d1 = parseInt(m[1], 10);
-          const d2 = parseInt(m[2], 10);
-          const month = monthMap[monthShortToLong(m[3])];
-          const y = m[4] ? parseInt(m[4], 10) : currentYear;
-          pushRange(y, month, d1, y, month, d2, line);
-        }
-      }
-    }
-
-    // Single day-before-month like "6 Nov 2025" or "6 Nov"
-    if (!matched) {
-      const singleDayBeforeMonth = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t)?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s*,?\s*(\d{4}))?\b/i;
-      const sm = singleDayBeforeMonth.exec(line);
-      if (sm) {
-        matched = true;
-        const dNum = parseInt(sm[1], 10);
-        const month = monthMap[monthShortToLong(sm[2])];
-        const year = sm[3] ? parseInt(sm[3], 10) : (contextYear || currentYear);
-        const dt = new Date(year, month - 1, dNum);
-        const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-        let title = (line || '')
-          .replace(singleDayBeforeMonth, ' ')
-          .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\b/gi, ' ');
-        title = cleanTitle(title);
-        const desc = cleanLabelTokens(line).trim();
-        events.push({ date: iso, title: title.substring(0, 60), description: desc });
-        if (DEBUG_EXTRACTION) {
-          console.log('[Calendar] Single day-before-month matched:', { line, dNum, month, year });
-        }
-      }
-    }
-
-    // Month followed by comma/and-separated day list, e.g., "November 17, 18, 19, 2025"
-    if (!matched) {
-      // Ensure the day-list stops before the 4-digit year using a lookahead
-      const dayListRe = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+((?:\d{1,2}(?:st|nd|rd|th)?(?:\s*(?:,|and)\s*)?)+?)(?=\s*,?\s*\d{4}\b|$)(?:\s*,?\s*(\d{4}))?\b/i;
-      const m = dayListRe.exec(line);
-      if (m) {
-        matched = true;
-        const month = monthMap[m[1].toLowerCase()];
-        const year = m[3] ? parseInt(m[3], 10) : (contextYear || currentYear);
-        const daysStr = m[2];
-        // Extract day numbers not part of a larger number (avoid picking 20 and 25 from 2025)
-        const dayMatches = [];
-        const re2 = /\d{1,2}/g;
-        let mm2;
-        while ((mm2 = re2.exec(daysStr)) !== null) {
-          const start = mm2.index;
-          const end = start + mm2[0].length;
-          const prev = start > 0 ? daysStr[start - 1] : '';
-          const next = end < daysStr.length ? daysStr[end] : '';
-          if (!/[0-9]/.test(prev) && !/[0-9]/.test(next)) {
-            dayMatches.push(mm2[0]);
-          }
-        }
-        // Build a clean title without the date pieces
-        let title = (line || '')
-          .replace(dayListRe, ' ')
-          .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\b/gi, ' ');
-        title = cleanTitle(title);
-        const desc = cleanLabelTokens(line).trim();
-        for (const dStr of dayMatches) {
-          const dNum = parseInt(dStr, 10);
-          const dt = new Date(year, month - 1, dNum);
-          const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-          events.push({ date: iso, title: title.substring(0, 60), description: desc });
-        }
-        if (DEBUG_EXTRACTION) {
-          console.log('[Calendar] Day-list matched:', { line, month, year, days: dayMatches });
-        }
-      }
-    }
-    // Day-only range with month/year context: support lines with/without text and with bullets
-    if (!matched && contextMonth) {
-      let m;
-      const dayRange = /^\s*[-•*]?\s*(\d{1,2})(?:st|nd|rd|th)?\s*[\-–]\s*(\d{1,2})(?:st|nd|rd|th)?\b/;
-      if ((m = dayRange.exec(line)) !== null) {
-        const d1 = parseInt(m[1], 10);
-        const d2 = parseInt(m[2], 10);
-        const y = contextYear || currentYear;
-        pushRange(y, contextMonth, d1, y, contextMonth, d2, line);
-        matched = true;
-      }
-
-      // Single day like "12 Deadline: ..." with context month/year
-      if (!matched) {
-        // Only match if line starts with optional bullet then the day (ignoring whitespace)
-        const dayOnly = /^\s*[-•*]?\s*(\d{1,2})(?:st|nd|rd|th)?\b/;
-        if ((m = dayOnly.exec(line)) !== null) {
-          const d1 = parseInt(m[1], 10);
-          const y = contextYear || currentYear;
-          const dt = new Date(y, contextMonth - 1, d1);
-          const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-          let title = line
-            .replace(/^\s*[-•*]?\s*\d{1,2}(?:st|nd|rd|th)?\s*[:\-–]?\s*/, '');
-          title = cleanTitle(title);
-          const desc = line ? cleanLabelTokens(line).trim() : '';
-          events.push({
-            date: iso,
-            title: title.substring(0, 60),
-            description: desc
-          });
-        }
-      }
-    }
-    return matched;
   });
 
-  // Normalize to unique entries
-  const unique = [];
-  const seen = new Set();
-  for (const ev of events) {
-    const key = `${ev.date}-${normalizeTitleKey(ev.title || '')}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(ev);
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) return;
+
+    console.log('[Extraction] Processing line:', trimmedLine);
+
+    // Pattern 1: Full dates
+    const fullDatePatterns = [
+      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})\b/gi,
+      /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})\b/gi
+    ];
+
+    fullDatePatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(trimmedLine)) !== null) {
+        const monthName = match[1].toLowerCase();
+        const day = parseInt(match[2], 10);
+        const year = parseInt(match[3], 10);
+        const month = monthMap[monthName];
+        
+        if (month && day && year) {
+          const date = new Date(year, month - 1, day);
+          const isoDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+          
+          if (!foundDates.has(isoDate)) {
+            foundDates.add(isoDate);
+            
+            let title = trimmedLine.replace(match[0], '').trim();
+            if (!title || title.length < 3) {
+              for (let i = Math.max(0, index - 2); i <= Math.min(lines.length - 1, index + 2); i++) {
+                if (i !== index && lines[i].trim() && !lines[i].match(/\b\d{1,2}[\-–]\d{1,2}\b/)) {
+                  title = cleanTitle(lines[i].trim());
+                  if (title && title.length > 3) break;
+                }
+              }
+            }
+            
+            events.push({
+              date: isoDate,
+              title: title || 'Calendar Event',
+              description: `Extracted from: ${trimmedLine}`
+            });
+            console.log('[Extraction] Found full date:', isoDate, title);
+          }
+        }
+      }
+    });
+
+    // Pattern 2: Day-only entries
+    const dayOnlyPattern = /^\s*(\d{1,2})\s*$/;
+    const dayOnlyMatch = trimmedLine.match(dayOnlyPattern);
+    if (dayOnlyMatch && currentMonth) {
+      const day = parseInt(dayOnlyMatch[1], 10);
+      const isoDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      
+      if (!foundDates.has(isoDate)) {
+        foundDates.add(isoDate);
+        
+        let bestTitle = 'Academic Event';
+        let bestScore = 0;
+        
+        for (let i = Math.max(0, index - 3); i <= Math.min(lines.length - 1, index + 3); i++) {
+          if (i !== index) {
+            const contextLine = lines[i].trim();
+            if (contextLine && !contextLine.match(/^\s*\d{1,2}\s*$/) && 
+                !contextLine.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+\d{4}\b/i)) {
+              
+              const cleanContext = cleanLabelTokens(contextLine);
+              if (cleanContext.length > 3) {
+                let score = cleanContext.length;
+                if (cleanContext.match(/deadline|exam|final|grade|submission|holiday|feast|day|classes|commencement/gi)) {
+                  score += 100;
+                }
+                if (cleanContext.match(/^[A-Z]/)) {
+                  score += 50;
+                }
+                
+                if (score > bestScore) {
+                  bestScore = score;
+                  bestTitle = cleanTitle(cleanContext);
+                }
+              }
+            }
+          }
+        }
+        
+        events.push({
+          date: isoDate,
+          title: bestTitle,
+          description: `Extracted from ${fileName}: Day ${day} of ${currentMonth}/${currentYear}`
+        });
+        console.log('[Extraction] Found day-only date:', isoDate, bestTitle);
+      }
     }
-  }
-  return unique;
+
+    // Pattern 3: Date ranges
+    const rangePattern = /\b(\d{1,2})\s*[\-–]\s*(\d{1,2})\b/g;
+    let rangeMatch;
+    while ((rangeMatch = rangePattern.exec(trimmedLine)) !== null) {
+      const startDay = parseInt(rangeMatch[1], 10);
+      const endDay = parseInt(rangeMatch[2], 10);
+      
+      if (currentMonth && startDay && endDay && startDay <= endDay) {
+        let rangeTitle = 'Event Period';
+        for (let i = Math.max(0, index - 2); i <= Math.min(lines.length - 1, index + 2); i++) {
+          const contextLine = lines[i].trim();
+          if (contextLine && contextLine.length > 10 && 
+              !contextLine.match(/\b\d{1,2}[\-–]\d{1,2}\b/) &&
+              !contextLine.match(/^\s*\d{1,2}\s*$/)) {
+            rangeTitle = cleanTitle(contextLine);
+            break;
+          }
+        }
+        
+        for (let day = startDay; day <= endDay; day++) {
+          const isoDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          
+          if (!foundDates.has(isoDate)) {
+            foundDates.add(isoDate);
+            events.push({
+              date: isoDate,
+              title: rangeTitle,
+              description: `Extracted from ${fileName}: ${trimmedLine} (Day ${day})`
+            });
+            console.log('[Extraction] Found range date:', isoDate, rangeTitle);
+          }
+        }
+      }
+    }
+
+    // Pattern 4: Bullet lists with dates
+    const bulletWithDate = /^[\s]*[-•*]\s+(\d{1,2})\s*$/;
+    const bulletMatch = trimmedLine.match(bulletWithDate);
+    if (bulletMatch && currentMonth) {
+      const day = parseInt(bulletMatch[1], 10);
+      const isoDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      
+      if (!foundDates.has(isoDate)) {
+        foundDates.add(isoDate);
+        
+        let bulletTitle = 'Listed Event';
+        for (let i = index - 1; i >= Math.max(0, index - 5); i--) {
+          const prevLine = lines[i].trim();
+          if (prevLine.match(/^[\s]*[-•*]\s+[^\d]/)) {
+            bulletTitle = cleanTitle(prevLine.replace(/^[\s]*[-•*]\s+/, ''));
+            break;
+          }
+        }
+        
+        events.push({
+          date: isoDate,
+          title: bulletTitle,
+          description: `Extracted from ${fileName}: ${trimmedLine}`
+        });
+        console.log('[Extraction] Found bullet date:', isoDate, bulletTitle);
+      }
+    }
+  });
+
+  console.log('[Extraction] Total events found:', events.length);
+  return events;
 };
 
 export default function Calendar(){
@@ -1023,13 +979,11 @@ export default function Calendar(){
   
   const themeColors = getThemeColors();
 
-  // Animation refs & visibility state for scroll-triggered sections
   const upcomingRef = useRef(null);
   const statsRef = useRef(null);
   const [upcomingVisible, setUpcomingVisible] = useState(false);
   const [statsVisible, setStatsVisible] = useState(false);
   
-  // Calendar state
   const [events, setEvents] = useState([]);
   // Debugging states to inspect OCR/preprocessing/extraction
   const [showOcrDebug, setShowOcrDebug] = useState(false);
@@ -1040,16 +994,20 @@ export default function Calendar(){
   const { refresh: refreshGlobalReminders } = useReminders();
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false); // Add/Edit modal
-  const [isListModalOpen, setIsListModalOpen] = useState(false); // Multiple events list
-  const [notification, setNotification] = useState(null); // {message,type}
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
+  const [notification, setNotification] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmModalEventIds, setConfirmModalEventIds] = useState(null); // for list modal selection
+  // Bulk selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDates, setSelectedDates] = useState(() => new Set()); // stores ISO yyyy-mm-dd
+  const [selectedEventIds, setSelectedEventIds] = useState(() => new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
-  // Prevent background scroll when any modal is open
   useEffect(() => {
     const anyOpen = isModalOpen || isListModalOpen;
     if (anyOpen) {
-      // store previous overflow to restore accurately
       if (!document.body.dataset.prevOverflow) {
         document.body.dataset.prevOverflow = document.body.style.overflow || '';
       }
@@ -1063,7 +1021,6 @@ export default function Calendar(){
       }
     }
     return () => {
-      // cleanup in case component unmounts while modal open
       if (document.body.dataset.prevOverflow !== undefined) {
         document.body.style.overflow = document.body.dataset.prevOverflow;
         delete document.body.dataset.prevOverflow;
@@ -1072,11 +1029,11 @@ export default function Calendar(){
       }
     };
   }, [isModalOpen, isListModalOpen]);
+  
   const [uploading, setUploading] = useState(false);
-  const [view, setView] = useState('month'); // month, week, day
+  const [view, setView] = useState('month');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Helper: auth header for backend persistence
   const getAuthHeaders = () => {
     try {
       const token = localStorage.getItem('token');
@@ -1084,7 +1041,6 @@ export default function Calendar(){
     } catch (_) { return {}; }
   };
 
-  // Load events from backend if authenticated
   useEffect(() => {
     const load = async () => {
       try {
@@ -1115,10 +1071,8 @@ export default function Calendar(){
     return () => window.removeEventListener('authChanged', onAuthChanged);
   }, []);
 
-  // Calendar navigation state
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(new Date().getMonth());
-  // Calendar grid for selected year/month
   const firstDay = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const weeks = [];
@@ -1135,7 +1089,6 @@ export default function Calendar(){
     weeks.push(week);
   }
 
-  // Event management functions
   const handleSaveEvent = (eventData) => {
     const persist = async () => {
       const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
@@ -1184,7 +1137,6 @@ export default function Calendar(){
         }
       } catch (err) {
         console.warn('Persist event failed, applying local update only:', err?.message || err);
-        // Local fallback
         if (eventData.id && events.find(e => e.id === eventData.id)) {
           setEvents(events.map(e => e.id === eventData.id ? eventData : e));
           setNotification({ message: 'Event updated locally (save failed).', type: 'eventsfound' });
@@ -1216,24 +1168,121 @@ export default function Calendar(){
     }
   };
 
+  // Helpers for bulk selection
+  const dateToISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      // Exiting selection mode clears selections
+      setSelectedDates(new Set());
+      setSelectedEventIds(new Set());
+    }
+    setSelectionMode(!selectionMode);
+  };
+  const toggleDateSelected = (dateObj) => {
+    const iso = dateToISO(dateObj);
+    setSelectedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(iso)) next.delete(iso); else next.add(iso);
+      return next;
+    });
+  };
+  const toggleEventSelected = (eventId) => {
+    setSelectedEventIds(prev => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId); else next.add(eventId);
+      return next;
+    });
+  };
+  const effectiveBulkEventIds = () => {
+    const ids = new Set(selectedEventIds);
+    if (selectedDates.size) {
+      events.forEach(ev => {
+        const iso = dateToISO(ev.date);
+        if (selectedDates.has(iso)) ids.add(ev.id);
+      });
+    }
+    return Array.from(ids);
+  };
+  const bulkSelectedCounts = () => {
+    const dateCount = selectedDates.size;
+    const explicitEventCount = selectedEventIds.size;
+    const totalEventIds = effectiveBulkEventIds().length;
+    return { dateCount, explicitEventCount, totalEventIds };
+  };
+  const initiateBulkDelete = () => {
+    const { totalEventIds } = bulkSelectedCounts();
+    if (!totalEventIds) return;
+    setConfirmBulkDelete(true);
+  };
+  const performBulkDelete = async () => {
+    const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+    const datesArr = Array.from(selectedDates);
+    const eventIdsArr = effectiveBulkEventIds();
+    try {
+      if ((datesArr.length || eventIdsArr.length) && headers.Authorization) {
+        await axios.post('/api/events/bulk-delete', { dates: datesArr, eventIds: eventIdsArr }, { headers });
+      }
+    } catch (err) {
+      console.warn('Bulk delete API failed, applying local filter only:', err?.message || err);
+    } finally {
+      const dateSet = new Set(datesArr);
+      const eventIdSet = new Set(eventIdsArr);
+      setEvents(events.filter(ev => !eventIdSet.has(ev.id) && !dateSet.has(dateToISO(ev.date))));
+      setNotification({ message: `Deleted ${eventIdsArr.length} event(s).`, type: 'info' });
+      setConfirmBulkDelete(false);
+      setSelectionMode(false);
+      setSelectedDates(new Set());
+      setSelectedEventIds(new Set());
+      window.dispatchEvent(new Event('eventsChanged'));
+      refreshGlobalReminders();
+    }
+  };
+
+  // Bulk delete specifically from EventListModal selection
+  const bulkDeleteSpecific = async (ids) => {
+    if (!Array.isArray(ids) || !ids.length) return;
+    setConfirmModalEventIds(ids);
+  };
+  const confirmBulkDeleteSpecific = async () => {
+    const ids = confirmModalEventIds || [];
+    const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+    try {
+      if (ids.length && headers.Authorization) {
+        await axios.post('/api/events/bulk-delete', { eventIds: ids }, { headers });
+      }
+    } catch (err) {
+      console.warn('Modal bulk delete API failed, removing locally only:', err?.message || err);
+    } finally {
+      const idSet = new Set(ids);
+      setEvents(events.filter(ev => !idSet.has(ev.id)));
+      setNotification({ message: `Deleted ${ids.length} event(s).`, type: 'info' });
+      setConfirmModalEventIds(null);
+      setIsListModalOpen(false);
+      window.dispatchEvent(new Event('eventsChanged'));
+      refreshGlobalReminders();
+    }
+  };
+
   const handleDeleteEvent = (eventId) => {
     setConfirmDeleteId(eventId);
   };
 
   const handleDateClick = (day) => {
     const clickedDate = new Date(viewYear, viewMonth, day);
+    // In selection mode: just toggle date selection, never open any modals
+    if (selectionMode) {
+      toggleDateSelected(clickedDate);
+      return;
+    }
     const dayEvents = getEventsForDay(day);
     setSelectedDate(clickedDate);
     if (dayEvents.length === 0) {
-      // No events -> open add modal
       setSelectedEvent(null);
       setIsModalOpen(true);
     } else if (dayEvents.length === 1) {
-      // Single event -> open detail/edit directly
       setSelectedEvent(dayEvents[0]);
       setIsModalOpen(true);
     } else {
-      // Multiple events -> show list first
       setSelectedEvent(null);
       setIsListModalOpen(true);
     }
@@ -1241,16 +1290,36 @@ export default function Calendar(){
 
   const handleEventClick = (event, e) => {
     e.stopPropagation();
+    // Prevent opening event modal while in selection mode
+    if (selectionMode) return;
     setSelectedEvent(event);
     setSelectedDate(event.date);
     setIsModalOpen(true);
-    setIsListModalOpen(false); // ensure list closes if coming from it
+    setIsListModalOpen(false);
   };
 
-  // Handle school calendar upload and AI extraction
+  // IMAGE-ONLY UPLOAD HANDLER
   const handleCalendarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
+    // ONLY ACCEPT IMAGES
+    const fileName = file.name.toLowerCase();
+    const fileType = file.type.toLowerCase();
+    
+    if (!fileType.startsWith('image/') && !fileName.match(/\.(png|jpg|jpeg|gif|bmp|tiff|tif|webp)$/i)) {
+      setNotification({ message: 'Please upload only image files (PNG, JPG, JPEG, GIF, BMP, TIFF, WebP)', type: 'error' });
+      e.target.value = '';
+      return;
+    }
+    
+    // Image size validation
+    if (file.size > 10 * 1024 * 1024) {
+      setNotification({ message: 'Image too large. Please use images under 10MB.', type: 'error' });
+      e.target.value = '';
+      return;
+    }
+    
     setUploading(true);
     
     try {
@@ -1335,44 +1404,22 @@ export default function Calendar(){
         fileText = await readExcelFile(file);
       }
       
-      // PowerPoint Files
-      else if (fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
-               fileType === 'application/vnd.ms-powerpoint' ||
-               fileName.match(/\.pptx?$/i)) {
-        fileText = `[PowerPoint file: ${file.name} - Content: Presentation slides]`;
+      let fileText = '';
+      try {
+        const imgRes = await axios.post('/api/image/ocr', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        let rawText = imgRes.data.text;
+        fileText = formatOCRText(rawText);
+      } catch (error) {
+        console.warn('OCR extraction failed');
+        fileText = `[Image file: ${file.name} - Text extraction not available]`;
       }
-      
-      // Text-based files
-      else if (fileType.startsWith('text/') || 
-               fileName.match(/\.(txt|md|csv|json|xml|html|css|js|ts|py|java|cpp|c|h|php|rb|go|rs|swift|kt|scala|sh|bat|yaml|yml|ini|cfg|conf|log)$/i)) {
-        fileText = await readFileAsText(file);
-      }
-      
-      // Archive files
-      else if (fileName.match(/\.(zip|rar|7z|tar|gz)$/i)) {
-        fileText = `[Archive file: ${file.name} - Extract contents manually to process individual files]`;
-      }
-      
-      // Audio/Video files
-      else if (fileType.startsWith('audio/') || fileType.startsWith('video/') || 
-               fileName.match(/\.(mp3|mp4|avi|mov|wmv|flv|wav|aac|ogg|webm|mkv)$/i)) {
-        fileText = `[Media file: ${file.name} - Audio/Video content cannot be processed for calendar events]`;
-      }
-      
-      // Binary/Unknown files
-      else {
-        try {
-          // Try to read as text first
-          fileText = await readFileAsText(file);
-        } catch (error) {
-          // If text reading fails, provide file info
-          fileText = `[Binary file: ${file.name} (${formatFileSize(file.size)}) - Type: ${fileType || 'Unknown'}]`;
-        }
-      }
-      // Check if we have meaningful text content
+
       if (!fileText || fileText.trim().length < 10) {
-        setNotification({ message: `File uploaded but no readable text found in ${file.name}`, type: 'error' });
+        setNotification({ message: `Image uploaded but no readable text found in ${file.name}`, type: 'error' });
         setUploading(false);
+        e.target.value = '';
         return;
       }
 
@@ -1436,7 +1483,6 @@ ${fullText}
 
 RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
       
-      // Call AI; if it fails (e.g., 429 quota), proceed with fallback extraction
       let aiRes;
       try {
         aiRes = await axios.post('/api/ai', { prompt });
@@ -1444,17 +1490,17 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         console.warn('AI request failed, falling back to local extraction:', err?.response?.status || err?.message);
         aiRes = { data: { reply: '' } };
       }
+
       let aiEvents = [];
-      
       try {
         const aiResponse = (aiRes?.data?.reply || '').trim();
-        
-        // Enhanced JSON extraction
         const jsonMatch = aiResponse.match(/\[[\s\S]*?\]/);
         if (jsonMatch) {
           aiEvents = JSON.parse(jsonMatch[0]);
+          console.log('[AI] AI extracted events:', aiEvents.length);
         } else {
           aiEvents = [];
+          console.log('[AI] No JSON found in AI response');
         }
         
         // Enhanced validation and date normalization
@@ -1493,194 +1539,8 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         try { setLastAIEvents(aiEvents); } catch(_) {}
         
       } catch (e) {
-        console.log('AI parsing failed, using comprehensive fallback extraction');
-        
-        // Comprehensive fallback extraction for ALL dates
+        console.log('[AI] AI parsing failed, using comprehensive extraction');
         aiEvents = [];
-        const lines = fullText.split('\n');
-        
-        // Multiple date pattern matching for comprehensive extraction
-        const allDatePatterns = [
-          /\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/g,  // MM/DD/YYYY
-          /\b(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/g,    // YYYY/MM/DD
-          /\b(\d{1,2})(st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{2,4})\b/gi,
-          /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(st|nd|rd|th)?\s*,?\s*(\d{2,4})\b/gi,
-          // 6–9 Nov 2025 or 6-9 Nov (day-before-month range)
-          /\b(\d{1,2})(?:st|nd|rd|th)?\s*[\-–]\s*(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(\d{2,4})?\b/gi,
-          // 6 Nov 2025 or 6 Nov (single day before month)
-          /\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(\d{2,4})?\b/gi
-        ];
-        
-        const monthMap = {
-          'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
-          'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
-        };
-        
-        lines.forEach((line, index) => {
-          // Extract ALL dates from each line
-          // Guard: if the line is a month with a list of days followed by a 4-digit year,
-          // skip the Month Day, Year pattern to avoid misreading "2" as year.
-          const looksLikeMonthDayList = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,\s*\d{1,2}(?:st|nd|rd|th)?){1,}\s*,?\s*\d{4}\b/i.test(line);
-
-          allDatePatterns.forEach((pattern, idx) => {
-            if (looksLikeMonthDayList && idx === 3) {
-              return; // skip Month Day, Year on day-list lines
-            }
-            let match;
-            while ((match = pattern.exec(line)) !== null) {
-              let dateStr = '';
-              let title = '';
-              
-              if (pattern === allDatePatterns[0]) { // MM/DD/YYYY
-                const [, month, day, year] = match;
-                const fullYear = year.length === 2 ? `20${year}` : year;
-                dateStr = `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-              } else if (pattern === allDatePatterns[1]) { // YYYY/MM/DD
-                const [, year, month, day] = match;
-                dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-              } else if (pattern === allDatePatterns[2]) { // 1st January 2024
-                const [, day, , month, year] = match;
-                const monthNum = monthMap[month.toLowerCase().substring(0, 3)];
-                dateStr = `${year}-${monthNum}-${day.padStart(2, '0')}`;
-              } else if (pattern === allDatePatterns[3]) { // January 1st, 2024
-                const [, month, day, , year] = match;
-                const monthNum = monthMap[month.toLowerCase().substring(0, 3)];
-                dateStr = `${year}-${monthNum}-${day.padStart(2, '0')}`;
-              } else if (pattern === allDatePatterns[4]) { // 6–9 Nov [2025]
-                const [, dStart, dEnd, mon, yr] = match;
-                const monthNum = monthMap[mon.toLowerCase().substring(0, 3)];
-                const fullYear = yr ? (yr.length === 2 ? `20${yr}` : yr) : String(new Date().getFullYear());
-                // Build title text once from the line
-                let rawLine = line.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim();
-                let titleParts = cleanLabelTokens(rawLine.replace(match[0], ''))
-                  .replace(/^\s*[-|•]\s*/, '')
-                  .replace(/\s*[-|•]\s*$/, '')
-                  .replace(/^\d+\s*/, '')
-                  .replace(/\s{2,}/g, ' ')
-                  .trim();
-                if (titleParts && titleParts.length > 2) {
-                  const eventPatterns = [
-                    /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g,
-                    /([A-Z\s]{3,})/g,
-                    /([\w\s]{5,})/g
-                  ];
-                  let bestTitle = '';
-                  eventPatterns.forEach(p => {
-                    const matches = titleParts.match(p);
-                    if (matches && matches[0] && matches[0].length > bestTitle.length) bestTitle = matches[0].trim();
-                  });
-                  title = bestTitle || titleParts;
-                }
-                const tMatch = line.match(/\b(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)\b/);
-                const time = tMatch ? tMatch[1] : '';
-                const start = parseInt(dStart, 10);
-                const end = parseInt(dEnd, 10);
-                for (let d = start; d <= end; d++) {
-                  const dd = String(d).padStart(2, '0');
-                  const iso = `${fullYear}-${monthNum}-${dd}`;
-                  aiEvents.push({
-                    date: iso,
-                    title: cleanTitle((title || '').substring(0, 60) || 'Extracted Event'),
-                    description: `${time ? 'Time: ' + time + '. ' : ''}${cleanLabelTokens(line.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim())}`
-                  });
-                }
-                continue; // handled expansion; proceed to next match
-              } else if (pattern === allDatePatterns[5]) { // 6 Nov [2025]
-                const [, d, mon, yr] = match;
-                const monthNum = monthMap[mon.toLowerCase().substring(0, 3)];
-                const fullYear = yr ? (yr.length === 2 ? `20${yr}` : yr) : String(new Date().getFullYear());
-                dateStr = `${fullYear}-${monthNum}-${String(d).padStart(2, '0')}`;
-              }
-              
-              // Smart title extraction from calendar context
-              let rawLine = line.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim();
-              let titleParts = cleanLabelTokens(rawLine.replace(match[0], ''));
-              
-              // Clean up common calendar artifacts
-              titleParts = titleParts
-                .replace(/^\s*[-|•]\s*/, '') // Remove leading dashes or bullets
-                .replace(/\s*[-|•]\s*$/, '') // Remove trailing dashes or bullets
-                .replace(/^\d+\s*/, '') // Remove leading numbers
-                .replace(/\s{2,}/g, ' ') // Normalize spaces
-                .trim();
-              
-              // Extract meaningful title from the content
-              if (titleParts && titleParts.length > 2) {
-                // Look for actual event names in the line
-                const eventPatterns = [
-                  /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g, // Title Case events
-                  /([A-Z\s]{3,})/g, // ALL CAPS events
-                  /([\w\s]{5,})/g // General text patterns
-                ];
-                
-                let bestTitle = '';
-                eventPatterns.forEach(pattern => {
-                  const matches = titleParts.match(pattern);
-                  if (matches && matches[0] && matches[0].length > bestTitle.length) {
-                    bestTitle = matches[0].trim();
-                  }
-                });
-                
-                title = bestTitle || titleParts;
-              } else {
-                // Look for context in surrounding lines with better parsing
-                const contextLines = [
-                  lines[index - 2]?.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim(),
-                  lines[index - 1]?.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim(),
-                  lines[index + 1]?.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim(),
-                  lines[index + 2]?.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim()
-                ].filter(Boolean);
-                
-                // Find the most descriptive context line
-                for (const contextLine of contextLines) {
-                  if (contextLine && contextLine.length > 5 && !contextLine.match(/^\d+[\/-]\d+/)) {
-                    // Extract meaningful text from context
-                    const cleanContext = cleanTitle(contextLine);
-                    
-                    if (cleanContext.length > title.length) {
-                      title = cleanContext;
-                      break;
-                    }
-                  }
-                }
-                
-                // Fallback to a descriptive name
-                if (!title || title.length < 3) {
-                  title = `Calendar Event - ${match[0]}`;
-                }
-              }
-              
-              // Extract time if present
-              const timeMatch = line.match(/\b(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)\b/);
-              const time = timeMatch ? timeMatch[1] : '';
-              
-              // Validate date format
-              if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                aiEvents.push({
-                  date: dateStr,
-                  title: cleanTitle(title.substring(0, 60) || 'Extracted Event'),
-                  description: `${time ? 'Time: ' + time + '. ' : ''}${cleanLabelTokens(line.replace(/DATE_CONTENT:|TABLE_ROW:|TIME_INFO:|TEXT:/, '').trim())}`
-                });
-              }
-            }
-          });
-        });
-        if (DEBUG_EXTRACTION) {
-          console.log('[Calendar] Fallback patterns pass extracted', aiEvents.length);
-        }
-        
-        // Remove duplicates by date
-        const uniqueEvents = [];
-        const seenDates = new Set();
-        aiEvents.forEach(event => {
-          const key = `${event.date}-${event.title}`;
-          if (!seenDates.has(key)) {
-            seenDates.add(key);
-            uniqueEvents.push(event);
-          }
-        });
-        
-        aiEvents = uniqueEvents.slice(0, 25); // Increased limit to capture more events
       }
 
       // Always supplement with explicit range extraction to ensure coverage
@@ -1696,35 +1556,50 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         if (Array.isArray(rangeEvents) && rangeEvents.length) {
           aiEvents = [...aiEvents, ...rangeEvents];
         }
-      } catch (_) {}
+      });
 
-      // Do not collapse to one event per date; allow multiple events with different titles on the same date
-      // Quick event creation with dedup against existing dates
+      // Add AI events (may have better titles)
+      aiEvents.forEach(event => {
+        const normalizedTitle = normalizeTitleKey(event.title);
+        const key = `${event.date}-${normalizedTitle}`;
+        if (!allEventsMap.has(key)) {
+          allEventsMap.set(key, event);
+        }
+      });
+
+      aiEvents = Array.from(allEventsMap.values());
+      console.log('[System] Combined events total:', aiEvents.length);
+
+      // Create events with STRONG duplicate prevention against existing events
       if (aiEvents.length > 0) {
-        // Build existing date set
         const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         const existingKeys = new Set(
-          events.map(ev => `${toISO(ev.date)}|${normalizeTitleKey(ev.title || '')}`)
+          events.map(ev => `${toISO(ev.date)}-${normalizeTitleKey(ev.title || '')}`)
         );
 
-        // Dedup within new list as well and persist to backend
         const newKeys = new Set();
         const createPayload = [];
+        
         aiEvents.forEach((ev) => {
-          const key = `${ev.date}|${normalizeTitleKey(ev.title || '')}`;
+          const normalizedTitle = normalizeTitleKey(ev.title || '');
+          const key = `${ev.date}-${normalizedTitle}`;
+          
+          // Check against both existing events AND new events to prevent duplicates
           if (!newKeys.has(key) && !existingKeys.has(key)) {
             newKeys.add(key);
             createPayload.push({
               title: cleanTitle(ev.title || 'Extracted Event'),
               description: cleanLabelTokens(ev.description || ''),
               date: parseISODateLocal(ev.date).toISOString(),
-              category: ev.category || 'study',
-              priority: ev.priority || 'medium',
-              time: ev.time || '',
-              reminder: !!ev.reminder
+              category: 'study',
+              priority: 'medium',
+              time: '',
+              reminder: false
             });
           }
         });
+
+        console.log('[System] After duplicate removal, creating:', createPayload.length, 'events');
 
         let savedDocs = [];
         try {
@@ -1755,7 +1630,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           window.dispatchEvent(new Event('eventsChanged'));
           refreshGlobalReminders();
         } else {
-          // Fallback: add locally if not saved (e.g., unauthenticated)
+          // Fallback: add locally if not saved
           const localEvents = createPayload.map((p, i) => ({
             id: Date.now() + i,
             title: p.title,
@@ -1774,7 +1649,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             window.dispatchEvent(new Event('eventsChanged'));
             refreshGlobalReminders();
           } else {
-            setNotification({ message: 'No new events added — possible duplicates detected.', type: 'nonevents' });
+            setNotification({ message: 'No new events added — all events were duplicates.', type: 'nonevents' });
           }
         }
       } else {
@@ -1782,18 +1657,16 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
       }
       
     } catch (err) {
-      console.error('Calendar file upload error:', err);
-      setNotification({ message: `Failed to process file: ${file.name}\nError: ${err.message || 'Unknown error'}`, type: 'error' });
+      console.error('Calendar image upload error:', err);
+      setNotification({ message: `Failed to process image: ${file.name}\nError: ${err.message || 'Unknown error'}`, type: 'error' });
     } finally {
       setUploading(false);
-      // Clear the file input
       e.target.value = '';
       window.dispatchEvent(new Event('eventsChanged'));
       refreshGlobalReminders();
     }
   };
 
-  // Get events for a specific day
   const getEventsForDay = (day) => {
     return events.filter(ev => {
       const d = ev.date;
@@ -1801,7 +1674,6 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
     });
   };
 
-  // Get category color
   const getCategoryColor = (category) => {
     const colors = {
       general: 'bg-gray-200 text-gray-800',
@@ -1814,14 +1686,12 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
     return colors[category] || colors.general;
   };
 
-  // Get priority indicator
   const getPriorityIndicator = (priority) => {
     if (priority === 'high') return '🔴';
     if (priority === 'medium') return '🟡';
     return '🟢';
   };
 
-  // Filter events based on search
   const filteredEvents = events.filter(event => {
     if (!searchTerm.trim()) return true;
     const searchLower = searchTerm.toLowerCase().trim();
@@ -1830,7 +1700,6 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
            event.category?.toLowerCase().includes(searchLower);
   });
 
-  // Get filtered events for a specific day (for calendar display)
   const getFilteredEventsForDay = (day) => {
     const dayEvents = getEventsForDay(day);
     if (!searchTerm.trim()) return dayEvents;
@@ -1843,7 +1712,6 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
     );
   };
 
-  // Get today's date for highlighting
   const today = new Date();
   const isToday = (day) => {
     return today.getFullYear() === viewYear && 
@@ -1851,7 +1719,6 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
            today.getDate() === day;
   };
 
-  // IntersectionObserver to trigger fade-up animations when cards enter viewport
   useEffect(() => {
     const options = { threshold: 0.15 };
     const observer = new IntersectionObserver((entries) => {
@@ -1888,6 +1755,22 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
               </svg>
               Quick Add
             </button>
+            <button
+              onClick={toggleSelectionMode}
+              className={`px-4 py-2 ${selectionMode ? 'bg-yellow-600 hover:bg-yellow-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} rounded-lg transition-colors text-sm font-medium`}
+            >
+              {selectionMode ? 'Exit Select Mode' : 'Select Mode'}
+            </button>
+            {selectionMode && (bulkSelectedCounts().totalEventIds > 0) && (
+              <button
+                onClick={initiateBulkDelete}
+                className={`px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium`}
+              >
+                {selectedEventIds.size === 0 && selectedDates.size > 0
+                  ? `Delete Selected Dates (${bulkSelectedCounts().totalEventIds} events)`
+                  : `Delete Selected (${bulkSelectedCounts().totalEventIds})`}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1919,13 +1802,13 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             </div>
             
             <div className="flex items-center gap-2">
-              <label className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Upload Any File:</label>
+              <label className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Upload Calendar Image:</label>
               <input 
                 type="file" 
-                accept="*/*" 
+                accept=".png,.jpg,.jpeg,.gif,.bmp,.tiff,.tif,.webp,image/*" 
                 onChange={handleCalendarUpload} 
                 className={`file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:${themeColors.light} file:${themeColors.text} hover:file:${themeColors.hover} file:cursor-pointer cursor-pointer text-sm`} 
-                title="Upload any file type - PDF, Word, Excel, images, text files, etc."
+                title="Upload calendar images only (PNG, JPG, JPEG, GIF, BMP, TIFF, WebP)"
               />
               <button
                 onClick={() => setShowOcrDebug(!showOcrDebug)}
@@ -1937,7 +1820,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
               {uploading && (
                 <div className={`flex items-center gap-2 ${themeColors.text}`}>
                   <div className={`w-4 h-4 border-2 border-${themeColors.primary}-600 border-t-transparent rounded-full animate-spin`}></div>
-                  <span className="text-sm">Processing...</span>
+                  <span className="text-sm">Processing Image...</span>
                 </div>
               )}
             </div>
@@ -2075,7 +1958,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
               return (
                 <div 
                   key={wi + '-' + di} 
-                  className={`h-20 flex flex-col border rounded-lg cursor-pointer transition-all p-1 ${
+                  className={`relative h-20 flex flex-col border rounded-lg cursor-pointer transition-all p-1 ${
                     d ? `hover:${themeColors.light} hover:shadow-md` : `${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`
                   } ${
                     isToday(d) ? `ring-2 ring-${themeColors.primary}-500 ${themeColors.light}` : `${darkMode ? 'border-gray-600' : 'border-gray-200'}`
@@ -2103,8 +1986,18 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                       </span>
                     )}
                   </div>
+                  {selectionMode && d && (
+                    <div className="absolute top-1 left-1">
+                      <input
+                        type="checkbox"
+                        onClick={(e) => e.stopPropagation()}
+                        checked={selectedDates.has(dateToISO(new Date(viewYear, viewMonth, d)))}
+                        onChange={(e) => { e.stopPropagation(); toggleDateSelected(new Date(viewYear, viewMonth, d)); }}
+                        className="h-4 w-4"
+                      />
+                    </div>
+                  )}
                   
-                  {/* Show up to 2 events */}
                   <div className="flex-1 overflow-hidden">
                     {d && dayEvents.slice(0, 2).map((ev, i) => (
                       <div
@@ -2116,6 +2009,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
                         title={`${ev.title}${ev.time ? ` at ${ev.time}` : ''}`}
                       >
                         <div className="flex items-center gap-1 truncate">
+                          {/* Event-level selection checkboxes hidden per requirement; selection limited to dates */}
                           <span className="text-xs">{getPriorityIndicator(ev.priority)}</span>
                           <span className="truncate">{ev.title}</span>
                         </div>
@@ -2135,7 +2029,6 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
 
         {/* Upcoming Events and Statistics */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Upcoming Events */}
           <div ref={upcomingRef} className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 ${upcomingVisible ? 'animate-fade-up duration-1500' : 'opacity-0 translate-y-4'}`}>
             <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : ''}`}>
               <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className={`${themeColors.text}`}>
@@ -2181,7 +2074,6 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             </div>
           </div>
 
-          {/* Calendar Statistics */}
           <div ref={statsRef} className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 ${statsVisible ? 'animate-fade-up duration-1500' : 'opacity-0 translate-y-4'}`}>
             <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : ''}`}>
               <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className={`${themeColors.text}`}>
@@ -2214,7 +2106,6 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
               </div>
             </div>
 
-            {/* Category Distribution */}
             <div className="mt-4">
               <h3 className={`font-medium ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-2`}>Categories</h3>
               {['study', 'exam', 'assignment', 'meeting', 'personal', 'general'].map(cat => {
@@ -2233,7 +2124,6 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           </div>
         </div>
 
-        {/* Event List Modal (multiple events selection) */}
         <EventListModal
           isOpen={isListModalOpen}
           onClose={() => setIsListModalOpen(false)}
@@ -2243,8 +2133,8 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           onAddNew={() => { setSelectedEvent(null); setIsModalOpen(true); setIsListModalOpen(false); }}
           darkMode={darkMode}
           themeColors={themeColors}
+          onRequestBulkDelete={(ids) => bulkDeleteSpecific(ids)}
         />
-        {/* Event Modal (add/edit) */}
         <EventModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
@@ -2270,6 +2160,27 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           confirmLabel="Delete"
           onCancel={() => setConfirmDeleteId(null)}
           onConfirm={() => { performDeleteEvent(confirmDeleteId); setConfirmDeleteId(null); setIsModalOpen(false); setSelectedEvent(null); }}
+          darkMode={darkMode}
+        />
+        <ConfirmModal
+          open={Array.isArray(confirmModalEventIds) && confirmModalEventIds.length > 0}
+          title="Delete Selected Events"
+          description={`Delete ${confirmModalEventIds?.length || 0} event(s) from this date? This cannot be undone.`}
+          confirmLabel="Delete"
+          onCancel={() => setConfirmModalEventIds(null)}
+          onConfirm={confirmBulkDeleteSpecific}
+          darkMode={darkMode}
+        />
+        <ConfirmModal
+          open={confirmBulkDelete}
+          title="Delete Selected Events"
+          description={() => {
+            const { dateCount, explicitEventCount, totalEventIds } = bulkSelectedCounts();
+            return `You are about to delete ${totalEventIds} event(s) from ${dateCount} date(s) and ${explicitEventCount} individually selected event(s). This cannot be undone.`;
+          }}
+          confirmLabel="Delete"
+          onCancel={() => setConfirmBulkDelete(false)}
+          onConfirm={() => performBulkDelete()}
           darkMode={darkMode}
         />
       </main>

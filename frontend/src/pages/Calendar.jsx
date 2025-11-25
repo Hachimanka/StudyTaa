@@ -581,8 +581,188 @@ const formatOCRText = (rawText) => {
       }
     }
 
-    if (trimmedLine.match(/^#|deadline|examination|exam|final|grade|submission|holiday|feast|day|classes|commencement/gi)) {
-      processedLines.push(`IMPORTANT: ${trimmedLine}`);
+// Additional image-specific OCR cleanup to fix common OCR artifacts
+const enhanceImageOCRText = (text) => {
+  if (!text) return '';
+  let t = text;
+  // Common OCR misreads: I,l -> 1 when adjacent to digits; O -> 0 in numeric contexts
+  t = t.replace(/(?<=\d)[Il](?=\d)/g, '1');
+  t = t.replace(/(?<=\b)O(?=\d)/g, '0');
+  t = t.replace(/(?<=\d)O(?=\b)/g, '0');
+
+  // Fix broken month tokens split by pipes or spaced letters: e.g. "N o v" or "N|ov"
+  t = t.replace(/\b([A-Za-z])\s+([A-Za-z])\s+([A-Za-z])\b/g, (m, a, b, c) => `${a}${b}${c}`);
+  t = t.replace(/\b([A-Za-z])\|([A-Za-z]{2,})\b/g, (m, a, rest) => `${a}${rest}`);
+
+  // Collapse sequences of single letters separated by spaces (e.g. "D e c e m b e r")
+  t = t.replace(/\b(?:[A-Za-z]\s+){2,}[A-Za-z]\b/g, (m) => m.replace(/\s+/g, ''));
+
+  // Replace multiple pipe separators with single pipe and normalize separators around dates
+  t = t.replace(/[|]{2,}/g, '|');
+  t = t.replace(/\s*\|\s*/g, ' | ');
+
+  // Normalize various dash characters to simple hyphen for date parsing
+  t = t.replace(/[–—−]/g, '-');
+
+  // Remove stray non-printables that break regexes
+  t = t.replace(/[\u200B-\u200D\uFEFF]/g, '');
+
+  // Collapse excessive whitespace but keep line breaks
+  t = t.split('\n').map(l => l.replace(/\s{2,}/g, ' ').trim()).join('\n');
+
+  return t;
+};
+
+// Extract lines like "06 End Classes" or "6 | End Classes" using a month/year header
+const extractDayEventPairs = (text, fileName) => {
+  if (!text) return [];
+  const monthMap = {
+    january: '01', february: '02', march: '03', april: '04', may: '05', june: '06',
+    july: '07', august: '08', september: '09', october: '10', november: '11', december: '12'
+  };
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let contextMonth = null;
+  let contextYear = new Date().getFullYear();
+  const events = [];
+
+  // find header like "December 2025" or "December, 2025"
+  for (const ln of lines.slice(0, 6)) {
+    const m = ln.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b\s*,?\s*(\d{4})?/i);
+    if (m) {
+      contextMonth = monthMap[m[1].toLowerCase()];
+      if (m[2]) contextYear = parseInt(m[2], 10);
+      break;
+    }
+  }
+
+  // parse each line for day + title
+  // parse each line for day + title using column-splitting heuristics to catch picture layouts
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    // normalize separators and collapse long whitespace into column markers
+    line = line.replace(/[\t]+/g, ' ');
+    // replace runs of 3+ spaces with a column marker to detect two-column layouts
+    const colLine = line.replace(/ {3,}/g, ' || ');
+
+    // If the line has a column marker, split into columns
+    if (colLine.includes('||')) {
+      const cols = colLine.split('||').map(c => c.trim()).filter(Boolean);
+      // typical: [day, title] or [day, empty, title]
+      if (cols.length >= 2) {
+        // try to find a day token in first column
+        const first = cols[0];
+        const dayMatch = first.match(/^(\d{1,2})$/) || first.match(/^(\d{1,2})\b/);
+        if (dayMatch) {
+          const day = Number(dayMatch[1]);
+          if (day >=1 && day <=31) {
+            // title may be in next non-empty column
+            let titleRaw = cols.slice(1).find(Boolean) || '';
+            titleRaw = titleRaw.replace(/^\s*[\-–:]+\s*/, '').trim();
+            const title = cleanTitle(titleRaw || 'Extracted Event');
+            const desc = cleanLabelTokens(titleRaw || line);
+            const month = contextMonth || (function(){
+              // search nearby for header
+              for (let j = Math.max(0, i-4); j <= Math.min(lines.length-1, i+4); j++){
+                const mh = lines[j].match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b\s*,?\s*(\d{4})?/i);
+                if (mh) return monthMap[mh[1].toLowerCase()];
+              }
+              return String(new Date().getMonth()+1).padStart(2,'0');
+            })();
+            const year = (function(){
+              for (let j = Math.max(0, i-4); j <= Math.min(lines.length-1, i+4); j++){
+                const mh = lines[j].match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b\s*,?\s*(\d{4})?/i);
+                if (mh && mh[2]) return parseInt(mh[2],10);
+              }
+              return contextYear || new Date().getFullYear();
+            })();
+            const iso = `${year}-${month}-${String(day).padStart(2,'0')}`;
+            events.push({ date: iso, title: title.substring(0,120), description: desc });
+            continue;
+          }
+        }
+      }
+    }
+
+    // Try patterns on the raw line: '06 | Title', '06. Title', '06 Title'
+    const p1 = line.match(/^\s*(\d{1,2})\s*[\.|\-|:]?\s+(.+)$/);
+    const p2 = line.match(/^\s*(\d{1,2})\s*\|\s*(.+)$/);
+    const p3 = line.match(/^\s*(\d{1,2})\s+(.+)$/);
+    let matched = false;
+    const pickMatch = (m) => {
+      if (!m) return false;
+      const day = Number(m[1]);
+      if (Number.isNaN(day) || day < 1 || day > 31) return false;
+      let titleRaw = (m[2] || '').replace(/^[\-–:]+/, '').trim();
+      if (!titleRaw) return false;
+      const title = cleanTitle(titleRaw);
+      const desc = cleanLabelTokens(line.replace(m[0],'').trim() || titleRaw);
+      let month = contextMonth;
+      let year = contextYear || new Date().getFullYear();
+      if (!month) {
+        for (let j = Math.max(0, i - 6); j <= Math.min(lines.length -1, i + 6); j++) {
+          const mh = lines[j].match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b\s*,?\s*(\d{4})?/i);
+          if (mh) { month = monthMap[mh[1].toLowerCase()]; if (mh[2]) year = parseInt(mh[2],10); break; }
+        }
+      }
+      if (!month) month = String(new Date().getMonth() + 1).padStart(2,'0');
+      const iso = `${year}-${month}-${String(day).padStart(2,'0')}`;
+      events.push({ date: iso, title: title.substring(0,120), description: desc });
+      return true;
+    };
+    if (pickMatch(p1) || pickMatch(p2) || pickMatch(p3)) matched = true;
+
+    // If not matched and line is a single day number, pair with next non-empty line (title)
+    if (!matched && /^\d{1,2}$/.test(line)) {
+      const day = Number(line);
+      let nextIdx = i+1;
+      while (nextIdx < lines.length && lines[nextIdx].trim() === '') nextIdx++;
+      const next = lines[nextIdx] || '';
+      if (next && !/^\d{1,2}$/.test(next)) {
+        const title = cleanTitle(next);
+        let month = contextMonth || String(new Date().getMonth() + 1).padStart(2, '0');
+        let year = contextYear || new Date().getFullYear();
+        const iso = `${year}-${month}-${String(day).padStart(2,'0')}`;
+        events.push({ date: iso, title: title.substring(0,120), description: cleanLabelTokens(next) });
+      }
+    }
+  }
+
+  // dedupe by date+title
+  const unique = [];
+  const seen = new Set();
+  for (const ev of events) {
+    const key = `${ev.date}-${normalizeTitleKey(ev.title || '')}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(ev);
+    }
+  }
+  return unique;
+};
+// Comprehensive AI text preprocessing to capture ALL dates
+const preprocessTextForAI = (text) => {
+  if (!text) return '';
+  
+  // Extract ALL structured information
+  const lines = text.split('\n');
+  const structuredData = {
+    dateContent: [],
+    tableRows: [],
+    timeInfo: [],
+    textLines: []
+  };
+  
+  lines.forEach(line => {
+    if (line.startsWith('DATE_CONTENT:')) {
+      structuredData.dateContent.push(line.substring(13).trim());
+    } else if (line.startsWith('TABLE_ROW:')) {
+      structuredData.tableRows.push(line.substring(10).trim());
+    } else if (line.startsWith('TIME_INFO:')) {
+      structuredData.timeInfo.push(line.substring(10).trim());
+    } else if (line.startsWith('TEXT:')) {
+      structuredData.textLines.push(line.substring(5).trim());
+    } else if (line.trim()) {
+      structuredData.textLines.push(line.trim());
     }
   });
 
@@ -805,6 +985,12 @@ export default function Calendar(){
   const [statsVisible, setStatsVisible] = useState(false);
   
   const [events, setEvents] = useState([]);
+  // Debugging states to inspect OCR/preprocessing/extraction
+  const [showOcrDebug, setShowOcrDebug] = useState(false);
+  const [lastFileText, setLastFileText] = useState('');
+  const [lastProcessedText, setLastProcessedText] = useState('');
+  const [lastEarlyEvents, setLastEarlyEvents] = useState([]);
+  const [lastAIEvents, setLastAIEvents] = useState([]);
   const { refresh: refreshGlobalReminders } = useReminders();
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -1137,10 +1323,86 @@ export default function Calendar(){
     setUploading(true);
     
     try {
-      console.log(`Processing image: ${file.name}, Size: ${file.size} bytes`);
+      let fileText = '';
+      let earlyExtractEvents = [];
+      const fileName = file.name.toLowerCase();
+      const fileType = file.type.toLowerCase();
+
+      // PDF Files
+      if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+        const formData = new FormData();
+        formData.append('pdf', file);
+        try {
+          const pdfRes = await axios.post('/api/pdf/extract-text', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          fileText = pdfRes.data.text;
+        } catch (error) {
+          console.warn('PDF extraction failed, trying fallback method');
+          // Fallback: try to read as binary and extract basic text
+          fileText = await readFileAsBase64(file);
+        }
+      }
       
-      const formData = new FormData();
-      formData.append('image', file);
+      // Image Files (PNG, JPG, JPEG, GIF, BMP, TIFF, WebP)
+      else if (fileType.startsWith('image/') || fileName.match(/\.(png|jpg|jpeg|gif|bmp|tiff|tif|webp|svg)$/i)) {
+        const formData = new FormData();
+        formData.append('image', file);
+        try {
+          const imgRes = await axios.post('/api/image/ocr', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          let rawText = imgRes.data.text;
+          
+          // Improve OCR text formatting for table/structured data
+          fileText = formatOCRText(rawText);
+          // Additional image-specific cleanup to fix OCR artifacts
+          fileText = enhanceImageOCRText(fileText);
+          // store for debug UI
+          try { setLastFileText(fileText); } catch(_) {}
+          // Early local extraction from image text to improve recall (ranges, lists)
+          try {
+            earlyExtractEvents = extractDateRangesFromText(fileText, file.name) || [];
+            // Also extract day-number pairs like the sample image
+            const dayPairs = extractDayEventPairs(fileText, file.name) || [];
+            if (dayPairs.length) {
+              earlyExtractEvents = [...earlyExtractEvents, ...dayPairs];
+            }
+            if (DEBUG_EXTRACTION) console.log('[Calendar] earlyExtractEvents (image) count', earlyExtractEvents.length);
+            try { setLastEarlyEvents(earlyExtractEvents); } catch(_) {}
+          } catch (er) {
+            if (DEBUG_EXTRACTION) console.warn('early image extraction failed', er);
+            earlyExtractEvents = [];
+          }
+        } catch (error) {
+          console.warn('OCR extraction failed');
+          fileText = `[Image file: ${file.name} - Text extraction not available]`;
+        }
+      }
+      
+      // Microsoft Word Documents
+      else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+               fileType === 'application/msword' || 
+               fileName.match(/\.docx?$/i)) {
+        const formData = new FormData();
+        formData.append('word', file);
+        try {
+          const wordRes = await axios.post('/api/word/extract-text', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          fileText = wordRes.data.text;
+        } catch (error) {
+          console.warn('Word extraction failed');
+          fileText = await readFileAsText(file);
+        }
+      }
+      
+      // Excel Files
+      else if (fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+               fileType === 'application/vnd.ms-excel' ||
+               fileName.match(/\.xlsx?$/i)) {
+        fileText = await readExcelFile(file);
+      }
       
       let fileText = '';
       try {
@@ -1166,10 +1428,60 @@ export default function Calendar(){
         console.log('[Calendar] File text preview', { name: file.name, type: fileType, size: file.size, lines: fileText.split('\n').length, preview });
       }
 
-      const fullText = fileText.substring(0, 8000);
+      // Comprehensive text preprocessing for AI
+      const processedText = preprocessTextForAI(fileText);
+      try { setLastProcessedText(processedText); } catch(_) {}
+      const fullText = processedText.substring(0, 8000); // Significantly increased limit to capture ALL dates
+      if (DEBUG_EXTRACTION) {
+        console.log('[Calendar] Processed text length', { length: fullText.length });
+      }
       
-      // Use the enhanced AI prompt
-      const prompt = ENHANCED_OCR_PROMPT.replace('{{OCR_TEXT}}', fullText);
+      const dateKeywords = ['date', 'due', 'deadline', 'exam', 'test', 'meeting', 'event', 'schedule', 'assignment', 'project', 'class', 'lecture', 'quiz', 'homework', 'calendar'];
+      const hasDateKeywords = dateKeywords.some(keyword => 
+        fullText.toLowerCase().includes(keyword)
+      );
+
+      // Enhanced date pattern detection
+      const comprehensiveDatePatterns = [
+        /\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/,
+        /\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}/,
+        /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i,
+        /DATE_CONTENT|TABLE_ROW|TIME_INFO/
+      ];
+      
+      const hasDatePatterns = comprehensiveDatePatterns.some(pattern => pattern.test(fullText));
+
+      // Allow image early extractions to bypass keyword/pattern check
+      if (!hasDateKeywords && !hasDatePatterns && (!earlyExtractEvents || earlyExtractEvents.length === 0)) {
+        setNotification({ message: `No calendar content detected in ${file.name}`, type: 'info' });
+        setUploading(false);
+        return;
+      }
+
+      // Comprehensive AI prompt for ALL date extraction with proper event names
+      const prompt = `CRITICAL: Extract EVERY SINGLE DATE with PROPER EVENT NAMES from this calendar text.
+
+EXACT INSTRUCTIONS:
+1. Find ALL dates in ANY format (MM/DD/YYYY, Aug 19, 14-Jun-25, etc.)
+2. For EACH date, extract the ACTUAL EVENT NAME from the same line or nearby context
+3. Look for course names, event titles, holidays, exam names, assignment titles
+4. For academic calendars: extract course codes, exam names, specific events
+5. For schedules: extract course titles, instructor names, topics
+6. Use the REAL event names, not generic titles
+7. Include times when available (1:00 pm - 5:00 pm)
+
+EXAMPLES of what to extract:
+- "Aug 19 Classes Begin" → title: "Classes Begin"
+- "14-Jun-25 Sat Cost & Variance Measures" → title: "Cost & Variance Measures"  
+- "Sep 2 Labor Day (Holiday)" → title: "Labor Day (Holiday)"
+- "Dec 16-20 Final Examinations" → title: "Final Examinations"
+
+FORMAT: {"date": "YYYY-MM-DD", "title": "ACTUAL_EVENT_NAME", "description": "Additional context"}
+
+CALENDAR TEXT TO PROCESS:
+${fullText}
+
+RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
       
       let aiRes;
       try {
@@ -1190,25 +1502,59 @@ export default function Calendar(){
           aiEvents = [];
           console.log('[AI] No JSON found in AI response');
         }
+        
+        // Enhanced validation and date normalization
+        aiEvents = aiEvents.filter(event => {
+          if (!event || !event.date || !event.title) return false;
+          
+          // Normalize date format
+          let normalizedDate = event.date;
+          if (!normalizedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Try to convert various date formats
+            const dateFormats = [
+              /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,  // MM/DD/YYYY or MM-DD-YYYY
+              /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,  // YYYY/MM/DD
+              /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})/   // MM/DD/YY
+            ];
+            
+            for (let format of dateFormats) {
+              const match = normalizedDate.match(format);
+              if (match) {
+                let [, part1, part2, part3] = match;
+                if (part3.length === 2) part3 = '20' + part3; // Convert YY to YYYY
+                
+                if (format === dateFormats[1]) { // YYYY/MM/DD
+                  normalizedDate = `${part1}-${part2.padStart(2, '0')}-${part3.padStart(2, '0')}`;
+                } else { // MM/DD/YYYY
+                  normalizedDate = `${part3}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
+                }
+                break;
+              }
+            }
+          }
+          
+          event.date = normalizedDate;
+          return normalizedDate.match(/^\d{4}-\d{2}-\d{2}$/);
+        }).slice(0, 10);
+        try { setLastAIEvents(aiEvents); } catch(_) {}
+        
       } catch (e) {
         console.log('[AI] AI parsing failed, using comprehensive extraction');
         aiEvents = [];
       }
 
-      // ALWAYS run comprehensive fallback extraction
-      console.log('[System] Running comprehensive fallback extraction');
-      const fallbackEvents = comprehensiveDateExtraction(fullText, file.name);
-      console.log('[System] Fallback extraction found:', fallbackEvents.length);
+      // Always supplement with explicit range extraction to ensure coverage
+      // Merge any early image-only extraction results (higher recall for photos)
+      try {
+        if (earlyExtractEvents && earlyExtractEvents.length) {
+          aiEvents = [...aiEvents, ...earlyExtractEvents];
+        }
+      } catch (_) {}
 
-      // Combine AI and fallback results with STRONG duplicate prevention
-      const allEventsMap = new Map();
-
-      // Add fallback events first
-      fallbackEvents.forEach(event => {
-        const normalizedTitle = normalizeTitleKey(event.title);
-        const key = `${event.date}-${normalizedTitle}`;
-        if (!allEventsMap.has(key)) {
-          allEventsMap.set(key, event);
+      try {
+        const rangeEvents = extractDateRangesFromText(fullText, file.name);
+        if (Array.isArray(rangeEvents) && rangeEvents.length) {
+          aiEvents = [...aiEvents, ...rangeEvents];
         }
       });
 
@@ -1464,6 +1810,13 @@ export default function Calendar(){
                 className={`file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:${themeColors.light} file:${themeColors.text} hover:file:${themeColors.hover} file:cursor-pointer cursor-pointer text-sm`} 
                 title="Upload calendar images only (PNG, JPG, JPEG, GIF, BMP, TIFF, WebP)"
               />
+              <button
+                onClick={() => setShowOcrDebug(!showOcrDebug)}
+                className={`ml-2 px-3 py-1 rounded-lg text-xs ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'}`}
+                title="Toggle OCR debug view"
+              >
+                {showOcrDebug ? 'Hide OCR Debug' : 'Show OCR Debug'}
+              </button>
               {uploading && (
                 <div className={`flex items-center gap-2 ${themeColors.text}`}>
                   <div className={`w-4 h-4 border-2 border-${themeColors.primary}-600 border-t-transparent rounded-full animate-spin`}></div>
@@ -1473,6 +1826,29 @@ export default function Calendar(){
             </div>
           </div>
         </div>
+
+        {/* OCR Debug Panel */}
+        {showOcrDebug && (
+          <div className={`mt-4 p-3 rounded-lg ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} shadow`}>
+            <h3 className="font-medium mb-2">OCR Debug</h3>
+            <div className="mb-2">
+              <strong>Raw / Preprocessed OCR:</strong>
+              <pre className="text-xs overflow-auto max-h-40 p-2 bg-gray-100 rounded mt-1" style={{whiteSpace: 'pre-wrap'}}>{lastFileText || '(empty)'}</pre>
+            </div>
+            <div className="mb-2">
+              <strong>Processed Text for AI:</strong>
+              <pre className="text-xs overflow-auto max-h-40 p-2 bg-gray-100 rounded mt-1" style={{whiteSpace: 'pre-wrap'}}>{lastProcessedText || '(empty)'}</pre>
+            </div>
+            <div className="mb-2">
+              <strong>Early Extracted Events (ranges / day pairs):</strong>
+              <pre className="text-xs overflow-auto max-h-40 p-2 bg-gray-100 rounded mt-1">{JSON.stringify(lastEarlyEvents || [], null, 2)}</pre>
+            </div>
+            <div>
+              <strong>AI / Final Extracted Events:</strong>
+              <pre className="text-xs overflow-auto max-h-40 p-2 bg-gray-100 rounded mt-1">{JSON.stringify(lastAIEvents || [], null, 2)}</pre>
+            </div>
+          </div>
+        )}
 
         {/* Search Results Indicator */}
         {searchTerm.trim() && (

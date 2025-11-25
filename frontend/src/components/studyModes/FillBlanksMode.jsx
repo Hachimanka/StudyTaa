@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSettings } from '../../context/SettingsContext';
 
-export default function FillBlanksMode({ content, currentIndex, userAnswer, setUserAnswer, showAnswer, setShowAnswer, score, setScore, onComplete, answeredQuestions = [] }) {
+export default function FillBlanksMode({ content, currentIndex, userAnswer, setUserAnswer, showAnswer, setShowAnswer, score, setScore, onComplete, answeredQuestions = [], checkAnswer }) {
   const { darkMode } = useSettings();
   const cardBg = darkMode ? 'bg-gray-800' : 'bg-white';
   const cardText = darkMode ? 'text-gray-200' : 'text-gray-800';
@@ -135,12 +135,15 @@ export default function FillBlanksMode({ content, currentIndex, userAnswer, setU
           />
           <button
             onClick={() => {
-              setShowAnswer(true);
-              // Check if correct and increment score
-              if (
-                userAnswer.toLowerCase().trim() === answerText.toLowerCase().trim()
-              ) {
-                setScore(score + 1);
+              // Delegate checking to parent if provided so parent can mark this question answered
+              if (typeof checkAnswer === 'function') {
+                checkAnswer()
+              } else {
+                // Fallback: local behavior
+                setShowAnswer(true);
+                if (userAnswer.toLowerCase().trim() === answerText.toLowerCase().trim()) {
+                  setScore(score + 1);
+                }
               }
             }}
             disabled={!userAnswer.trim() || showAnswer}

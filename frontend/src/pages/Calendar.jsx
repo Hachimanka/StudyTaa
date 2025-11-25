@@ -580,6 +580,10 @@ const formatOCRText = (rawText) => {
         }
       }
     }
+  });
+
+  return processedLines.join('\n');
+};
 
 // Additional image-specific OCR cleanup to fix common OCR artifacts
 const enhanceImageOCRText = (text) => {
@@ -742,33 +746,9 @@ const extractDayEventPairs = (text, fileName) => {
 // Comprehensive AI text preprocessing to capture ALL dates
 const preprocessTextForAI = (text) => {
   if (!text) return '';
-  
-  // Extract ALL structured information
-  const lines = text.split('\n');
-  const structuredData = {
-    dateContent: [],
-    tableRows: [],
-    timeInfo: [],
-    textLines: []
-  };
-  
-  lines.forEach(line => {
-    if (line.startsWith('DATE_CONTENT:')) {
-      structuredData.dateContent.push(line.substring(13).trim());
-    } else if (line.startsWith('TABLE_ROW:')) {
-      structuredData.tableRows.push(line.substring(10).trim());
-    } else if (line.startsWith('TIME_INFO:')) {
-      structuredData.timeInfo.push(line.substring(10).trim());
-    } else if (line.startsWith('TEXT:')) {
-      structuredData.textLines.push(line.substring(5).trim());
-    } else if (line.trim()) {
-      structuredData.textLines.push(line.trim());
-    }
-  });
-
-  const result = processedLines.join('\n');
-  console.log('[OCR] Processed text for AI:', result.substring(0, 1000));
-  return result;
+  const formatted = formatOCRText(text);
+  console.log('[OCR] Processed text for AI:', (formatted || '').substring(0, 1000));
+  return formatted;
 };
 
 // Comprehensive fallback extraction that catches ALL dates
@@ -1404,17 +1384,7 @@ export default function Calendar(){
         fileText = await readExcelFile(file);
       }
       
-      let fileText = '';
-      try {
-        const imgRes = await axios.post('/api/image/ocr', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        let rawText = imgRes.data.text;
-        fileText = formatOCRText(rawText);
-      } catch (error) {
-        console.warn('OCR extraction failed');
-        fileText = `[Image file: ${file.name} - Text extraction not available]`;
-      }
+      // fileText was already set by the branch-specific handlers above
 
       if (!fileText || fileText.trim().length < 10) {
         setNotification({ message: `Image uploaded but no readable text found in ${file.name}`, type: 'error' });
@@ -1556,7 +1526,12 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
         if (Array.isArray(rangeEvents) && rangeEvents.length) {
           aiEvents = [...aiEvents, ...rangeEvents];
         }
-      });
+      } catch (_) {
+        // ignore range extraction errors, we'll fall back to other methods
+      }
+
+      // Collate events without duplicates using a map
+      const allEventsMap = new Map();
 
       // Add AI events (may have better titles)
       aiEvents.forEach(event => {

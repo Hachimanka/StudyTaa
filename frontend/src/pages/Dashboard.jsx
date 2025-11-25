@@ -437,7 +437,9 @@ export default function Home() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-5xl font-bold">
-            {fullName ? `Welcome back, ${fullName}!` : "Welcome back!"}
+            <span className={`inline-block bg-clip-text text-transparent bg-gradient-to-r ${themeColors.gradient}`} style={{ WebkitBackgroundClip: 'text', backgroundImage: themeColors.gradientCss || undefined }}>
+              {fullName ? `Welcome back, ${fullName}!` : "Welcome back!"}
+            </span>
           </h1>
           <p
             className={`mt-1 text-xl ${

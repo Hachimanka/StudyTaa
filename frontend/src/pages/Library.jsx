@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import ChatWidget from '../components/ChatWidget';
 import { useAuth } from '../context/AuthContext';
@@ -330,10 +330,10 @@ const ConfirmModal = memo(function ConfirmModal({
   const { getThemeColors } = useSettings();
   const theme = getThemeColors();
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className={`absolute inset-0 bg-transparent transition-opacity duration-200 ${show ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 backdrop-blur-sm bg-black/20 transition-opacity duration-200 ${show ? 'opacity-100' : 'opacity-0'}`}
         onClick={onCancel}
       />
       <div
@@ -364,7 +364,8 @@ const ConfirmModal = memo(function ConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 });
 
@@ -374,6 +375,15 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
   const [showFolderInput, setShowFolderInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
+  // Hidden inputs to trigger native pickers (fixes broken icon/context menu actions)
+  const hiddenFileInputRef = useRef(null);
+  // Modal for creating a new subfolder
+  const [subfolderModalOpen, setSubfolderModalOpen] = useState(false);
+  const [subfolderName, setSubfolderName] = useState('');
+  // Folder upload modal
+  const [folderUploadModalOpen, setFolderUploadModalOpen] = useState(false);
+  const [folderUploadFile, setFolderUploadFile] = useState(null);
+  const [folderUploadLoading, setFolderUploadLoading] = useState(false);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, type: null, payload: null });
@@ -440,7 +450,7 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
           <div className="flex items-center gap-2">
             <button
               title="Upload File"
-              onClick={() => setShowFileInput(true)}
+              onClick={() => { setFolderUploadModalOpen(true); setFolderUploadFile(null); }}
               className="p-1.5 rounded bg-white border border-transparent hover:border-slate-100"
               style={{ color: theme.primaryHex }}
             >
@@ -450,10 +460,9 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
                 <line x1="12" y1="5" x2="12" y2="19"></line>
               </svg>
             </button>
-
             <button
               title="New Folder"
-              onClick={() => setShowFolderInput(true)}
+              onClick={() => setSubfolderModalOpen(true)}
               className="p-1.5 rounded bg-white border border-transparent hover:border-slate-100"
               style={{ color: theme.primaryHex }}
             >
@@ -696,17 +705,35 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
           )}
           {contextMenu.type === 'folder' && (
             <div>
-              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setShowFileInput(true); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Upload File</button>
-              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setShowFolderInput(true); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>New Folder</button>
+              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); setFolderUploadModalOpen(true); setFolderUploadFile(null); }}>Upload File</button>
+              <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); setSubfolderModalOpen(true); }}>New Folder</button>
               <button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { if (onRename) onRename(contextMenu.payload, 'folder'); setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); }}>Rename Folder</button>
               {level > 0 && (
-                <button className="w-full text-left px-3 py-2 hover:bg-gray-100" style={{ color: theme.primaryHex }} onClick={() => { setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); openConfirm(`Delete folder "${folder.name}" and all contents?`, () => onDeleteFolder(folder.id)); }}>Delete Folder</button>
+                <button className="w-full text-left px-3 py-2 hover:bg-gray-100" style={{ color: theme.primaryHex }} onClick={() => { setContextMenu({ visible: false, x:0,y:0,type:null,payload:null }); openConfirm(`Delete folder \"${folder.name}\" and all contents?`, () => onDeleteFolder(folder.id)); }}>Delete Folder</button>
               )}
             </div>
           )}
         </div>,
         document.body
       )}
+      {/* Hidden file input for direct icon/context menu uploads */}
+      <input
+        type="file"
+        ref={hiddenFileInputRef}
+        style={{ display: 'none' }}
+        onChange={async (e) => {
+          const f = e.target.files && e.target.files[0];
+          if (f) {
+            try {
+              await onAddFile(folder.id, f);
+            } catch (err) {
+              console.error('Upload failed:', err);
+            } finally {
+              e.target.value = '';
+            }
+          }
+        }}
+      />
       <ConfirmModal
         isOpen={confirmState.open}
         title="Confirm Delete"
@@ -729,6 +756,68 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
         loading={confirmLoading}
         loadingText="Deleting..."
       />
+      {subfolderModalOpen && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/20" onMouseDown={(e)=>{ if(e.target === e.currentTarget) { setSubfolderModalOpen(false); setSubfolderName(''); }}}>
+          <div className="bg-white rounded-lg shadow-xl border border-gray-200 w-full max-w-sm animate-fade-left" onMouseDown={(e)=>e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">New Subfolder</h3>
+              <button className="p-2 rounded hover:bg-gray-100" onClick={()=>{ setSubfolderModalOpen(false); setSubfolderName(''); }}>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/></svg>
+              </button>
+            </div>
+            <form onSubmit={async (e)=>{ e.preventDefault(); if(!subfolderName.trim()) return; try { await onAddFolder(folder.id, subfolderName.trim()); } finally { setSubfolderModalOpen(false); setSubfolderName(''); } }} className="p-4">
+              <label className="text-sm text-gray-600">Folder name</label>
+              <input
+                type="text"
+                value={subfolderName}
+                onChange={(e)=>setSubfolderName(e.target.value)}
+                autoFocus
+                className="mt-2 w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter folder name"
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button type="button" onClick={()=>{ setSubfolderModalOpen(false); setSubfolderName(''); }} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
+                <button type="submit" disabled={!subfolderName.trim()} className="px-4 py-2 rounded-lg disabled:opacity-50" style={{ background: theme.gradientCss, color: '#fff' }}>Create</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+      {folderUploadModalOpen && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/20" onMouseDown={(e)=>{ if(e.target === e.currentTarget && !folderUploadLoading){ setFolderUploadModalOpen(false); setFolderUploadFile(null);} }}>
+          <div className="bg-white rounded-lg shadow-xl border border-gray-200 w-full max-w-md animate-fade-left" onMouseDown={(e)=>e.stopPropagation()}>
+            <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Upload File</h3>
+              <button className="p-2 rounded hover:bg-gray-100" onClick={()=>{ if(folderUploadLoading) return; setFolderUploadModalOpen(false); setFolderUploadFile(null); }}>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/></svg>
+              </button>
+            </div>
+            <form onSubmit={async (e)=>{ e.preventDefault(); if(!folderUploadFile || folderUploadLoading) return; try { setFolderUploadLoading(true); await onAddFile(folder.id, folderUploadFile); setFolderUploadModalOpen(false); setFolderUploadFile(null);} catch(err){ console.error('Folder upload failed:', err);} finally { setFolderUploadLoading(false);} }} className="p-5">
+              <p className="text-sm text-gray-600 mb-4">Upload to: <span className="font-medium">{folder.name}</span></p>
+              <div className="mb-4">
+                <input
+                  type="file"
+                  onChange={(e)=>setFolderUploadFile(e.target.files && e.target.files[0])}
+                  className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors focus:outline-none focus:border-blue-500"
+                  disabled={folderUploadLoading}
+                />
+              </div>
+              {folderUploadFile && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                  <strong>Selected:</strong> {folderUploadFile.name}
+                  <div className="text-xs text-gray-500">Size: {(folderUploadFile.size/1024).toFixed(1)} KB</div>
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={()=>{ if(folderUploadLoading) return; setFolderUploadModalOpen(false); setFolderUploadFile(null); }} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50" disabled={folderUploadLoading}>Cancel</button>
+                <button type="submit" disabled={!folderUploadFile || folderUploadLoading} className="px-4 py-2 rounded-lg disabled:opacity-50" style={{ background: theme.gradientCss, color:'#fff' }}>{folderUploadLoading ? 'Uploading...' : 'Upload'}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 });

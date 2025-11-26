@@ -135,6 +135,9 @@ const generateContentFromFile = async (mode, fileContent, itemCount = null) => {
   }
 };
 
+// Maximum items we allow the AI to generate in a single request to avoid prompt and runtime errors
+const MAX_GENERATED_ITEMS = 50;
+
 export default function FileBasedStudyApp() {
   const { 
     darkMode, 
@@ -181,6 +184,7 @@ export default function FileBasedStudyApp() {
   });
   const [showHistory, setShowHistory] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [savedSessionRecorded, setSavedSessionRecorded] = useState(false);
   const [viewedQuestions, setViewedQuestions] = useState(new Set());
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
   // Track which wheel indices have been answered so they can be removed/disabled
@@ -709,6 +713,41 @@ export default function FileBasedStudyApp() {
     }
   }, [isCompleted]);
 
+  // Persist completed study session summaries so Dashboard can evaluate mode-specific badges
+  useEffect(() => {
+    if (!isCompleted) return;
+    if (savedSessionRecorded) return;
+    // Only persist when there was meaningful activity
+    if (!sessionStats || sessionStats.reviewedCount <= 0) return;
+
+    try {
+      const key = 'studyModeSessions';
+      const raw = localStorage.getItem(key) || '[]';
+      const arr = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+      const entry = {
+        mode: activeMode,
+        reviewedCount: sessionStats.reviewedCount || 0,
+        correctCount: sessionStats.correctCount || 0,
+        accuracy: sessionStats.accuracy || 0,
+        timeElapsed: sessionStats.timeElapsed || 0,
+        longestStreak: sessionStats.longestStreak || 0,
+        timestamp: Date.now()
+      };
+      arr.unshift(entry);
+      // keep a reasonable history
+      const next = arr.slice(0, 500);
+      localStorage.setItem(key, JSON.stringify(next));
+      // also increment the global session tracker (minutes)
+      try {
+        const minutes = Math.round((sessionStats.timeElapsed || 0) / 60000);
+        if (typeof incrementStudySession === 'function') incrementStudySession(minutes);
+      } catch (e) {}
+      setSavedSessionRecorded(true);
+    } catch (e) {
+      console.warn('Failed to persist studyModeSessions', e);
+    }
+  }, [isCompleted]);
+
   // Save current study content to history
   const saveCurrentStudySet = () => {
     if (content.length === 0 || !activeMode) {
@@ -852,10 +891,28 @@ export default function FileBasedStudyApp() {
 
   const handleGenerateWithCount = async () => {
     const mode = countPromptMode;
-    const count = parseInt(countInput, 10);
+    let count = parseInt(countInput, 10);
     setShowCountPrompt(false);
     setSuppressAutoLoad(false);
     if (!mode) return;
+    // Validate count
+    if (isNaN(count)) {
+      count = null;
+    } else {
+      if (count < 1) {
+        showModal('Please enter a number greater than 0.', 'Invalid Count');
+        setCountPromptMode(null);
+        setCountInput('');
+        return;
+      }
+      if (count > MAX_GENERATED_ITEMS) {
+        showModal(`Requested count exceeds the maximum allowed (${MAX_GENERATED_ITEMS}). Please enter a smaller number.`, 'Count Too Large');
+        // Do not proceed when requested count is too large
+        setCountPromptMode(null);
+        setCountInput('');
+        return;
+      }
+    }
     // Ensure we set the active mode and explicitly load content with the desired count
     setActiveMode(mode);
     await loadContentFromFile(mode, fileContent, isNaN(count) ? null : count);
@@ -2218,6 +2275,7 @@ export default function FileBasedStudyApp() {
               score={score}
               setScore={setScore}
               onComplete={(completed) => setIsCompleted(completed)}
+              checkAnswer={checkFillBlankAnswer}
               answeredQuestions={answeredQuestions}
             />
             {content.length > 0 && (
@@ -2350,15 +2408,17 @@ export default function FileBasedStudyApp() {
                 <div className={`w-full max-w-md p-6 rounded-xl ${cardBg} ${cardText} shadow-lg`}> 
                   <h3 className="text-lg font-semibold mb-2">How many items to generate?</h3>
                   <p className="text-sm mb-4">Enter the number of items you want the AI to produce for this study mode.</p>
-                  <div className="mb-4">
+                    <div className="mb-4">
                     <input
                       type="number"
                       min="1"
+                      max={MAX_GENERATED_ITEMS}
                       value={countInput}
                       onChange={(e) => setCountInput(e.target.value)}
                       className={`w-full p-3 border-2 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-gray-800'}`}
                       placeholder="e.g. 10"
                     />
+                    <p className="text-xs mt-2 text-gray-500">Maximum allowed: {MAX_GENERATED_ITEMS} items.</p>
                   </div>
                   <div className="flex justify-end gap-3">
                     <button onClick={() => { setShowCountPrompt(false); setCountPromptMode(null); setSuppressAutoLoad(false); }} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>

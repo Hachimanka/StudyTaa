@@ -345,7 +345,7 @@ export default function Summarize() {
             {/* Enhanced Tab Buttons */}
             <div className={`flex gap-1 mb-6 p-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg`}>
               <button
-                className={`flex-1 px-4 py-2 text-base font-medium rounded-md transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center px-4 py-2 text-base font-medium rounded-md transition-all duration-200 ${
                   activeTab === "text"
                     ? `bg-gradient-to-r ${themeColors.gradient} text-white shadow-md transform scale-105`
                     : `${darkMode ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-600 hover:bg-white'} hover:shadow-sm`
@@ -358,7 +358,7 @@ export default function Summarize() {
                 Text Input
               </button>
               <button
-                className={`flex-1 px-4 py-2 text-base font-medium rounded-md transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center px-4 py-2 text-base font-medium rounded-md transition-all duration-200 ${
                   activeTab === "file"
                     ? `bg-gradient-to-r ${themeColors.gradient} text-white shadow-md transform scale-105`
                     : `${darkMode ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-600 hover:bg-white'} hover:shadow-sm`
@@ -429,14 +429,15 @@ export default function Summarize() {
               <div className="space-y-4">
                   {!selectedFile ? (
                   <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300`} style={{ borderColor: 'var(--glass-border)', background: 'var(--surface)' }}>
-                    <div className="space-y-4">
-                        <div className={`mx-auto w-16 h-16 bg-gradient-to-r ${themeColors.gradient} rounded-2xl flex items-center justify-center transform hover:scale-110 transition-transform duration-200`}>
-                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <div className="flex flex-col items-center gap-4">
+                      <div className={`w-20 h-20 flex-shrink-0 bg-gradient-to-r ${themeColors.gradient} rounded-2xl flex items-center justify-center transform hover:scale-110 transition-transform duration-200`}> 
+                        <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v7m0 0l3-3m-3 3l-3-3" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                         </svg>
                       </div>
-                      <div>
+
+                      <div className="text-center">
                         <p className={`text-lg font-semibold mb-1`} style={{ color: 'var(--text)' }}>Upload Any Document</p>
                         <p className={`text-base mb-2`} style={{ color: 'var(--muted)' }}>Drag & drop or click to browse</p>
                         <div className="flex flex-wrap justify-center gap-1 text-sm text-gray-500 mb-3">
@@ -450,7 +451,8 @@ export default function Summarize() {
                         </div>
                         <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Maximum file size: 20MB</p>
                       </div>
-                        <label className="inline-block">
+
+                      <label className="inline-block mt-2">
                         <input
                           type="file"
                           accept=".pdf,.txt,.doc,.docx,.csv,.json,.md,.html,.htm"

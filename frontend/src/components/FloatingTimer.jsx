@@ -6,7 +6,12 @@ export default function FloatingTimer() {
   const { timeLeft, timerDurationMinutes, isTimerRunning, toggleTimer, resetTimer } = useMusicPlayer()
   const { getThemeColors } = useSettings()
   const theme = getThemeColors()
-  const [visible, setVisible] = useState(true)
+  const [visible, setVisible] = useState(() => {
+    try {
+      const s = localStorage.getItem('floatingTimerVisible')
+      return s === null ? true : s === 'true'
+    } catch (e) { return true }
+  })
   const [minimized, setMinimized] = useState(false)
   const [pos, setPos] = useState(() => {
     try {
@@ -24,8 +29,22 @@ export default function FloatingTimer() {
 
   // cleanup on unmount
   useEffect(() => {
+    const onVisibility = (e) => {
+      try {
+        if (e && e.detail && typeof e.detail.visible === 'boolean') {
+          setVisible(Boolean(e.detail.visible))
+        } else {
+          const s = localStorage.getItem('floatingTimerVisible')
+          setVisible(s === null ? true : s === 'true')
+        }
+      } catch (err) {}
+    }
+
+    window.addEventListener('floatingTimerVisibility', onVisibility)
+
     return () => {
       try {
+        window.removeEventListener('floatingTimerVisibility', onVisibility)
         if (moveHandlerRef.current) window.removeEventListener('mousemove', moveHandlerRef.current)
         if (upHandlerRef.current) window.removeEventListener('mouseup', upHandlerRef.current)
         if (moveHandlerRef.current) window.removeEventListener('touchmove', moveHandlerRef.current)
@@ -125,7 +144,7 @@ export default function FloatingTimer() {
                 {minimized ? '▣' : '—'}
               </button>
               <button
-                onClick={(e) => { e.stopPropagation(); setVisible(false) }}
+                onClick={(e) => { e.stopPropagation(); setVisible(false); try { localStorage.setItem('floatingTimerVisible','false'); window.dispatchEvent(new CustomEvent('floatingTimerVisibility',{detail:{visible:false}})) } catch(e){} }}
                 className="px-2 py-1 rounded text-xs"
                 title="Close"
                 style={{ background: '#fff0f0', color: '#c53030', border: `1px solid ${theme.primaryHex}` }}

@@ -1,4 +1,4 @@
-﻿﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import Sidebar from "../components/Sidebar";
@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom'
 
 export default function Home() {
   const { user } = useAuth();
-  const { darkMode, studyStats, profileName, getThemeColors } = useSettings();
+  const { darkMode, studyStats, profileName, getThemeColors, sessionHistory, updateStudyStats, playSound } = useSettings();
   const [fullName, setFullName] = useState("");
   const [libraryStats, setLibraryStats] = useState({
     totalFiles: 0,
@@ -18,6 +18,10 @@ export default function Home() {
   const [recentActivities, setRecentActivities] = useState([]);
   const [weeklyProgress, setWeeklyProgress] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [derivedStreak, setDerivedStreak] = useState(studyStats?.streak || 0);
+  const [derivedTotalMinutes, setDerivedTotalMinutes] = useState(studyStats?.totalTime || 0);
+  const [toast, setToast] = useState(null);
+  const [selectedBadge, setSelectedBadge] = useState(null);
 
   // Fetch library statistics
   const fetchLibraryStats = async () => {
@@ -112,13 +116,202 @@ export default function Home() {
   // Generate weekly progress data
   const generateWeeklyProgress = () => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const progress = days.map((day, index) => ({
-      day,
-      sessions: Math.floor(Math.random() * 5) + 1, // Mock data for now
-      minutes: Math.floor(Math.random() * 120) + 30
-    }));
-    setWeeklyProgress(progress);
+    // Determine Monday of current week
+    const now = new Date()
+    const dayIdx = now.getDay() // 0 (Sun) .. 6 (Sat)
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - ((dayIdx + 6) % 7))
+
+    const progress = days.map((day, i) => {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+      const end = start + 24 * 60 * 60 * 1000
+
+      const minutes = (sessionHistory || []).reduce((sum, s) => {
+        const ts = Number(s?.ts) || 0
+        if (ts >= start && ts < end) return sum + (Number(s?.minutes) || 0)
+        return sum
+      }, 0)
+
+      const sessions = (sessionHistory || []).filter(s => {
+        const ts = Number(s?.ts) || 0
+        return ts >= start && ts < end
+      }).length
+
+      return {
+        day,
+        sessions,
+        minutes
+      }
+    })
+
+    setWeeklyProgress(progress)
   };
+
+  // --- Badges / Achievements ---
+  const BADGES = [
+    { id: 'perfect-quiz', title: 'Quiz Master', desc: 'Score 100% on a quiz session', type: 'perfectMode', mode: 'quiz' },
+    { id: 'perfect-truefalse', title: 'True/False Ace', desc: 'Score 100% on a True/False session', type: 'perfectMode', mode: 'trueFalse' },
+    { id: 'perfect-matching', title: 'Matching Pro', desc: 'Match all pairs correctly', type: 'perfectMode', mode: 'matching' },
+    { id: 'perfect-fillblanks', title: 'Blank Buster', desc: 'Score 100% on Fill-in-the-Blanks', type: 'perfectMode', mode: 'fillBlanks' },
+    { id: 'multi-perfect', title: 'Polyglot of Practice', desc: 'Get perfect sessions across 3 different study modes', type: 'aggregatePerfect', neededModes: 3 },
+    { id: 'first-session', title: 'First Session', desc: 'Complete your first study session', type: 'one-off' },
+    { id: '5-sessions', title: '5 Sessions', desc: 'Complete 5 study sessions', type: 'sessions', count: 5 },
+    { id: '10-sessions', title: '10 Sessions', desc: 'Complete 10 study sessions', type: 'sessions', count: 10 },
+    { id: 'first-summary', title: 'First Summary', desc: 'Create your first summary', type: 'one-off' },
+    { id: '10-summaries', title: '10 Summaries', desc: 'Create 10 summaries', type: 'summaries', count: 10 },
+    { id: 'first-upload', title: 'First Upload', desc: 'Upload your first file', type: 'one-off' },
+    { id: '10-uploads', title: '10 Uploads', desc: 'Upload 10 files to your library', type: 'uploads', count: 10 },
+    { id: '3-day-streak', title: '3-Day Streak', desc: 'Study 3 days in a row', type: 'streak', days: 3 },
+    { id: '7-day-streak', title: '7-Day Streak', desc: 'Study 7 days in a row', type: 'streak', days: 7 },
+    { id: '5-hours', title: '5 Hours', desc: 'Accumulate 5 hours of study', type: 'totalMinutes', minutes: 300 },
+    { id: '10-hours', title: '10 Hours', desc: 'Accumulate 10 hours of study', type: 'totalMinutes', minutes: 600 },
+    { id: 'single-30-min', title: 'Focused 30', desc: 'Study 30 minutes in a single session', type: 'singleSessionMinutes', minutes: 30 },
+    { id: '100-files', title: 'Library Power', desc: 'Have 100 files in your library', type: 'files', count: 100 }
+  ];
+
+  // Difficult / long-term badges (placed last)
+  BADGES.push(
+    { id: '30-day-streak', title: '30-Day Streak', desc: 'Study 30 days in a row', type: 'streak', days: 30 },
+    { id: '100-sessions', title: 'Century Club', desc: 'Complete 100 study sessions', type: 'sessions', count: 100 },
+    { id: '50-hours', title: '50 Hours', desc: 'Accumulate 50 hours of study', type: 'totalMinutes', minutes: 3000 },
+    { id: 'single-120-min', title: 'Marathon Session', desc: 'Study 120 minutes in a single session', type: 'singleSessionMinutes', minutes: 120 },
+    { id: 'master-collector', title: 'Master Collector', desc: 'Have 500 files in your library', type: 'files', count: 500 },
+    { id: 'perfect-all-modes', title: 'Omni-Perfect', desc: 'Get perfect sessions across all study modes', type: 'aggregatePerfectAll' }
+  );
+
+  const evaluateBadges = () => {
+    const unlockedSet = new Set((studyStats?.badges || []).map(b => b.id));
+    const newly = [];
+
+    // quick accessors
+    const hist = Array.isArray(sessionHistory) ? sessionHistory : [];
+    const totalMinutes = hist.reduce((s, e) => s + (Number(e?.minutes) || 0), 0);
+    const summaries = JSON.parse(localStorage.getItem('summaryHistory') || '[]');
+    const totalFiles = libraryStats?.totalFiles || 0;
+    const sessionsCount = hist.length;
+
+    // study mode session history persisted by Flashcards on completion
+    const modeSessions = JSON.parse(localStorage.getItem('studyModeSessions') || '[]');
+
+    // single session max
+    const maxSingle = hist.reduce((m, e) => Math.max(m, Number(e?.minutes) || 0), 0);
+
+    // one-off: first session / summary / upload
+    if (!unlockedSet.has('first-session') && sessionsCount > 0) newly.push('first-session');
+    if (!unlockedSet.has('first-summary') && summaries.length > 0) newly.push('first-summary');
+    if (!unlockedSet.has('first-upload') && totalFiles > 0) newly.push('first-upload');
+
+    // sessions count badges
+    if (!unlockedSet.has('5-sessions') && sessionsCount >= 5) newly.push('5-sessions');
+    if (!unlockedSet.has('10-sessions') && sessionsCount >= 10) newly.push('10-sessions');
+
+    // long-term / difficult session count
+    if (!unlockedSet.has('100-sessions') && sessionsCount >= 100) newly.push('100-sessions');
+
+    // summaries count
+    if (!unlockedSet.has('10-summaries') && summaries.length >= 10) newly.push('10-summaries');
+
+    // uploads / library size
+    if (!unlockedSet.has('10-uploads') && totalFiles >= 10) newly.push('10-uploads');
+    if (!unlockedSet.has('100-files') && totalFiles >= 100) newly.push('100-files');
+
+    // total minutes badges
+    if (!unlockedSet.has('5-hours') && totalMinutes >= 300) newly.push('5-hours');
+    if (!unlockedSet.has('10-hours') && totalMinutes >= 600) newly.push('10-hours');
+
+    // long-term total minutes
+    if (!unlockedSet.has('50-hours') && totalMinutes >= 3000) newly.push('50-hours');
+
+    // single session milestone
+    if (!unlockedSet.has('single-30-min') && maxSingle >= 30) newly.push('single-30-min');
+
+    // long single-session milestone
+    if (!unlockedSet.has('single-120-min') && maxSingle >= 120) newly.push('single-120-min');
+
+    // perfect-mode badges: check modeSessions for 100% accuracy entries
+    try {
+      const modesWithPerfect = new Set();
+      if (Array.isArray(modeSessions) && modeSessions.length > 0) {
+        modeSessions.forEach(s => {
+          if (!s || typeof s !== 'object') return;
+          const mode = s.mode;
+          const acc = Number(s.accuracy) || 0;
+          if (acc === 100 && mode) modesWithPerfect.add(mode);
+        });
+      }
+      // map to badge ids
+      const modeBadgeMap = {
+        quiz: 'perfect-quiz',
+        trueFalse: 'perfect-truefalse',
+        matching: 'perfect-matching',
+        fillBlanks: 'perfect-fillblanks'
+      };
+      modesWithPerfect.forEach(m => {
+        const bid = modeBadgeMap[m];
+        if (bid && !unlockedSet.has(bid)) newly.push(bid);
+      });
+
+      // aggregate badge: if user has perfect in N distinct modes
+      const needed = 3;
+      if (!unlockedSet.has('multi-perfect') && modesWithPerfect.size >= needed) newly.push('multi-perfect');
+
+      // very difficult: perfect across all known modes
+      // treat "all modes" as at least 4 distinct modes (current set)
+      if (!unlockedSet.has('perfect-all-modes') && modesWithPerfect.size >= 4) newly.push('perfect-all-modes');
+    } catch (e) {
+      // ignore mode session parsing errors
+    }
+
+    // streak calculation (local days)
+    const dayKeys = new Set(hist.map(s => {
+      const d = new Date(Number(s.ts));
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    }));
+    let streak = 0;
+    const today = new Date();
+    let cur = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    while (dayKeys.has(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`)) {
+      streak++; cur.setDate(cur.getDate() - 1);
+    }
+    if (!unlockedSet.has('3-day-streak') && streak >= 3) newly.push('3-day-streak');
+    if (!unlockedSet.has('7-day-streak') && streak >= 7) newly.push('7-day-streak');
+    if (!unlockedSet.has('30-day-streak') && streak >= 30) newly.push('30-day-streak');
+
+    return newly;
+  }
+
+  // Run badge evaluation when relevant data changes
+  useEffect(() => {
+    try {
+      const newly = evaluateBadges();
+      if (newly.length === 0) return;
+
+      const now = Date.now();
+      const newEntries = newly.map(id => ({ id, unlockedAt: now }));
+
+      // merge into studyStats.badges and persist via updateStudyStats
+      const existing = Array.isArray(studyStats?.badges) ? studyStats.badges : [];
+      const merged = [...existing, ...newEntries];
+      updateStudyStats({ badges: merged });
+
+      // small feedback: play success sound if available
+      try { playSound && playSound('success') } catch (e) {}
+
+      // show a toast for the first newly unlocked badge
+      try {
+        const firstId = newly[0];
+        const badgeMeta = BADGES.find(b => b.id === firstId) || { title: firstId };
+        setToast({ id: firstId, title: badgeMeta.title, time: now });
+        setTimeout(() => setToast(null), 4000);
+      } catch (e) {
+        // ignore
+      }
+    } catch (err) {
+      console.warn('Badge evaluation failed', err)
+    }
+  }, [sessionHistory, libraryStats?.totalFiles, loading]);
 
   useEffect(() => {
     async function fetchUserInfo() {
@@ -149,6 +342,47 @@ export default function Home() {
 
     loadDashboardData();
   }, [user, profileName]);
+
+  // Compute derived metrics from sessionHistory: total time and current streak
+  useEffect(() => {
+    const hist = Array.isArray(sessionHistory) ? sessionHistory : [];
+
+    // Total minutes
+    const total = hist.reduce((s, e) => s + (Number(e?.minutes) || 0), 0);
+    setDerivedTotalMinutes(total);
+
+    // Build a set of date keys (local calendar days) for sessions
+    const daySet = new Set();
+    hist.forEach(s => {
+      const ts = Number(s?.ts) || 0;
+      if (!ts) return;
+      const d = new Date(ts);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      daySet.add(key);
+    });
+
+    // Count consecutive days up to today
+    let streak = 0;
+    const today = new Date();
+    let cur = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    while (true) {
+      const key = `${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`;
+      if (daySet.has(key)) {
+        streak += 1;
+        cur.setDate(cur.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    setDerivedStreak(streak);
+  }, [sessionHistory]);
+
+  // Recompute weekly progress when session history updates
+  useEffect(() => {
+    if (!loading) {
+      generateWeeklyProgress();
+    }
+  }, [sessionHistory]);
 
   // Update activities when library stats change
   useEffect(() => {
@@ -195,13 +429,17 @@ export default function Home() {
       <Sidebar />
 
       {/* Main Dashboard */}
-      <main className="p-12 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300">
+      <main className="p-12 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300 min-w-0 overflow-x-visible pr-6">
         <ChatWidget />
+        {/* Local styles to hide scrollbars while keeping scrolling functional */}
+        <style>{`.hide-scrollbar::-webkit-scrollbar{display:none}.hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}`}</style>
         
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-5xl font-bold">
-            {fullName ? `Welcome back, ${fullName}!` : "Welcome back!"}
+            <span className={`inline-block bg-clip-text text-transparent bg-gradient-to-r ${themeColors.gradient}`} style={{ WebkitBackgroundClip: 'text', backgroundImage: themeColors.gradientCss || undefined }}>
+              {fullName ? `Welcome back, ${fullName}!` : "Welcome back!"}
+            </span>
           </h1>
           <p
             className={`mt-1 text-xl ${
@@ -214,12 +452,48 @@ export default function Home() {
           {/* Removed loading indicator per request */}
         </div>
 
+        {/* Achievements */}
+        <div className="mt-6">
+          <h3 className="text-xl font-semibold mb-3">Achievements</h3>
+          <div className="flex items-center gap-3 flex-nowrap overflow-x-auto hide-scrollbar py-2 pr-6">
+            {BADGES.map(b => {
+              const unlocked = (studyStats?.badges || []).some(x => x.id === b.id);
+              const clickableProps = unlocked ? {
+                role: 'button',
+                tabIndex: 0,
+                onClick: () => setSelectedBadge(b),
+                onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedBadge(b); }
+              } : { 'aria-disabled': true };
+              return (
+                <div
+                  key={b.id}
+                  {...clickableProps}
+                  className={`${unlocked ? 'cursor-pointer' : 'cursor-default opacity-70'} focus:outline-none ${unlocked ? 'focus:ring-2 focus:ring-offset-1' : ''} flex-shrink-0 flex items-center gap-2 p-2 rounded-lg ${unlocked ? 'border-transparent text-white' : (darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200')}`}
+                  style={unlocked ? { background: themeColors.gradientCss || `linear-gradient(to right, ${themeColors.primaryHex || themeColors.primary}, ${(themeColors.primaryHex || themeColors.primary)}dd)` } : undefined}
+                  title={b.desc}
+                >
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center ${unlocked ? 'bg-white/20' : 'bg-gray-100'}`}>
+                    {/* simple star icon */}
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={unlocked ? '#fff' : 'currentColor'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 17.3l-6.16 3.64 1.18-6.88L2 9.86l6.92-1L12 2l3.08 6.86L22 9.86l-5.02 4.2 1.18 6.88z" />
+                    </svg>
+                  </div>
+                  <div className="text-sm">
+                    <div className="font-medium">{b.title}</div>
+                    <div className={`text-xs ${unlocked ? 'text-white/90' : (darkMode ? 'text-gray-400' : 'text-gray-500')}`}>{unlocked ? 'Unlocked' : 'Locked'}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
         {/* Stats Section */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
           {[
             {
               label: "Study Streak",
-              value: `${studyStats.streak} Days`,
+              value: `${derivedStreak} Days`,
               color: "bg-orange-500",
               icon: (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -239,7 +513,7 @@ export default function Home() {
             },
             {
               label: "Total Time",
-              value: `${Math.floor(studyStats.totalTime / 60)}h ${studyStats.totalTime % 60}m`,
+              value: `${Math.floor(derivedTotalMinutes / 60)}h ${derivedTotalMinutes % 60}m`,
               color: "bg-green-500",
               icon: (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -272,6 +546,7 @@ export default function Home() {
                       <div className="space-y-2">
                         <div className="h-6 rounded bg-gray-200 w-28"></div>
                       </div>
+                      
                     </div>
                   </div>
                 </div>
@@ -383,7 +658,7 @@ export default function Home() {
             <div className="space-y-4">
               <Link to="/summarize">
                 <button
-                  className="flex items-center w-full rounded-xl p-4 transition-colors hover-bounce"
+                  className="flex items-start justify-start gap-4 w-full rounded-xl p-4 transition-colors hover-bounce"
                   style={{
                     backgroundColor: darkMode 
                       ? `${themeColors.primary}20`
@@ -401,7 +676,7 @@ export default function Home() {
                       : `${themeColors.primary}15`;
                   }}
                 >
-                  <div className="quick-icon mr-1" style={{ color: themeColors.primary }}>
+                  <div className="quick-icon w-10 h-10 flex-none flex items-start justify-start rounded-md" style={{ color: themeColors.primary }}>
                     {/* Document / summary icon (simple, aesthetic) */}
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -409,9 +684,9 @@ export default function Home() {
                       <path d="M8 12h8M8 16h8" strokeOpacity="0.9"></path>
                     </svg>
                   </div>
-                  <div>
-                    <p className="font-semibold">Create Summary</p>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="font-semibold m-0 leading-tight">Create Summary</p>
+                    <p className={`text-sm m-0 leading-tight ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                       Summarize a new content
                     </p>
                   </div>
@@ -420,7 +695,7 @@ export default function Home() {
 
               <Link to="/flashcards">
                 <button
-                  className="flex items-center w-full rounded-xl p-4 transition-colors hover-bounce"
+                  className="flex items-start justify-start gap-4 w-full rounded-xl p-4 transition-colors hover-bounce"
                   style={{
                     backgroundColor: darkMode ? `${themeColors.primary}20` : `${themeColors.primary}15`,
                     border: `1px solid ${themeColors.primary}33`
@@ -432,7 +707,7 @@ export default function Home() {
                     e.currentTarget.style.backgroundColor = darkMode ? `${themeColors.primary}20` : `${themeColors.primary}15`;
                   }}
                 >
-                  <div className="quick-icon mr-1" style={{ color: themeColors.primary }}>
+                  <div className="quick-icon w-10 h-10 flex-none flex items-center justify-center rounded-md" style={{ color: themeColors.primary }}>
                     {/* Stack of cards icon */}
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="7" width="14" height="12" rx="2"></rect>
@@ -440,9 +715,9 @@ export default function Home() {
                       <rect x="7" y="3" width="14" height="12" rx="2" opacity="0.06"></rect>
                     </svg>
                   </div>
-                  <div>
-                    <p className="font-semibold">Make Flashcards</p>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="font-semibold m-0 leading-tight">Make Flashcards</p>
+                    <p className={`text-sm m-0 leading-tight ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                       Generate study cards
                     </p>
                   </div>
@@ -451,7 +726,7 @@ export default function Home() {
 
               <Link to="/library">
                 <button
-                  className="flex items-center w-full rounded-xl p-4 transition-colors hover-bounce"
+                  className="flex items-start justify-start gap-4 w-full rounded-xl p-4 transition-colors hover-bounce"
                   style={{
                     backgroundColor: darkMode 
                       ? `${themeColors.primary}20`
@@ -469,15 +744,15 @@ export default function Home() {
                       : `${themeColors.primary}15`;
                   }}
                 >
-                  <div className="quick-icon mr-1" style={{ color: themeColors.primary }}>
+                  <div className="quick-icon w-10 h-10 flex-none flex items-center justify-center rounded-md" style={{ color: themeColors.primary }}>
                     {/* Folder icon */}
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                     </svg>
                   </div>
-                  <div>
-                    <p className="font-semibold">Browse Library</p>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="font-semibold m-0 leading-tight">Browse Library</p>
+                    <p className={`text-sm m-0 leading-tight ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                       Access your files
                     </p>
                   </div>
@@ -636,6 +911,56 @@ export default function Home() {
             )}
           </div>
         </div>
+      {/* Toast: shows when a badge is unlocked */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50" aria-live="polite" role="status">
+          <div className="max-w-xs rounded-lg shadow-lg overflow-hidden border p-3 flex items-center gap-3" style={{ background: darkMode ? '#0f172a' : '#ffffff' }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-green-500 text-white">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 17.3l-6.16 3.64 1.18-6.88L2 9.86l6.92-1L12 2l3.08 6.86L22 9.86l-5.02 4.2 1.18 6.88z" />
+              </svg>
+            </div>
+            <div>
+              <div className="font-semibold">Congratulations! 🎉👏</div>
+              <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{toast.title} 🎊</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Badge details modal */}
+      {selectedBadge && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelectedBadge(null)} />
+          <div className={`relative w-full max-w-md p-6 rounded-xl shadow-lg ${darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`} role="dialog" aria-modal="true">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-yellow-400 text-white">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 17.3l-6.16 3.64 1.18-6.88L2 9.86l6.92-1L12 2l3.08 6.86L22 9.86l-5.02 4.2 1.18 6.88z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className={`text-sm font-semibold ${darkMode ? 'text-green-300' : 'text-green-600'}`}>🎉 Congratulations!</div>
+                    <h4 className="text-lg font-semibold">{selectedBadge.title}</h4>
+                  </div>
+                  <button onClick={() => setSelectedBadge(null)} className="ml-3 text-sm text-gray-500 hover:text-gray-700">Close</button>
+                </div>
+                <p className={`mt-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{selectedBadge.desc}</p>
+                <div className="mt-4 text-xs text-gray-400">
+                  {(() => {
+                    const entry = (studyStats?.badges || []).find(b => b.id === selectedBadge.id);
+                    if (entry) return `Unlocked: ${new Date(entry.unlockedAt).toLocaleString()}`;
+                    return 'Locked';
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       </main>
     </div>
   );

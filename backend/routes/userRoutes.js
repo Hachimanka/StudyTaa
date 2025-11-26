@@ -4,8 +4,10 @@ import { sendVerificationEmail } from "../utils/sendVerificationEmail.js";
 
 import mongoose from "mongoose";
 import Users from "../models/Users.js";
+import Session from '../models/Session.js';
 import bcrypt from "bcryptjs";
 import express from "express";
+import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 // Temporary store for pending verifications (use DB for production)
@@ -226,4 +228,36 @@ router.get("/users", async (req, res) => {
   }
 });
 
+// Persist a study session for the authenticated user
+router.post('/sessions', verifyToken, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { ts, minutes, meta } = req.body;
+    const timestamp = Number(ts) || Date.now();
+    const mins = Number(minutes) || 0;
+
+    const session = new Session({ userId, ts: timestamp, minutes: mins, meta: meta || {} });
+    await session.save();
+
+    res.status(201).json({ message: 'Session saved', session });
+  } catch (err) {
+    console.error('Error saving session:', err);
+    res.status(500).json({ error: 'Failed to save session' });
+  }
+});
+
+// Get sessions for authenticated user (most recent first)
+router.get('/sessions', verifyToken, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const sessions = await Session.find({ userId }).sort({ ts: -1 }).limit(1000);
+    res.json(sessions);
+  } catch (err) {
+    console.error('Error fetching sessions:', err);
+    res.status(500).json({ error: 'Failed to fetch sessions' });
+  }
+});
+
 export default router;
+
+

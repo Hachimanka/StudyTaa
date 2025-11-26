@@ -184,31 +184,50 @@ export default function Summarize() {
         try {
           // Ensure a folder named 'Summaries' exists for this user
           const ensureSummariesFolder = async () => {
+            // First, attempt to query authenticated folders list which returns raw folder documents.
+            // This is the most reliable way to detect an existing top-level 'Summaries' folder and avoid creating duplicates.
             try {
-              // Try to fetch library structure to find existing folder
-              const libRes = await axios.get(`${API_BASE}/api/library/${user._id}`);
-              if (libRes && libRes.data) {
-                const findFolder = (folders) => {
-                  for (const f of folders || []) {
-                    if (f.name === 'Summaries') return f;
-                    const sub = findFolder(f.folders || []);
-                    if (sub) return sub;
-                  }
-                  return null;
-                };
-                const found = findFolder(libRes.data.folders || []);
-                if (found) return found.id || found._id || found.id === undefined ? (found.id || found._id) : null;
+              if (token) {
+                const headers = { Authorization: `Bearer ${token}` };
+                const foldersRes = await axios.get(`${API_BASE}/api/library/folders`, { headers });
+                if (foldersRes && Array.isArray(foldersRes.data)) {
+                  // Look for a top-level folder named 'Summaries' (case-insensitive)
+                  const found = foldersRes.data.find(f => f && typeof f.name === 'string' && f.name.toLowerCase() === 'summaries' && (!f.parentFolderId || f.parentFolderId === 'root'));
+                  if (found) return found._id || found.id || null;
+                }
               }
-            } catch (e) {
-              // ignore and attempt folder creation
+            } catch (err) {
+              // If authenticated endpoint fails (no token/401), fall back to public library endpoint
+              try {
+                const libRes = await axios.get(`${API_BASE}/api/library/${user._id}`);
+                if (libRes && libRes.data) {
+                  const findFolder = (folders) => {
+                    for (const f of folders || []) {
+                      if (typeof f.name === 'string' && f.name.toLowerCase() === 'summaries') return f;
+                      const sub = findFolder(f.folders || f.children || []);
+                      if (sub) return sub;
+                    }
+                    return null;
+                  };
+                  const rootFolders = libRes.data.folders || libRes.data.children || libRes.data || [];
+                  const found = findFolder(rootFolders);
+                  if (found) return found._id || found.id || null;
+                }
+              } catch (e) {
+                // ignore and attempt folder creation
+              }
             }
 
-            // Create folder via API (requires auth)
+            // If not found, create folder via authenticated endpoint (requires auth)
             try {
+              if (!token) return null;
               const createRes = await axios.post(`${API_BASE}/api/library/folders`, { name: 'Summaries', parentFolderId: null }, {
                 headers: { Authorization: `Bearer ${token}` }
               });
-              if (createRes && createRes.data) return createRes.data.folder?.id || createRes.data._id || createRes.data.id || (createRes.data.id ?? null);
+              if (createRes && createRes.data) {
+                // createRes.data is the created folder document
+                return createRes.data._id || createRes.data.id || null;
+              }
             } catch (err) {
               console.error('Failed to create Summaries folder:', err);
             }
@@ -221,6 +240,8 @@ export default function Summarize() {
           const filename = (downloadName && downloadName.trim()) ? downloadName.trim() : `summary-${Date.now()}.txt`;
           form.append('file', blob, filename);
           if (folderId) form.append('folderId', folderId);
+
+          // Uploading into the Summaries folder; do not delete existing files — simply add the new file into the folder
 
           const res = await axios.post(`${API_BASE}/api/library/upload`, form, {
             headers: {
@@ -256,6 +277,7 @@ export default function Summarize() {
         date: new Date().toISOString(),
         folder: 'Summaries'
       };
+      // Always add the new summary into the Summaries folder (do not delete or replace existing files)
       arr.push(fileObj);
       localStorage.setItem(APP_DOWNLOADS_KEY, JSON.stringify(arr));
       setAppSaveSuccess(true);

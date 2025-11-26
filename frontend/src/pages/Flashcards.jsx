@@ -268,6 +268,7 @@ export default function FileBasedStudyApp() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
   const aiRequestTimer = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Auto match when both selected
   useEffect(() => {
@@ -370,8 +371,60 @@ export default function FileBasedStudyApp() {
   };
 
   const triggerFileInput = () => {
-    const fileInput = document.querySelector('input[type="file"]');
-    if (fileInput) fileInput.click();
+    // Instead of directly opening the file picker, show the source modal
+    // so users can choose between local file or app library.
+    setShowSourceModal(true);
+  };
+
+  // Modal flow: choose local file or pick from app library
+  const [showSourceModal, setShowSourceModal] = useState(false);
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [libraryFiles, setLibraryFiles] = useState([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+
+  const API_BASE = import.meta.env.VITE_API_BASE || '';
+
+  const openLocalFilePicker = () => {
+    setShowSourceModal(false);
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const openAppLibrary = async () => {
+    setShowSourceModal(false);
+    setLibraryLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_BASE}/api/library/files`, { headers: { Authorization: `Bearer ${token}` } });
+      // backend returns an array of files; store for selection
+      setLibraryFiles(Array.isArray(res.data) ? res.data : []);
+      setShowLibraryModal(true);
+    } catch (e) {
+      console.error('Failed to fetch library files', e);
+      showModal('Failed to load your library. Please try again.', 'Library');
+    }
+    setLibraryLoading(false);
+  };
+
+  const selectLibraryFile = (file) => {
+    try {
+      // Prefer server-provided text content if available
+      const text = file.textContent || file.content || file.text || file.body || '';
+      setUploadedFile({ name: file.originalName || file.name || file._id });
+      setFileContent(text || '');
+      // Reset generated content so user must select a study mode
+      setActiveMode(null);
+      setContent([]);
+      setCurrentIndex(0);
+      setProgress(0);
+      setShowLibraryModal(false);
+      // If file has no text content, notify user that some file types may not load text
+      if (!text) {
+        showModal('Selected file has no extracted text content available. You can still preview or try generating, but some file types may not be supported for automatic extraction.', 'Note');
+      }
+    } catch (e) {
+      console.error('Error selecting library file', e);
+      showModal('Unable to open selected file.', 'Error');
+    }
   };
 
   const applySample = (modeId) => {
@@ -448,9 +501,8 @@ export default function FileBasedStudyApp() {
     setWheelAnsweredSet(new Set());
     setAnsweredSet(new Set());
     // Reset file input
-    const fileInput = document.querySelector('input[type="file"]');
-    if (fileInput) {
-      fileInput.value = '';
+    if (fileInputRef.current) {
+      try { fileInputRef.current.value = ''; } catch (e) {}
     }
     setRevealedCorrectIndex(undefined);
   };
@@ -2344,18 +2396,23 @@ export default function FileBasedStudyApp() {
             Upload Study Material
           </label>
           <div className="flex items-center space-x-4">
+            {/* Hidden native file input; used for actual local file selection */}
             <input
+              ref={fileInputRef}
               type="file"
               accept=".txt,.md,.pdf,.doc,.docx"
               onChange={handleFileUpload}
-              className={`block w-full text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}
-                file:mr-4 file:py-3 file:px-6
-                file:rounded-full file:border-0
-                file:text-sm file:font-semibold
-                file:${themeColors.light} file:${themeColors.text}
-                hover:file:${themeColors.hover} file:transition-all file:duration-300
-                file:hover:scale-105 file:shadow-sm hover:file:shadow-md`}
+              style={{ display: 'none' }}
             />
+
+            {/* Visible button that shows chosen filename (or 'No file chosen')
+                and opens the Source modal when clicked. */}
+            <button
+              onClick={() => setShowSourceModal(true)}
+              className={`w-full text-left px-4 py-3 rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-200'} ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}
+            >
+              {uploadedFile ? uploadedFile.name : 'No file chosen'}
+            </button>
             {uploadedFile && (
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-green-600 font-medium bg-green-50 px-3 py-1 rounded-full border border-green-200 animate-pulse">
@@ -2423,6 +2480,63 @@ export default function FileBasedStudyApp() {
                   <div className="flex justify-end gap-3">
                     <button onClick={() => { setShowCountPrompt(false); setCountPromptMode(null); setSuppressAutoLoad(false); }} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
                     <button onClick={handleGenerateWithCount} className={`px-4 py-2 rounded-lg ${themeColors.light} ${themeColors.text} hover:${themeColors.hover}`}>Generate</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Source chooser modal: Local or App Library */}
+            {showSourceModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+                <div className={`relative z-20 w-full max-w-md p-6 rounded-xl bg-white text-gray-900 shadow-lg`}>
+                  <h3 className="text-lg font-semibold mb-2">Open File From</h3>
+                  <p className="text-sm mb-4">Choose where to open your study material from.</p>
+                  <div className="grid grid-cols-1 gap-3">
+                    <button onClick={openLocalFilePicker} className={`w-full px-4 py-3 rounded-lg ${themeColors.light} ${themeColors.text} font-medium`}>📁 Local Computer</button>
+                    <button onClick={openAppLibrary} className={`w-full px-4 py-3 rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-200'} ${themeColors.text} font-medium`}>📚 My Library (App Files)</button>
+                  </div>
+                  <div className="mt-4 flex justify-end">
+                    <button onClick={() => setShowSourceModal(false)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Library picker modal: lists user's files for selection */}
+            {showLibraryModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                <div className={`relative z-20 bg-white text-gray-900 rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] overflow-auto`}>
+                  <div className="p-4 border-b flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">Choose a file from your Library</h3>
+                      <p className="text-sm text-gray-500">Select a file to load into this study session.</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button onClick={() => { setShowLibraryModal(false); }} className="px-3 py-1 rounded bg-gray-100">Close</button>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    {libraryLoading ? (
+                      <div className="text-center p-6">Loading files...</div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-2">
+                        {(!libraryFiles || libraryFiles.length === 0) && <div className="text-sm text-gray-500">No files found in your library.</div>}
+                        {libraryFiles.map((f) => (
+                          <div key={f._id || f.id || f.name} className={`p-3 rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex items-center justify-between`}> 
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{f.originalName || f.name}</div>
+                              <div className="text-xs text-gray-500">{new Date(f.createdAt || f.uploadDate || f.uploadedAt || Date.now()).toLocaleString()} • {f.fileSize ? (Math.round(f.fileSize/1024) + ' KB') : ''}</div>
+                              {f.textContent || f.content ? (
+                                <div className="text-xs text-gray-400 mt-1 truncate">Has extracted text content</div>
+                              ) : null}
+                            </div>
+                            <div className="flex items-center space-x-2 ml-4">
+                              <button onClick={() => selectLibraryFile(f)} className={`px-3 py-1 rounded ${themeColors.light} ${themeColors.text}`}>Use this file</button>
+                              <a href={`${API_BASE}/api/library/download/${f._id || f.id}?userId=${f.userId || ''}`} target="_blank" rel="noreferrer" className="px-3 py-1 rounded bg-gray-50 border text-sm">Download</a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

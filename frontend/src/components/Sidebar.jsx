@@ -27,7 +27,7 @@ export default function Sidebar() {
     { name: "Calendar", path: "/calendar", icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.2"/><path d="M16 3v4M8 3v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
     ) },
-    { name: "Flashcard/Quiz", path: "/flashcards", icon: (
+    { name: "AI Study Mode", path: "/flashcards", icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.2"/><path d="M7 8h10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
     ) },
     { name: "Library", path: "/library", icon: (
@@ -70,9 +70,11 @@ export default function Sidebar() {
             />
         </div>
         <span
-          className={`ml-3 text-xl font-bold ${
-            darkMode ? "text-white" : "text-gray-900"
-          } ${isCollapsed ? "opacity-0" : "opacity-100"} transition-opacity duration-300 whitespace-nowrap`}
+          className={`ml-3 text-xl font-bold ${isCollapsed ? "opacity-0" : "opacity-100"} transition-opacity duration-300 whitespace-nowrap`}
+          style={{
+            color: themeColors.primaryHex || undefined,
+            background: 'transparent'
+          }}
         >
           Lemivon
         </span>

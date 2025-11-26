@@ -370,6 +370,29 @@ export const SettingsProvider = ({ children }) => {
         setSessionHistory(next)
         localStorage.setItem('studyTaSessions', JSON.stringify(next))
       } catch (e) {}
+      // Also persist the session to the server (fire-and-forget). This keeps
+      // localStorage as the primary source for offline use, but saves a copy
+      // to the DB so sessions are available across devices.
+      try {
+        (async () => {
+          try {
+            const API_BASE = import.meta.env.VITE_API_BASE || '';
+            const token = localStorage.getItem('token');
+            if (!token) return; // only persist when logged in
+            const body = { ts: Date.now(), minutes: Number(timeSpent) || 0 };
+            await fetch(`${API_BASE}/api/sessions`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(body)
+            });
+          } catch (err) {
+            // ignore network errors (offline) — client still has local copy
+          }
+        })();
+      } catch (err) {}
       return updated
     })
   }

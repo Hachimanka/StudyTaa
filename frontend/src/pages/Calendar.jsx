@@ -477,6 +477,74 @@ function EventListModal({ isOpen, onClose, events, date, onSelect, onAddNew, dar
   );
 }
 
+// Preview modal for extracted events before saving
+function EventPreviewModal({ isOpen, events = [], fileName = '', onClose, onConfirm, darkMode }) {
+  const [selectedIds, setSelectedIds] = React.useState(() => new Set());
+  React.useEffect(() => {
+    if (isOpen) {
+      const all = new Set((events || []).map((e, i) => i));
+      setSelectedIds(all);
+    } else {
+      setSelectedIds(new Set());
+    }
+  }, [isOpen, events]);
+
+  if (!isOpen) return null;
+
+  const toggle = (idx) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+  };
+
+  const confirm = () => {
+    const sel = (events || []).filter((_, i) => selectedIds.has(i));
+    onConfirm && onConfirm(sel);
+  };
+
+  const allSelected = selectedIds.size === (events || []).length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className={`relative w-full max-w-2xl rounded-xl shadow-xl ${darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'} p-6`} onClick={(e)=>e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Preview Extracted Events</h3>
+          <div className="text-sm text-gray-400">{fileName}</div>
+        </div>
+        <div className="mb-3">
+          <button
+            onClick={() => {
+              if (allSelected) setSelectedIds(new Set());
+              else setSelectedIds(new Set((events || []).map((_, i) => i)));
+            }}
+            className={`px-2 py-1 text-xs rounded ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'}`}
+          >
+            {allSelected ? 'Unselect All' : 'Select All'}
+          </button>
+        </div>
+        <div className="max-h-72 overflow-y-auto space-y-2 mb-4 border rounded p-2" style={{ background: darkMode ? '#081124' : '#fafafa' }}>
+          {(events || []).map((ev, i) => (
+            <label key={i} className={`flex items-start gap-3 p-2 rounded hover:bg-opacity-5 cursor-pointer ${darkMode ? 'hover:bg-white/5' : 'hover:bg-black/2'}`}>
+              <input type="checkbox" checked={selectedIds.has(i)} onChange={() => toggle(i)} className="mt-1" />
+              <div className="flex-1">
+                <div className="font-medium">{ev.title}</div>
+                <div className="text-xs text-gray-400">{ev.date} • {ev.description || ''}</div>
+              </div>
+            </label>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className={`px-3 py-2 rounded ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-700'}`}>Cancel</button>
+          <button onClick={confirm} className={`px-3 py-2 rounded text-white bg-blue-600 hover:bg-blue-700`}>Add {selectedIds.size} Event{selectedIds.size !== 1 ? 's' : ''}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Utility: clean noisy labels and normalize titles for display/dedup
 const cleanLabelTokens = (text) => {
   let t = (text || '');
@@ -645,6 +713,8 @@ const extractDayEventPairs = (text, fileName) => {
     let line = lines[i];
     // normalize separators and collapse long whitespace into column markers
     line = line.replace(/[\t]+/g, ' ');
+    // Some OCR outputs duplicate day tokens (e.g. "06 06"), collapse obvious duplicates
+    line = line.replace(/^(\s*)(\d{1,2})\s+\2(\s+|$)/, (m, a, b, c) => `${a}${b} `);
     // replace runs of 3+ spaces with a column marker to detect two-column layouts
     const colLine = line.replace(/ {3,}/g, ' || ');
 
@@ -746,9 +816,41 @@ const extractDayEventPairs = (text, fileName) => {
 // Comprehensive AI text preprocessing to capture ALL dates
 const preprocessTextForAI = (text) => {
   if (!text) return '';
-  const formatted = formatOCRText(text);
-  console.log('[OCR] Processed text for AI:', (formatted || '').substring(0, 1000));
-  return formatted;
+  // formatOCRText currently emits many debug tokens (LINE_0:, MONTH_CONTEXT:, POTENTIAL_DATE:, NEARBY_x:)
+  // Those markers are useful for debugging but confuse the AI when it's asked to extract events.
+  // Instead, produce a cleaned, deduped text block that preserves readable lines and month headers.
+  const formatted = formatOCRText(text || '');
+  // Remove explicit debug labels inserted by the formatter
+  let cleaned = (formatted || '')
+    .replace(/(^|\n)MONTH_CONTEXT:\s*/gi, '\n')
+    .replace(/(^|\n)LINE_\d+:\s*/gi, '\n')
+    .replace(/(^|\n)CONTEXT:\s*/gi, '\n')
+    .replace(/(^|\n)POTENTIAL_DATE:\s*/gi, '\n')
+    .replace(/(^|\n)NEARBY_[\-\d]+:\s*/gi, '\n')
+    .replace(/(^|\n)IMPORTANT:\s*/gi, '\n');
+
+  // Trim each line and drop empty lines, then dedupe consecutive duplicates
+  const lines = cleaned.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const deduped = [];
+  for (const ln of lines) {
+    if (deduped.length === 0 || deduped[deduped.length - 1] !== ln) deduped.push(ln);
+  }
+
+  // If there are many repeated month headers (e.g., "December 2025" repeated), collapse duplicates
+  const collapsed = [];
+  for (const ln of deduped) {
+    if (collapsed.length === 0) collapsed.push(ln);
+    else {
+      const prev = collapsed[collapsed.length - 1];
+      // collapse exact duplicate headers
+      if (ln === prev) continue;
+      collapsed.push(ln);
+    }
+  }
+
+  const result = collapsed.join('\n');
+  console.log('[OCR] Processed text for AI (cleaned):', result.substring(0, 1000));
+  return result;
 };
 
 // Comprehensive fallback extraction that catches ALL dates
@@ -985,6 +1087,10 @@ export default function Calendar(){
   const [selectedEventIds, setSelectedEventIds] = useState(() => new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
+  // Preview modal state for extracted events
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewEvents, setPreviewEvents] = useState([]);
+  const [previewFileName, setPreviewFileName] = useState('');
   useEffect(() => {
     const anyOpen = isModalOpen || isListModalOpen;
     if (anyOpen) {
@@ -1238,6 +1344,104 @@ export default function Calendar(){
       setNotification({ message: `Deleted ${ids.length} event(s).`, type: 'info' });
       setConfirmModalEventIds(null);
       setIsListModalOpen(false);
+      window.dispatchEvent(new Event('eventsChanged'));
+      refreshGlobalReminders();
+    }
+  };
+
+  // Confirmed save from preview modal: selected extracted events -> persist
+  const handleConfirmPreviewSave = async (selected) => {
+    setPreviewModalOpen(false);
+    if (!Array.isArray(selected) || selected.length === 0) {
+      setNotification({ message: 'No events selected to add.', type: 'info' });
+      return;
+    }
+    // Normalize and dedupe against existing events
+    const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const existingKeys = new Set(events.map(ev => `${toISO(ev.date)}-${normalizeTitleKey(ev.title || '')}`));
+    const newKeys = new Set();
+    const createPayload = [];
+    selected.forEach(ev => {
+      const normalizedTitle = normalizeTitleKey(ev.title || '');
+      const key = `${ev.date}-${normalizedTitle}`;
+      if (!newKeys.has(key) && !existingKeys.has(key)) {
+        newKeys.add(key);
+        createPayload.push({
+          title: cleanTitle(ev.title || 'Extracted Event'),
+          description: cleanLabelTokens(ev.description || ''),
+          date: parseISODateLocal(ev.date).toISOString(),
+          category: 'study',
+          priority: 'medium',
+          time: '',
+          reminder: false
+        });
+      }
+    });
+
+    if (createPayload.length === 0) {
+      setNotification({ message: 'No new events to add (duplicates removed).', type: 'nonevents' });
+      return;
+    }
+
+    try {
+      const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+      let savedDocs = [];
+      if (headers.Authorization) {
+        const res = await axios.post('/api/events', createPayload, { headers });
+        savedDocs = Array.isArray(res.data) ? res.data : [];
+      }
+      if (savedDocs.length > 0) {
+        const mapped = savedDocs.map(d => ({
+          id: d._id,
+          title: d.title,
+          description: d.description,
+          date: new Date(d.date),
+          time: d.time,
+          priority: d.priority,
+          category: d.category,
+          reminder: !!d.reminder,
+          reminderOffsetMinutes: d.reminderOffsetMinutes != null ? d.reminderOffsetMinutes : null,
+          reminderAt: d.reminderAt ? new Date(d.reminderAt) : null
+        }));
+        setEvents([...events, ...mapped]);
+        setNotification({ message: `Added ${mapped.length} event${mapped.length !== 1 ? 's' : ''} from ${previewFileName}`, type: 'eventsfound' });
+        window.dispatchEvent(new Event('eventsChanged'));
+        refreshGlobalReminders();
+      } else {
+        // fallback local add
+        const localEvents = createPayload.map((p, i) => ({
+          id: Date.now() + i,
+          title: p.title,
+          description: p.description,
+          date: new Date(p.date),
+          time: p.time,
+          priority: p.priority,
+          category: p.category,
+          reminder: p.reminder,
+          reminderOffsetMinutes: p.reminderOffsetMinutes != null ? p.reminderOffsetMinutes : null,
+          reminderAt: null
+        }));
+        setEvents([...events, ...localEvents]);
+        setNotification({ message: `Added ${localEvents.length} event${localEvents.length !== 1 ? 's' : ''} from ${previewFileName}`, type: 'eventsfound' });
+        window.dispatchEvent(new Event('eventsChanged'));
+        refreshGlobalReminders();
+      }
+    } catch (err) {
+      console.warn('Failed to save preview events, adding locally', err?.message || err);
+      const localEvents = createPayload.map((p, i) => ({
+        id: Date.now() + i,
+        title: p.title,
+        description: p.description,
+        date: new Date(p.date),
+        time: p.time,
+        priority: p.priority,
+        category: p.category,
+        reminder: p.reminder,
+        reminderOffsetMinutes: p.reminderOffsetMinutes != null ? p.reminderOffsetMinutes : null,
+        reminderAt: null
+      }));
+      setEvents([...events, ...localEvents]);
+      setNotification({ message: `Added ${localEvents.length} event${localEvents.length !== 1 ? 's' : ''} locally from ${previewFileName}`, type: 'eventsfound' });
       window.dispatchEvent(new Event('eventsChanged'));
       refreshGlobalReminders();
     }
@@ -1545,87 +1749,14 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
       aiEvents = Array.from(allEventsMap.values());
       console.log('[System] Combined events total:', aiEvents.length);
 
-      // Create events with STRONG duplicate prevention against existing events
+      // Instead of immediately saving, show a preview modal for user confirmation
       if (aiEvents.length > 0) {
-        const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        const existingKeys = new Set(
-          events.map(ev => `${toISO(ev.date)}-${normalizeTitleKey(ev.title || '')}`)
-        );
-
-        const newKeys = new Set();
-        const createPayload = [];
-        
-        aiEvents.forEach((ev) => {
-          const normalizedTitle = normalizeTitleKey(ev.title || '');
-          const key = `${ev.date}-${normalizedTitle}`;
-          
-          // Check against both existing events AND new events to prevent duplicates
-          if (!newKeys.has(key) && !existingKeys.has(key)) {
-            newKeys.add(key);
-            createPayload.push({
-              title: cleanTitle(ev.title || 'Extracted Event'),
-              description: cleanLabelTokens(ev.description || ''),
-              date: parseISODateLocal(ev.date).toISOString(),
-              category: 'study',
-              priority: 'medium',
-              time: '',
-              reminder: false
-            });
-          }
-        });
-
-        console.log('[System] After duplicate removal, creating:', createPayload.length, 'events');
-
-        let savedDocs = [];
         try {
-          const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
-          if (createPayload.length > 0 && headers.Authorization) {
-            const res = await axios.post('/api/events', createPayload, { headers });
-            savedDocs = Array.isArray(res.data) ? res.data : [];
-          }
-        } catch (err) {
-          console.warn('Bulk save failed; falling back to local-only add:', err?.message || err);
-        }
-
-        if (savedDocs.length > 0) {
-          const mapped = savedDocs.map(d => ({
-            id: d._id,
-            title: d.title,
-            description: d.description,
-            date: new Date(d.date),
-            time: d.time,
-            priority: d.priority,
-            category: d.category,
-            reminder: !!d.reminder,
-            reminderOffsetMinutes: d.reminderOffsetMinutes != null ? d.reminderOffsetMinutes : null,
-            reminderAt: d.reminderAt ? new Date(d.reminderAt) : null
-          }));
-          setEvents([...events, ...mapped]);
-          setNotification({ message: `Added ${mapped.length} event${mapped.length !== 1 ? 's' : ''} from ${file.name}`, type: 'eventsfound' });
-          window.dispatchEvent(new Event('eventsChanged'));
-          refreshGlobalReminders();
-        } else {
-          // Fallback: add locally if not saved
-          const localEvents = createPayload.map((p, i) => ({
-            id: Date.now() + i,
-            title: p.title,
-            description: p.description,
-            date: new Date(p.date),
-            time: p.time,
-            priority: p.priority,
-            category: p.category,
-            reminder: p.reminder,
-            reminderOffsetMinutes: p.reminderOffsetMinutes != null ? p.reminderOffsetMinutes : null,
-            reminderAt: null
-          }));
-          if (localEvents.length > 0) {
-            setEvents([...events, ...localEvents]);
-            setNotification({ message: `Added ${localEvents.length} event${localEvents.length !== 1 ? 's' : ''} from ${file.name}`, type: 'eventsfound' });
-            window.dispatchEvent(new Event('eventsChanged'));
-            refreshGlobalReminders();
-          } else {
-            setNotification({ message: 'No new events added — all events were duplicates.', type: 'nonevents' });
-          }
+          setPreviewEvents(aiEvents);
+          setPreviewFileName(file.name);
+          setPreviewModalOpen(true);
+        } catch (e) {
+          console.warn('Failed to open preview modal', e);
         }
       } else {
         setNotification({ message: `No events found in ${file.name}`, type: 'nonevents' });
@@ -1847,6 +1978,16 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
             </div>
           </div>
         )}
+
+        {/* Preview modal for extracted events */}
+        <EventPreviewModal
+          isOpen={previewModalOpen}
+          events={previewEvents}
+          fileName={previewFileName}
+          darkMode={darkMode}
+          onClose={() => { setPreviewModalOpen(false); setPreviewEvents([]); setPreviewFileName(''); }}
+          onConfirm={handleConfirmPreviewSave}
+        />
 
         {/* Calendar grid with year/month selectors */}
         <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow p-6 mb-8 animate-fade-up`}>

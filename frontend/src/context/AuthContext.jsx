@@ -158,6 +158,12 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('token');
       // Dispatch custom event to notify other components
       window.dispatchEvent(new Event('authChanged'));
+      // Hide and stop floating music
+      window.dispatchEvent(new CustomEvent('floatingMusicVisibility', { detail: { visible: false } }));
+      window.dispatchEvent(new CustomEvent('floatingMusicStop', {}));
+      // Hide and stop floating timer
+      window.dispatchEvent(new CustomEvent('floatingTimerVisibility', { detail: { visible: false } }));
+      window.dispatchEvent(new CustomEvent('floatingTimerStop', {}));
     } catch (e) {
       console.error('Error clearing localStorage:', e);
     }

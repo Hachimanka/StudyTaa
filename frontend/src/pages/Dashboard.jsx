@@ -429,25 +429,30 @@ export default function Home() {
       <Sidebar />
 
       {/* Main Dashboard */}
-      <main className="p-12 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300 min-w-0 overflow-x-visible pr-6">
+      <main className="p-10 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300 min-w-0 overflow-x-visible pr-6">
         <ChatWidget />
         {/* Local styles to hide scrollbars while keeping scrolling functional */}
         <style>{`.hide-scrollbar::-webkit-scrollbar{display:none}.hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}`}</style>
         
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-5xl font-bold">
+        <div className="mb-8 page-header-group">
+          <h1 className="text-5xl font-bold page-title">
             {fullName ? `Welcome back, ${fullName}!` : "Welcome back!"}
           </h1>
           <p
-            className={`mt-1 text-xl ${
+            className={`mt-1 text-xl page-subtitle ${
               darkMode ? "text-gray-400" : "text-gray-500"
             }`}
           >
-            {fullName ? `Here's your learning progress overview, ${fullName}` : "Here's your learning progress overview"}
+            Here's your learning progress overview
           </p>
           
-          {/* Removed loading indicator per request */}
+          {loading && (
+            <div className="flex items-center mt-4">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+              <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Loading your data...</span>
+            </div>
+          )}
         </div>
 
         {/* Achievements */}

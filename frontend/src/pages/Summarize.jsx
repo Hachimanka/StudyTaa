@@ -307,13 +307,13 @@ export default function Summarize() {
       )}
       <Sidebar />
 
-      <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28">
+      <main className="p-10 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300 min-w-0 overflow-x-visible pr-6">
         {/* Page Title */}
         <div className="mb-8 page-header-group">
           <h1 className={`text-5xl font-bold page-title`}>
             AI Content Summarizer
           </h1>
-          <p className={`mt-2 text-lg page-subtitle`} style={{ color: 'var(--muted)' }}>
+          <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'} page-subtitle`}>
             Transform any content into intelligent, concise summaries with advanced AI
           </p>
         </div>

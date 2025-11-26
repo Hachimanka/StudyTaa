@@ -455,7 +455,7 @@ export default function Settings() {
   return (
     <div className={`flex min-h-screen transition-colors duration-300`} style={{ background: 'var(--bg)' }}>
       <Sidebar />
-      <main className="flex-1 p-8 ml-20 md:ml-30">
+      <main className="p-10 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300 min-w-0 overflow-x-visible pr-6">
         <ChatWidget />
         
         {/* Header */}

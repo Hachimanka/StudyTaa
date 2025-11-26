@@ -2281,7 +2281,7 @@ export default function FileBasedStudyApp() {
   return (
     <div className={`flex min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
       <Sidebar />
-      <main className="flex-1 p-6 md:p-12 ml-20 md:ml-28">
+      <main className="p-10 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300 min-w-0 overflow-x-visible pr-6">
         {/* Global modal for alerts with blurred backdrop */}
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">

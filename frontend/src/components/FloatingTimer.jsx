@@ -42,16 +42,26 @@ export default function FloatingTimer() {
 
     window.addEventListener('floatingTimerVisibility', onVisibility)
 
+    // Listen for logout-triggered stop/hide events
+    const onStop = () => {
+      try {
+        if (isTimerRunning && typeof toggleTimer === 'function') toggleTimer();
+        setVisible(false);
+      } catch (e) {}
+    };
+    window.addEventListener('floatingTimerStop', onStop);
+
     return () => {
       try {
         window.removeEventListener('floatingTimerVisibility', onVisibility)
+        window.removeEventListener('floatingTimerStop', onStop);
         if (moveHandlerRef.current) window.removeEventListener('mousemove', moveHandlerRef.current)
         if (upHandlerRef.current) window.removeEventListener('mouseup', upHandlerRef.current)
         if (moveHandlerRef.current) window.removeEventListener('touchmove', moveHandlerRef.current)
         if (upHandlerRef.current) window.removeEventListener('touchend', upHandlerRef.current)
       } catch (e) {}
     }
-  }, [])
+  }, [isTimerRunning, toggleTimer])
 
   const startDrag = (e) => {
     e.preventDefault()

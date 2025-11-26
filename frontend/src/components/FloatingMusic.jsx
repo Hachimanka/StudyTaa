@@ -66,6 +66,14 @@ export default function FloatingMusic() {
     }
     window.addEventListener('floatingMusicAutoPlayPending', onAutoPlayPending)
 
+    // Listen for logout-triggered stop/hide events
+    const onStop = () => {
+      try {
+        if (isPlaying && typeof togglePlayPause === 'function') togglePlayPause();
+      } catch (e) {}
+    };
+    window.addEventListener('floatingMusicStop', onStop);
+
     // check autoplay-pending flag initially
     try {
       const pending = localStorage.getItem('floatingMusicAutoPlayPending') === 'true'
@@ -76,13 +84,14 @@ export default function FloatingMusic() {
       try {
         window.removeEventListener('floatingMusicVisibility', onVisibility)
         window.removeEventListener('floatingMusicAutoPlayPending', onAutoPlayPending)
+        window.removeEventListener('floatingMusicStop', onStop);
         if (moveHandlerRef.current) window.removeEventListener('mousemove', moveHandlerRef.current)
         if (upHandlerRef.current) window.removeEventListener('mouseup', upHandlerRef.current)
         if (moveHandlerRef.current) window.removeEventListener('touchmove', moveHandlerRef.current)
         if (upHandlerRef.current) window.removeEventListener('touchend', upHandlerRef.current)
       } catch (e) {}
     }
-  }, [])
+  }, [isPlaying, togglePlayPause])
 
   const startDrag = (e) => {
     e.preventDefault()

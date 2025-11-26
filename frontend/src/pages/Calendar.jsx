@@ -1391,11 +1391,11 @@ export default function Calendar(){
   return (
     <div className={`flex min-h-screen ${darkMode ? 'bg-gray-900' : ''}`}>
       <Sidebar />
-      <main className="flex-1 p-12 ml-20 md:ml-30">
+      <main className="p-10 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300 min-w-0 overflow-x-visible pr-6">
         <ChatWidget />
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex flex-wrap justify-between items-start mb-8 gap-4">
           <div className="page-header-group">
-            <h1 className={`text-5xl font-bold page-title mt-6`}>Smart Calendar</h1>
+            <h1 className={`text-5xl font-bold page-title`}>Smart Calendar</h1>
             <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'} page-subtitle`}>Manage your study schedule with intelligent event organization</p>
           </div>
           <div className="mt-6 flex gap-2">

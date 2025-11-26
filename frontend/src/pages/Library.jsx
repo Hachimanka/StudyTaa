@@ -1328,7 +1328,7 @@ export default function Library() {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <main className="flex-1 p-12 ml-20 md:ml-30">
+      <main className="p-10 flex-1 ml-20 md:ml-30 mr-7.5 min-w-0 overflow-x-visible pr-6">
         <ChatWidget />
         
         {/* Error Message */}
@@ -1346,7 +1346,7 @@ export default function Library() {
         
         {/* Header */}
         <div className="mb-8 page-header-group">
-          <h1 className="text-5xl font-bold page-title">Library</h1>
+          <h1 className={`text-5xl font-bold page-title`}>Library</h1>
           <p className="mt-2 text-gray-600 page-subtitle">Manage your documents and study materials</p>
         </div>
 

@@ -233,26 +233,33 @@ export default function Music() {
   return (
     <div className={`flex min-h-screen transition-colors duration-300 ${pageBackground}`}>
       <Sidebar />
-      <main className="relative flex-1 p-6 md:p-10 ml-20">
+      <main className="p-10 flex-1 ml-20 md:ml-30 mr-7.5 transition-all duration-300 min-w-0 overflow-x-visible pr-6">
         <ChatWidget />
 
-        <header className="mb-10 page-header-group">
-          <h1 className="page-title mt-6">Focus Music</h1>
-          <p className={`mt-2 text-base md:text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'} page-subtitle`}>
-            Pick a soundscape to stay in the zone while you study.
-          </p>
-          <div className="mt-4 flex items-center gap-3">
+        <header className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
+          {/* LEFT SIDE: Title + Subtitle */}
+          <div className="page-header-group">
+            <h1 className="text-5xl font-bold page-title">Focus Music</h1>
+            <p className={`mt-2 text-base md:text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'} page-subtitle`}>
+              Pick a soundscape to stay in the zone while you study.
+            </p>
+          </div>
+
+          {/* RIGHT SIDE: Buttons */}
+          <div className="mt-4 md:mt-0 flex items-center gap-3">
             <button
               type="button"
               onClick={() => {
                 try {
-                  const cur = localStorage.getItem('floatingMusicVisible')
-                  const next = !(cur === 'true')
-                  localStorage.setItem('floatingMusicVisible', next ? 'true' : 'false')
-                  window.dispatchEvent(new CustomEvent('floatingMusicVisibility', { detail: { visible: next } }))
+                  const cur = localStorage.getItem('floatingMusicVisible');
+                  const next = !(cur === 'true');
+                  localStorage.setItem('floatingMusicVisible', next ? 'true' : 'false');
+                  window.dispatchEvent(new CustomEvent('floatingMusicVisibility', { detail: { visible: next } }));
                 } catch (e) {}
               }}
-              className={`rounded-full px-3 py-1 text-sm font-medium ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'}`}
+              className={`rounded-full px-3 py-1 text-sm font-medium ${
+                darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'
+              }`}
             >
               Toggle Floating Music
             </button>
@@ -261,13 +268,15 @@ export default function Music() {
               type="button"
               onClick={() => {
                 try {
-                  const cur = localStorage.getItem('floatingTimerVisible')
-                  const next = !(cur === 'true')
-                  localStorage.setItem('floatingTimerVisible', next ? 'true' : 'false')
-                  window.dispatchEvent(new CustomEvent('floatingTimerVisibility', { detail: { visible: next } }))
+                  const cur = localStorage.getItem('floatingTimerVisible');
+                  const next = !(cur === 'true');
+                  localStorage.setItem('floatingTimerVisible', next ? 'true' : 'false');
+                  window.dispatchEvent(new CustomEvent('floatingTimerVisibility', { detail: { visible: next } }));
                 } catch (e) {}
               }}
-              className={`rounded-full px-3 py-1 text-sm font-medium ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'}`}
+              className={`rounded-full px-3 py-1 text-sm font-medium ${
+                darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'
+              }`}
             >
               Toggle Floating Timer
             </button>

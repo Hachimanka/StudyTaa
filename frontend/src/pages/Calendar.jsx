@@ -1119,6 +1119,8 @@ export default function Calendar(){
   const [uploading, setUploading] = useState(false);
   const [view, setView] = useState('month');
   const [searchTerm, setSearchTerm] = useState('');
+  // Ref for improved upload box (choose file)
+  const uploadInputRef = useRef(null);
 
   const getAuthHeaders = () => {
     try {
@@ -2247,6 +2249,7 @@ RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
           date={selectedDate}
           onSelect={(ev) => { setSelectedEvent(ev); setIsModalOpen(true); setIsListModalOpen(false); }}
           onAddNew={() => { setSelectedEvent(null); setIsModalOpen(true); setIsListModalOpen(false); }}
+          onDeleteAll={(date) => setConfirmDeleteDate(date)}
           darkMode={darkMode}
           themeColors={themeColors}
           onRequestBulkDelete={(ids) => bulkDeleteSpecific(ids)}

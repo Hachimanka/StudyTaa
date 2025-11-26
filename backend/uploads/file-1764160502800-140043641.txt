@@ -1,0 +1,27 @@
+Router> enable
+Router# configure terminal
+
+! Set hostname
+Router(config)# hostname R1
+R1(config)#
+
+! Console password
+R1(config)# line console 0
+R1(config-line)# password letmein
+R1(config-line)# login
+R1(config-line)# exit
+
+! Privileged EXEC (unencrypted)
+R1(config)# enable password cisco
+
+! Privileged EXEC (encrypted)
+R1(config)# enable secret itsasecret
+
+! Encrypt all plain text passwords
+R1(config)# service password-encryption
+
+! Message of the day banner
+R1(config)# banner motd # Unauthorized access is strictly prohibited. #
+
+R1(config)# exit
+R1#

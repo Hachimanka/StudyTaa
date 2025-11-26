@@ -73,27 +73,9 @@ export default function FlashCardMode({ content, currentIndex, showAnswer, setSh
       </div>
       <p className="text-center text-gray-600">Click the card to flip it</p>
 
-      {/* Inline navigation for flashcards: Previous / Next */}
+      {/* Progress indicator (buttons removed as requested) */}
       <div className="flex justify-center items-center gap-4 mt-4">
-        <button
-          onClick={() => onPrevious && onPrevious()}
-          disabled={currentIndex === 0}
-          className={`px-4 py-2 rounded-md font-medium transition ${currentIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
-          style={currentIndex === 0 ? {} : { background: themeColors.primaryHex, color: 'white' }}
-        >
-          ← Previous
-        </button>
-
         <span className="text-sm text-gray-500">{currentIndex + 1} / {content.length}</span>
-
-        <button
-          onClick={() => onNext && onNext()}
-          disabled={currentIndex === content.length - 1}
-          className={`px-4 py-2 rounded-md font-medium transition ${currentIndex === content.length - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
-          style={currentIndex === content.length - 1 ? {} : { background: themeColors.primaryHex, color: 'white' }}
-        >
-          Next →
-        </button>
       </div>
     </div>
   );

@@ -270,6 +270,17 @@ export default function FileBasedStudyApp() {
   const aiRequestTimer = useRef(null);
   const fileInputRef = useRef(null);
 
+  // Ensure progress reflects the 1-based current index out of total items.
+  // This keeps the bar at 1/N when a set is first loaded and reaches 100% at the last item.
+  React.useEffect(() => {
+    if (!content || content.length === 0) {
+      setProgress(0);
+      return;
+    }
+    const pct = Math.round(((currentIndex + 1) / content.length) * 100);
+    setProgress(pct);
+  }, [content?.length, currentIndex]);
+
   // Auto match when both selected
   useEffect(() => {
     if (selectedTerm !== null && selectedDef !== null) {
@@ -433,7 +444,7 @@ export default function FileBasedStudyApp() {
     setUploadedFile(null);
     setFileContent('Sample content');
     setContent(set);
-    setActiveMode(modeId);
+    performModeSwitch(modeId);
     setCurrentIndex(0);
     setProgress(0);
     setIsCompleted(false);
@@ -840,18 +851,10 @@ export default function FileBasedStudyApp() {
     }
     setContent(loaded);
     setAnsweredSet(new Set());
-    setActiveMode(savedSet.studyMode || 'flashcards'); // Default to flashcards for old saves
-    setCurrentIndex(0);
-    setShowAnswer(false);
-    setProgress(0);
-    setScore(0);
-    setSelectedAnswer(null);
-    setUserAnswer('');
+    // Reset session state and switch to the saved mode (default to flashcards for old saves)
+    performModeSwitch(savedSet.studyMode || 'flashcards');
     // Reset matching game state
-    setSelectedTerm(null);
-    setSelectedDef(null);
-    setMatchedPairs([]);
-    setMatchingScore(0);
+    // (performModeSwitch already reset matching/wheel state)
     
     const modeNames = {
       flashcards: 'flashcards',
@@ -873,15 +876,33 @@ export default function FileBasedStudyApp() {
   };
 
   // Request a mode change, prompting to save current generated content if present
-  const performModeSwitch = (modeId) => {
-    setActiveMode(modeId);
+  // Centralized session reset when switching study modes
+  const resetSession = () => {
     setIsCompleted(false);
     setCurrentIndex(0);
-    // Reset wheel mode state when switching modes
+    setScore(0);
+    setProgress(0);
+    setShowAnswer(false);
+    setSelectedAnswer(null);
+    setUserAnswer('');
     setViewedQuestions(new Set());
-    setWheelAnsweredSet(new Set());
-    // Reset fill-in-the-blanks state when switching modes
     setAnsweredQuestions([]);
+    setWheelAnsweredSet(new Set());
+    setAnsweredSet(new Set());
+    setSelectedTerm(null);
+    setSelectedDef(null);
+    setMatchedPairs([]);
+    setMatchingScore(0);
+    setWheelSpinning(false);
+    setWheelRotation(0);
+    setRevealedCorrectIndex(undefined);
+    resetStats();
+  };
+
+  const performModeSwitch = (modeId) => {
+    // Reset the live session state then change active mode
+    resetSession();
+    setActiveMode(modeId);
   };
 
   const requestModeChange = (modeId) => {
@@ -965,8 +986,8 @@ export default function FileBasedStudyApp() {
         return;
       }
     }
-    // Ensure we set the active mode and explicitly load content with the desired count
-    setActiveMode(mode);
+    // Ensure we set the active mode (reset session) and explicitly load content with the desired count
+    performModeSwitch(mode);
     await loadContentFromFile(mode, fileContent, isNaN(count) ? null : count);
     // reset the prompt mode
     setCountPromptMode(null);
@@ -1207,7 +1228,7 @@ export default function FileBasedStudyApp() {
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create concise question/answer flashcards from your uploaded file.</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button onClick={() => openCountPrompt('flashcards')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
-                <button onClick={() => { setContent(sampleSets.flashcards); setActiveMode('flashcards'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => { setContent(sampleSets.flashcards); performModeSwitch('flashcards'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
             </div>
@@ -1280,7 +1301,7 @@ export default function FileBasedStudyApp() {
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create multiple-choice questions from your file content.</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button onClick={() => openCountPrompt('quiz')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
-                <button onClick={() => { setContent(sampleSets.quiz); setActiveMode('quiz'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => { setContent(sampleSets.quiz); performModeSwitch('quiz'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
             </div>
@@ -1474,7 +1495,7 @@ export default function FileBasedStudyApp() {
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create true/false statements from your file.</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button onClick={() => openCountPrompt('trueFalse')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
-                <button onClick={() => { setContent(sampleSets.trueFalse); setActiveMode('trueFalse'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => { setContent(sampleSets.trueFalse); performModeSwitch('trueFalse'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
             </div>
@@ -1568,7 +1589,7 @@ export default function FileBasedStudyApp() {
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create randomized wheel slices from your content.</p>
               <div className="mt-4 flex flex-wrap gap-3 justify-center">
                 <button onClick={() => openCountPrompt('wheel')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
-                <button onClick={() => { setContent(sampleSets.wheel); setActiveMode('wheel'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => { setContent(sampleSets.wheel); performModeSwitch('wheel'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
             </div>
@@ -1651,7 +1672,7 @@ export default function FileBasedStudyApp() {
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create term-definition pairs from your file for matching practice.</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button onClick={() => openCountPrompt('matching')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
-                <button onClick={() => { setContent(sampleSets.matching); setActiveMode('matching'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => { setContent(sampleSets.matching); performModeSwitch('matching'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
             </div>
@@ -1746,7 +1767,7 @@ export default function FileBasedStudyApp() {
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Create fill-in-the-blank prompts from your text.</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button onClick={() => openCountPrompt('fillBlanks')} className="px-4 py-2 bg-teal-600 text-white rounded-lg">Generate Now</button>
-                <button onClick={() => { setContent(sampleSets.fillBlanks); setActiveMode('fillBlanks'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
+                <button onClick={() => { setContent(sampleSets.fillBlanks); performModeSwitch('fillBlanks'); }} className="px-4 py-2 border rounded-lg">Preview Sample</button>
                 <button onClick={() => setActiveMode(null)} className="px-4 py-2 border rounded-lg">Change Mode</button>
               </div>
             </div>
@@ -2623,7 +2644,7 @@ export default function FileBasedStudyApp() {
                 <div className="flex items-center justify-between">
                   <span className={`${themeColors.textDark} font-semibold`}>Current Score</span>
                   <span className={`${themeColors.textDark} text-2xl font-bold ${darkMode ? 'bg-gray-700' : ''} px-3 py-1 rounded-lg shadow-sm`}>
-                    {score} / {Math.max(currentIndex + (showAnswer && activeMode !== 'fillBlanks' ? 1 : 0), 1)}
+                    {score} / {content.length}
                   </span>
                 </div>
               </div>

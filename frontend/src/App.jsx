@@ -1,5 +1,5 @@
 import React from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, RequireAuth } from './context/AuthContext'
 import { SettingsProvider } from './context/SettingsContext'
 import { MusicProvider } from './context/MusicContext'
@@ -25,6 +25,7 @@ import FloatingTimer from './components/FloatingTimer'
 import FloatingMusic from './components/FloatingMusic'
 
 export default function App() {
+  const location = useLocation();
   return (
     <AuthProvider>
       <SettingsProvider>
@@ -48,8 +49,8 @@ export default function App() {
         <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        {/* Render chat widget for authenticated users */}
-        <AuthenticatedWidget />
+        {/* Render chat widget for authenticated users, but hide on landing page */}
+        {location.pathname !== '/' && <AuthenticatedWidget />}
         {/* Global music player stays mounted across routes */}
         <GlobalMusicPlayer />
         {/* Floating draggable focus timer */}

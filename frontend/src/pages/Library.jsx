@@ -3,6 +3,7 @@ import Sidebar from '../components/Sidebar';
 import ChatWidget from '../components/ChatWidget';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import { createPortal } from 'react-dom';
 
 // File Modal Component
 const FileModal = memo(function FileModal({ file, isOpen, onClose, onDownload }) {
@@ -332,7 +333,7 @@ const ConfirmModal = memo(function ConfirmModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${show ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-transparent transition-opacity duration-200 ${show ? 'opacity-100' : 'opacity-0'}`}
         onClick={onCancel}
       />
       <div
@@ -679,10 +680,10 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
           </div>
         )}
       </div>
-      {contextMenu.visible && (
+      {contextMenu.visible && createPortal(
         <div
           className="z-50 bg-white border rounded shadow-lg text-sm"
-          style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y, minWidth: 160 }}
+          style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y, minWidth: 160, zIndex: 9999 }}
           onClick={(e) => e.stopPropagation()}
         >
           {contextMenu.type === 'file' && (
@@ -703,7 +704,8 @@ const Folder = memo(function Folder({ folder, onAddFile, onAddFolder, onDeleteFi
               )}
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
       <ConfirmModal
         isOpen={confirmState.open}
@@ -1257,11 +1259,10 @@ export default function Library() {
         <Sidebar />
         <main className="flex-1 p-12 ml-20 md:ml-30 animate-fade-left">
           <ChatWidget />
-
-          {/* Header */}
-          <div className="mb-8 animate-fade-left">
-            <div className="h-8 w-40 bg-gray-200 rounded mb-2 animate-pulse"></div>
-            <div className="h-4 w-80 bg-gray-200 rounded animate-pulse"></div>
+          {/* Header (visible immediately while cards load) */}
+          <div className="mb-8 page-header-group">
+            <h1 className="text-5xl font-bold page-title">Library</h1>
+            <p className="mt-2 text-gray-600 page-subtitle">Manage your documents and study materials</p>
           </div>
 
           {/* Stats skeleton */}
@@ -1281,12 +1282,45 @@ export default function Library() {
             ))}
           </div>
 
-          {/* Toolbar skeleton (search + actions) */}
-          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 animate-fade-left">
-            <div className="h-10 bg-gray-200 rounded w-full md:w-80 animate-pulse"></div>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-28 bg-gray-200 rounded animate-pulse"></div>
-              <div className="h-10 w-36 bg-gray-200 rounded animate-pulse"></div>
+          {/* Search and Actions (visible while loading) */}
+          <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+            <div className="flex-1 max-w-md relative">
+              <input
+                type="text"
+                placeholder="Search files and folders..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <svg 
+                width="20" 
+                height="20" 
+                className="absolute left-3 top-2.5 text-gray-400"
+                viewBox="0 0 16 16" fill="currentColor"
+              >
+                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+              </svg>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowQuickUpload(true)}
+                className="px-4 py-2 rounded-lg text-white bg-teal-600 hover:bg-teal-700 transition-colors flex items-center gap-2"
+              >
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 0a.5.5 0 0 1 .5.5V7h6.5a.5.5 0 0 1 0 1H8.5v6.5a.5.5 0 0 1-1 0V8H1a.5.5 0 0 1 0-1h6.5V.5A.5.5 0 0 1 8 0z"/>
+                </svg>
+                Upload
+              </button>
+              <button
+                onClick={() => setCreateFolderOpen(true)}
+                className="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors flex items-center gap-2"
+              >
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M2 2h4l2 2h6v8a2 2 0 0 1-2 2H2V2z"/>
+                </svg>
+                New Folder
+              </button>
             </div>
           </div>
 

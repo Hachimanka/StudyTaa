@@ -5,6 +5,7 @@ import Tesseract from 'tesseract.js';
 import path from 'path';
 import fs from 'fs';
 import mammoth from 'mammoth';
+import sharp from 'sharp';
 import { fileURLToPath } from 'url';
 
 
@@ -64,14 +65,53 @@ router.post('/image/ocr', upload.single('image'), async (req, res) => {
     // Allow tesseract to cache traineddata locally to avoid repeated downloads
     const tessCache = path.join(uploadsDir, '.tess-cache');
     if (!fs.existsSync(tessCache)) fs.mkdirSync(tessCache, { recursive: true });
+    // Try OCR on original image first
+    let combinedText = '';
+    try {
+      const { data: { text: rawText } } = await Tesseract.recognize(imagePath, 'eng', {
+        cachePath: tessCache,
+        langPath: uploadsDir,
+        logger: () => {},
+      });
+      if (rawText && rawText.trim()) combinedText += rawText + '\n';
+    } catch (err) {
+      // continue to enhanced attempt
+      console.warn('Tesseract original pass failed:', err?.message || err);
+    }
 
-    const { data: { text } } = await Tesseract.recognize(imagePath, 'eng', {
-      cachePath: tessCache,
-      logger: () => {},
-    });
-    // Clean up uploaded file after OCR
-    try { fs.unlinkSync(imagePath); } catch (_) {}
-    res.json({ text });
+    // Create an enhanced (grayscale + contrast + sharpen) copy and OCR that too
+    const enhancedPath = imagePath + '_enhanced.png';
+    try {
+      await sharp(imagePath)
+        .grayscale()
+        .normalise()
+        .linear(1.2, -10)
+        .sharpen()
+        .toFile(enhancedPath);
+
+      try {
+        const { data: { text: enhancedText } } = await Tesseract.recognize(enhancedPath, 'eng', {
+          cachePath: tessCache,
+          langPath: uploadsDir,
+          logger: () => {},
+        });
+        if (enhancedText && enhancedText.trim()) combinedText += enhancedText;
+      } catch (err2) {
+        console.warn('Tesseract enhanced pass failed:', err2?.message || err2);
+      }
+    } catch (enhErr) {
+      console.warn('Image enhancement failed:', enhErr?.message || enhErr);
+    }
+
+    // Clean up uploaded files
+    try { if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath); } catch(_) {}
+    try { if (fs.existsSync(enhancedPath)) fs.unlinkSync(enhancedPath); } catch(_) {}
+
+    // If both passes produced nothing, return an error; otherwise return combined text
+    if (!combinedText || !combinedText.trim()) {
+      return res.status(500).json({ error: 'OCR produced no text' });
+    }
+    res.json({ text: combinedText });
   } catch (err) {
     // Attempt to clean up file on failure
     try { if (req.file?.path) fs.unlinkSync(req.file.path); } catch (_) {}

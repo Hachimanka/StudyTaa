@@ -656,7 +656,7 @@ const formatOCRText = (rawText) => {
 // Additional image-specific OCR cleanup to fix common OCR artifacts
 const enhanceImageOCRText = (text) => {
   if (!text) return '';
-  let t = text;
+  let t = String(text);
   // Common OCR misreads: I,l -> 1 when adjacent to digits; O -> 0 in numeric contexts
   t = t.replace(/(?<=\d)[Il](?=\d)/g, '1');
   t = t.replace(/(?<=\b)O(?=\d)/g, '0');
@@ -679,10 +679,105 @@ const enhanceImageOCRText = (text) => {
   // Remove stray non-printables that break regexes
   t = t.replace(/[\u200B-\u200D\uFEFF]/g, '');
 
-  // Collapse excessive whitespace but keep line breaks
-  t = t.split('\n').map(l => l.replace(/\s{2,}/g, ' ').trim()).join('\n');
+  // Collapse excessive whitespace but keep line breaks, then normalize each line
+  t = t.split('\n').map(l => l.replace(/\s{2,}/g, ' ').trim()).filter(Boolean).join('\n');
 
   return t;
+};
+
+// Client-side image enhancement: draw to canvas, apply grayscale + contrast
+const enhanceImageBlobViaCanvas = async (file) => {
+  if (!file) return null;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        // Downscale large images for faster processing but keep good resolution
+        const maxWidth = 1600;
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > maxWidth) {
+          h = Math.round(h * (maxWidth / w));
+          w = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+
+        // Basic image processing: increase contrast and convert to grayscale
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+        const contrast = 1.35; // slight boost
+        const brightness = 0; // no change
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          // convert to luminance
+          let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+          // apply contrast/brightness
+          gray = (gray - 128) * contrast + 128 + brightness;
+          gray = Math.max(0, Math.min(255, gray));
+          data[i] = data[i + 1] = data[i + 2] = gray;
+        }
+        ctx.putImageData(imageData, 0, 0);
+
+        // Optional: apply a slight unsharp mask via blur+blend could be added here
+
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, 'image/png', 0.9);
+      } catch (err) {
+        console.warn('Canvas enhancement failed', err);
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = URL.createObjectURL(file);
+  });
+};
+
+// Dynamic load tesseract.js from CDN and run client-side OCR as a last-resort fallback
+const loadTesseract = async () => {
+  if (window.Tesseract) return window.Tesseract;
+  return new Promise((resolve, reject) => {
+    try {
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js';
+      s.async = true;
+      s.onload = () => {
+        if (window.Tesseract) resolve(window.Tesseract);
+        else reject(new Error('Tesseract failed to load'));
+      };
+      s.onerror = (e) => reject(new Error('Failed to load tesseract.js'));
+      document.head.appendChild(s);
+    } catch (e) {
+      reject(e);
+    }
+  });
+};
+
+const runClientOCR = async (file) => {
+  try {
+    const T = await loadTesseract();
+    // prefer a PNG blob for consistent input
+    let input = file;
+    if (!(file.type && file.type.startsWith('image/'))) {
+      input = file;
+    }
+    const worker = T.createWorker({
+      logger: (m) => { if (DEBUG_EXTRACTION) console.log('[TESSERACT]', m); }
+    });
+    await worker.load();
+    await worker.loadLanguage('eng');
+    await worker.initialize('eng');
+    const { data } = await worker.recognize(input);
+    await worker.terminate();
+    return data?.text || '';
+  } catch (e) {
+    if (DEBUG_EXTRACTION) console.warn('Client OCR failed', e);
+    return '';
+  }
 };
 
 // Extract lines like "06 End Classes" or "6 | End Classes" using a month/year header
@@ -816,39 +911,104 @@ const extractDayEventPairs = (text, fileName) => {
 // Comprehensive AI text preprocessing to capture ALL dates
 const preprocessTextForAI = (text) => {
   if (!text) return '';
-  // formatOCRText currently emits many debug tokens (LINE_0:, MONTH_CONTEXT:, POTENTIAL_DATE:, NEARBY_x:)
-  // Those markers are useful for debugging but confuse the AI when it's asked to extract events.
-  // Instead, produce a cleaned, deduped text block that preserves readable lines and month headers.
-  const formatted = formatOCRText(text || '');
-  // Remove explicit debug labels inserted by the formatter
-  let cleaned = (formatted || '')
-    .replace(/(^|\n)MONTH_CONTEXT:\s*/gi, '\n')
-    .replace(/(^|\n)LINE_\d+:\s*/gi, '\n')
-    .replace(/(^|\n)CONTEXT:\s*/gi, '\n')
-    .replace(/(^|\n)POTENTIAL_DATE:\s*/gi, '\n')
-    .replace(/(^|\n)NEARBY_[\-\d]+:\s*/gi, '\n')
-    .replace(/(^|\n)IMPORTANT:\s*/gi, '\n');
+  // formatOCRText creates useful labels (LINE_x, NEARBY_, POTENTIAL_DATE:, etc.).
+  // Instead of discarding those lines, extract the human-readable content after the label.
+  let formatted = formatOCRText(text || '');
 
-  // Trim each line and drop empty lines, then dedupe consecutive duplicates
-  const lines = cleaned.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const deduped = [];
-  for (const ln of lines) {
-    if (deduped.length === 0 || deduped[deduped.length - 1] !== ln) deduped.push(ln);
+  // Remove wrapper tags that may have been introduced when we compose multi-part prompts
+  formatted = formatted.replace(/(^|\n)\s*(MAIN_PROCESSED_TEXT|ENHANCED_OCR_TEXT|RAW_OCR_TEXT)\s*:?\s*(?=\n|$)/gi, '\n');
+  // Remove lone label lines like "MAIN_PROCESSED_TEXT:" or "LINE_0:" with no trailing content
+  formatted = formatted.replace(/^\s*LINE_\d+\s*:\s*$/gim, '\n');
+  formatted = formatted.replace(/^\s*[A-Z0-9_]{6,}\s*:?\s*$/gm, '\n');
+
+  const rawLines = (formatted || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  const monthHeaderRegex = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\b\s*,?\s*(\d{4})?/i;
+
+  const unique = [];
+  const seen = new Set();
+
+  // Helper to normalize individual extracted content
+  const normalizeLine = (ln) => {
+    if (!ln) return '';
+    let s = ln;
+    // Remove common developer narrative lead-ins
+    s = s.replace(/^here (are|is)[:\s\-]+/i, '');
+    s = s.replace(/^events? (and )?their dates (from the image)?:?/i, '');
+    // Strip leading decorative characters like « and bullets
+    s = s.replace(/^[«•\-*\u2022\u00BB\u00AB\s]+/, '');
+    // Normalize em/en dashes to simple hyphen and collapse multiple spaces
+    s = s.replace(/[–—]/g, '-').replace(/\s{2,}/g, ' ').trim();
+    // Remove stray repeated punctuation
+    s = s.replace(/\s*[-:—]\s*$/, '').trim();
+    return s;
+  };
+
+  // First, if there's a direct readable list present (lines that start with a month or a day token), prefer those
+  const listLike = rawLines.filter(ln => /^(?:[«\d]{1,3}|(?:January|February|March|April|May|June|July|August|September|October|November|December))/i.test(ln));
+
+  for (const ln of rawLines) {
+    if (!ln) continue;
+
+    // If line is a labeled debug line (e.g., LINE_0: content), capture the trailing content
+    let m;
+    let content = '';
+    if ((m = ln.match(/^MONTH_CONTEXT:\s*(.+)$/i))) {
+      content = m[1];
+    } else if ((m = ln.match(/^LINE_\d+:\s*(.+)$/i))) {
+      content = m[1];
+    } else if ((m = ln.match(/^POTENTIAL_DATE:\s*(.+)$/i))) {
+      content = m[1];
+    } else if ((m = ln.match(/^NEARBY_[\-\d]+:\s*(.+)$/i))) {
+      content = m[1];
+    } else if ((m = ln.match(/^CONTEXT:\s*(.+)$/i))) {
+      content = m[1];
+    } else {
+      content = ln;
+    }
+
+    const normalized = normalizeLine(content);
+    if (!normalized) continue;
+
+    // If it's just a month header and we already have that header, skip duplicates
+    const headerMatch = normalized.match(monthHeaderRegex);
+    if (headerMatch) {
+      const canonical = `${headerMatch[1]}${headerMatch[2] ? ' ' + headerMatch[2] : ''}`.replace(/\s{2,}/g,' ').trim();
+      const key = canonical.toLowerCase();
+      if (!seen.has(key)) {
+        unique.push(canonical);
+        seen.add(key);
+      }
+      continue;
+    }
+
+    // Drop generic narrative lines like "Here are the events..."
+    if (/^here\s+(are|is)\b/i.test(normalized)) continue;
+
+    // Avoid very short junk
+    if (normalized.length <= 2) continue;
+
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    unique.push(normalized);
+    seen.add(key);
   }
 
-  // If there are many repeated month headers (e.g., "December 2025" repeated), collapse duplicates
-  const collapsed = [];
-  for (const ln of deduped) {
-    if (collapsed.length === 0) collapsed.push(ln);
-    else {
-      const prev = collapsed[collapsed.length - 1];
-      // collapse exact duplicate headers
-      if (ln === prev) continue;
-      collapsed.push(ln);
+  // If formatted output was mostly debug labels and we didn't collect useful lines, fallback to using
+  // the raw original text (strip obvious lead-ins) so we don't lose data
+  if (unique.length === 0 && text && typeof text === 'string') {
+    const fallbackLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    for (const ln of fallbackLines) {
+      const normalized = normalizeLine(ln);
+      if (!normalized) continue;
+      const key = normalized.toLowerCase();
+      if (seen.has(key)) continue;
+      unique.push(normalized);
+      seen.add(key);
     }
   }
 
-  const result = collapsed.join('\n');
+  const result = unique.join('\n');
   console.log('[OCR] Processed text for AI (cleaned):', result.substring(0, 1000));
   return result;
 };
@@ -1488,285 +1648,64 @@ export default function Calendar(){
   const handleCalendarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    // ONLY ACCEPT IMAGES
+
+    // Accept only images (keep UX-friendly message)
     const fileName = file.name.toLowerCase();
     const fileType = file.type.toLowerCase();
-    
     if (!fileType.startsWith('image/') && !fileName.match(/\.(png|jpg|jpeg|gif|bmp|tiff|tif|webp)$/i)) {
       setNotification({ message: 'Please upload only image files (PNG, JPG, JPEG, GIF, BMP, TIFF, WebP)', type: 'error' });
       e.target.value = '';
       return;
     }
-    
-    // Image size validation
-    if (file.size > 10 * 1024 * 1024) {
-      setNotification({ message: 'Image too large. Please use images under 10MB.', type: 'error' });
+
+    if (file.size > 15 * 1024 * 1024) {
+      setNotification({ message: 'Image too large. Please use images under 15MB.', type: 'error' });
       e.target.value = '';
       return;
     }
-    
+
     setUploading(true);
-    
     try {
-      let fileText = '';
-      let earlyExtractEvents = [];
-      const fileName = file.name.toLowerCase();
-      const fileType = file.type.toLowerCase();
-
-      // PDF Files
-      if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-        const formData = new FormData();
-        formData.append('pdf', file);
-        try {
-          const pdfRes = await axios.post('/api/pdf/extract-text', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          fileText = pdfRes.data.text;
-        } catch (error) {
-          console.warn('PDF extraction failed, trying fallback method');
-          // Fallback: try to read as binary and extract basic text
-          fileText = await readFileAsBase64(file);
-        }
-      }
-      
-      // Image Files (PNG, JPG, JPEG, GIF, BMP, TIFF, WebP)
-      else if (fileType.startsWith('image/') || fileName.match(/\.(png|jpg|jpeg|gif|bmp|tiff|tif|webp|svg)$/i)) {
-        const formData = new FormData();
-        formData.append('image', file);
-        try {
-          const imgRes = await axios.post('/api/image/ocr', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          let rawText = imgRes.data.text;
-          
-          // Improve OCR text formatting for table/structured data
-          fileText = formatOCRText(rawText);
-          // Additional image-specific cleanup to fix OCR artifacts
-          fileText = enhanceImageOCRText(fileText);
-          // store for debug UI
-          try { setLastFileText(fileText); } catch(_) {}
-          // Early local extraction from image text to improve recall (ranges, lists)
-          try {
-            earlyExtractEvents = extractDateRangesFromText(fileText, file.name) || [];
-            // Also extract day-number pairs like the sample image
-            const dayPairs = extractDayEventPairs(fileText, file.name) || [];
-            if (dayPairs.length) {
-              earlyExtractEvents = [...earlyExtractEvents, ...dayPairs];
-            }
-            if (DEBUG_EXTRACTION) console.log('[Calendar] earlyExtractEvents (image) count', earlyExtractEvents.length);
-            try { setLastEarlyEvents(earlyExtractEvents); } catch(_) {}
-          } catch (er) {
-            if (DEBUG_EXTRACTION) console.warn('early image extraction failed', er);
-            earlyExtractEvents = [];
-          }
-        } catch (error) {
-          console.warn('OCR extraction failed');
-          fileText = `[Image file: ${file.name} - Text extraction not available]`;
-        }
-      }
-      
-      // Microsoft Word Documents
-      else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
-               fileType === 'application/msword' || 
-               fileName.match(/\.docx?$/i)) {
-        const formData = new FormData();
-        formData.append('word', file);
-        try {
-          const wordRes = await axios.post('/api/word/extract-text', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          fileText = wordRes.data.text;
-        } catch (error) {
-          console.warn('Word extraction failed');
-          fileText = await readFileAsText(file);
-        }
-      }
-      
-      // Excel Files
-      else if (fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-               fileType === 'application/vnd.ms-excel' ||
-               fileName.match(/\.xlsx?$/i)) {
-        fileText = await readExcelFile(file);
-      }
-      
-      // fileText was already set by the branch-specific handlers above
-
-      if (!fileText || fileText.trim().length < 10) {
-        setNotification({ message: `Image uploaded but no readable text found in ${file.name}`, type: 'error' });
-        setUploading(false);
-        e.target.value = '';
+      // Upload image to server OCR endpoint (server handles enhancement and tesseract)
+      const formData = new FormData();
+      formData.append('image', file);
+      const imgRes = await axios.post('/api/image/ocr', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const rawText = (imgRes?.data?.text || '').trim();
+      if (!rawText) {
+        setNotification({ message: `No readable text found in ${file.name}`, type: 'error' });
         return;
       }
 
-      if (DEBUG_EXTRACTION) {
-        const preview = fileText.split('\n').slice(0, 12);
-        console.log('[Calendar] File text preview', { name: file.name, type: fileType, size: file.size, lines: fileText.split('\n').length, preview });
-      }
+      // Send OCR text to AI service for structured extraction
+      const safeText = rawText.length > 14000 ? rawText.substring(0, 14000) : rawText;
+      const prompt = `You are given OCR text extracted from a calendar image. Extract every date and its related event title and a short description (if available). Return ONLY a JSON array like this:\n[ { "date": "YYYY-MM-DD", "title": "Event title", "description": "context or notes" } ]\nIf a date is a range (e.g. Dec 1-3), expand it to individual dates. Use ISO dates (YYYY-MM-DD).\n\nOCR_TEXT:\n${safeText}`;
 
-      // Comprehensive text preprocessing for AI
-      const processedText = preprocessTextForAI(fileText);
-      try { setLastProcessedText(processedText); } catch(_) {}
-      const fullText = processedText.substring(0, 8000); // Significantly increased limit to capture ALL dates
-      if (DEBUG_EXTRACTION) {
-        console.log('[Calendar] Processed text length', { length: fullText.length });
-      }
-      
-      const dateKeywords = ['date', 'due', 'deadline', 'exam', 'test', 'meeting', 'event', 'schedule', 'assignment', 'project', 'class', 'lecture', 'quiz', 'homework', 'calendar'];
-      const hasDateKeywords = dateKeywords.some(keyword => 
-        fullText.toLowerCase().includes(keyword)
-      );
-
-      // Enhanced date pattern detection
-      const comprehensiveDatePatterns = [
-        /\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/,
-        /\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}/,
-        /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i,
-        /DATE_CONTENT|TABLE_ROW|TIME_INFO/
-      ];
-      
-      const hasDatePatterns = comprehensiveDatePatterns.some(pattern => pattern.test(fullText));
-
-      // Allow image early extractions to bypass keyword/pattern check
-      if (!hasDateKeywords && !hasDatePatterns && (!earlyExtractEvents || earlyExtractEvents.length === 0)) {
-        setNotification({ message: `No calendar content detected in ${file.name}`, type: 'info' });
-        setUploading(false);
-        return;
-      }
-
-      // Comprehensive AI prompt for ALL date extraction with proper event names
-      const prompt = `CRITICAL: Extract EVERY SINGLE DATE with PROPER EVENT NAMES from this calendar text.
-
-EXACT INSTRUCTIONS:
-1. Find ALL dates in ANY format (MM/DD/YYYY, Aug 19, 14-Jun-25, etc.)
-2. For EACH date, extract the ACTUAL EVENT NAME from the same line or nearby context
-3. Look for course names, event titles, holidays, exam names, assignment titles
-4. For academic calendars: extract course codes, exam names, specific events
-5. For schedules: extract course titles, instructor names, topics
-6. Use the REAL event names, not generic titles
-7. Include times when available (1:00 pm - 5:00 pm)
-
-EXAMPLES of what to extract:
-- "Aug 19 Classes Begin" → title: "Classes Begin"
-- "14-Jun-25 Sat Cost & Variance Measures" → title: "Cost & Variance Measures"  
-- "Sep 2 Labor Day (Holiday)" → title: "Labor Day (Holiday)"
-- "Dec 16-20 Final Examinations" → title: "Final Examinations"
-
-FORMAT: {"date": "YYYY-MM-DD", "title": "ACTUAL_EVENT_NAME", "description": "Additional context"}
-
-CALENDAR TEXT TO PROCESS:
-${fullText}
-
-RETURN JSON ARRAY WITH ALL DATES AND THEIR REAL EVENT NAMES:`;
-      
-      let aiRes;
+      let aiRes = { data: { reply: '' } };
       try {
         aiRes = await axios.post('/api/ai', { prompt });
       } catch (err) {
-        console.warn('AI request failed, falling back to local extraction:', err?.response?.status || err?.message);
-        aiRes = { data: { reply: '' } };
+        console.warn('AI request failed:', err?.message || err);
       }
 
-      let aiEvents = [];
+      const aiReply = (aiRes?.data?.reply || '').trim();
+      let eventsFromAi = [];
       try {
-        const aiResponse = (aiRes?.data?.reply || '').trim();
-        const jsonMatch = aiResponse.match(/\[[\s\S]*?\]/);
-        if (jsonMatch) {
-          aiEvents = JSON.parse(jsonMatch[0]);
-          console.log('[AI] AI extracted events:', aiEvents.length);
-        } else {
-          aiEvents = [];
-          console.log('[AI] No JSON found in AI response');
-        }
-        
-        // Enhanced validation and date normalization
-        aiEvents = aiEvents.filter(event => {
-          if (!event || !event.date || !event.title) return false;
-          
-          // Normalize date format
-          let normalizedDate = event.date;
-          if (!normalizedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            // Try to convert various date formats
-            const dateFormats = [
-              /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,  // MM/DD/YYYY or MM-DD-YYYY
-              /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,  // YYYY/MM/DD
-              /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})/   // MM/DD/YY
-            ];
-            
-            for (let format of dateFormats) {
-              const match = normalizedDate.match(format);
-              if (match) {
-                let [, part1, part2, part3] = match;
-                if (part3.length === 2) part3 = '20' + part3; // Convert YY to YYYY
-                
-                if (format === dateFormats[1]) { // YYYY/MM/DD
-                  normalizedDate = `${part1}-${part2.padStart(2, '0')}-${part3.padStart(2, '0')}`;
-                } else { // MM/DD/YYYY
-                  normalizedDate = `${part3}-${part1.padStart(2, '0')}-${part2.padStart(2, '0')}`;
-                }
-                break;
-              }
-            }
-          }
-          
-          event.date = normalizedDate;
-          return normalizedDate.match(/^\d{4}-\d{2}-\d{2}$/);
-        }).slice(0, 10);
-        try { setLastAIEvents(aiEvents); } catch(_) {}
-        
-      } catch (e) {
-        console.log('[AI] AI parsing failed, using comprehensive extraction');
-        aiEvents = [];
+        const jsonMatch = aiReply.match(/\[[\s\S]*?\]/);
+        if (jsonMatch) eventsFromAi = JSON.parse(jsonMatch[0]);
+      } catch (err) {
+        console.warn('Failed to parse AI response as JSON', err);
       }
 
-      // Always supplement with explicit range extraction to ensure coverage
-      // Merge any early image-only extraction results (higher recall for photos)
-      try {
-        if (earlyExtractEvents && earlyExtractEvents.length) {
-          aiEvents = [...aiEvents, ...earlyExtractEvents];
-        }
-      } catch (_) {}
-
-      try {
-        const rangeEvents = extractDateRangesFromText(fullText, file.name);
-        if (Array.isArray(rangeEvents) && rangeEvents.length) {
-          aiEvents = [...aiEvents, ...rangeEvents];
-        }
-      } catch (_) {
-        // ignore range extraction errors, we'll fall back to other methods
-      }
-
-      // Collate events without duplicates using a map
-      const allEventsMap = new Map();
-
-      // Add AI events (may have better titles)
-      aiEvents.forEach(event => {
-        const normalizedTitle = normalizeTitleKey(event.title);
-        const key = `${event.date}-${normalizedTitle}`;
-        if (!allEventsMap.has(key)) {
-          allEventsMap.set(key, event);
-        }
-      });
-
-      aiEvents = Array.from(allEventsMap.values());
-      console.log('[System] Combined events total:', aiEvents.length);
-
-      // Instead of immediately saving, show a preview modal for user confirmation
-      if (aiEvents.length > 0) {
-        try {
-          setPreviewEvents(aiEvents);
-          setPreviewFileName(file.name);
-          setPreviewModalOpen(true);
-        } catch (e) {
-          console.warn('Failed to open preview modal', e);
-        }
+      if (Array.isArray(eventsFromAi) && eventsFromAi.length) {
+        setPreviewEvents(eventsFromAi);
+        setPreviewFileName(file.name);
+        setPreviewModalOpen(true);
       } else {
-        setNotification({ message: `No events found in ${file.name}`, type: 'nonevents' });
+        setNotification({ message: `No events could be extracted from ${file.name}`, type: 'nonevents' });
       }
-      
     } catch (err) {
       console.error('Calendar image upload error:', err);
-      setNotification({ message: `Failed to process image: ${file.name}\nError: ${err.message || 'Unknown error'}`, type: 'error' });
+      setNotification({ message: `Failed to process image: ${file.name}\nError: ${err?.message || 'Unknown error'}`, type: 'error' });
     } finally {
       setUploading(false);
       e.target.value = '';

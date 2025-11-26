@@ -9,7 +9,7 @@ export default function ChatWidget() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([
-    { from: 'bot', text: 'Hi! I can help summarize text, create flashcards, or answer questions about Lemivon. Try asking me anything.' }
+    { from: 'bot', text: 'Hi I am LemivonAI! Try asking me anything.' }
   ])
   const [loading, setLoading] = useState(false)
   const listRef = useRef(null)
@@ -572,7 +572,7 @@ export default function ChatWidget() {
         style={{ display: open ? 'flex' : 'none' }}
       >
         <div className="chat-header">
-          <strong>Study AI</strong>
+          <strong>Lemivon AI</strong>
           <button
             aria-label="Close chat"
             className="chat-close"
